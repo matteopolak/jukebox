@@ -8,7 +8,13 @@ import {
 
 import dotenv from 'dotenv';
 
-import { connections, createAudioManager, getVideo, managers } from './music';
+import {
+	ACTION_ROWS,
+	connections,
+	createAudioManager,
+	getVideo,
+	managers,
+} from './music';
 import {
 	moveTrackBy,
 	moveTrackTo,
@@ -77,22 +83,47 @@ async function handleButton(interaction: ButtonInteraction) {
 			break;
 		case 'previous':
 			moveTrackBy(connection, -2);
+			connection.seek = 0;
 			connection.subscription.player.stop();
 
 			break;
 		case 'next':
+			connection.seek = 0;
 			connection.subscription.player.stop();
 
 			break;
 		case 'remove':
+			connection.seek = 0;
 			connection.queue.splice(connection.index, 1);
 			moveTrackBy(connection, -1);
 			connection.subscription.player.stop();
 
 			break;
 		case 'shuffle':
+			connection.seek = 0;
 			shuffleArray(connection.queue);
 			moveTrackTo(connection, -1);
+			connection.subscription.player.stop();
+
+			break;
+		case 'loud':
+			connection.loud = !connection.loud;
+
+			ACTION_ROWS[1].components[0].style = connection.loud
+				? 'SUCCESS'
+				: 'DANGER';
+
+			connection.update(undefined, true);
+
+			if (connection.resource) {
+				if (connection.seek) {
+					connection.seek += connection.resource.playbackDuration / 1000;
+				} else {
+					connection.seek = connection.resource.playbackDuration / 1000;
+				}
+			}
+
+			moveTrackBy(connection, -1);
 			connection.subscription.player.stop();
 
 			break;
@@ -148,6 +179,9 @@ client.on('messageCreate', async message => {
 				subscription,
 				queue: [data],
 				index: 0,
+				loud: false,
+				update: () => {},
+				resource: null,
 			};
 
 			connections.set(manager.guildId, connection);
@@ -155,6 +189,25 @@ client.on('messageCreate', async message => {
 			play(connection, manager, message.guild!);
 		} else if (connection) {
 			connection.queue.push(data);
+
+			if (
+				message.member!.voice.channel &&
+				!message.member!.voice.channel.members.has(client.user!.id)
+			) {
+				const stream = joinVoiceChannel({
+					channelId: message.member!.voice.channelId!,
+					guildId: message.guildId!,
+					adapterCreator: message.guild.voiceAdapterCreator,
+				});
+
+				const subscription = stream.subscribe(connection.subscription.player)!;
+
+				connection.subscription.unsubscribe();
+				connection.subscription = subscription;
+
+				// @ts-ignore
+				connection.subscription.player.emit('new_subscriber');
+			}
 
 			// @ts-ignore
 			connection.subscription.player.emit('song_add');

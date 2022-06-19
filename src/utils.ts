@@ -4,8 +4,8 @@ import {
 	AudioPlayerStatus,
 	createAudioResource,
 } from '@discordjs/voice';
-import ytdl from 'ytdl-core';
-import { ACTION_ROW, Connection, Manager, Song } from './music';
+import ytdl from 'discord-ytdl-core';
+import { ACTION_ROWS, Connection, Manager, Song } from './music';
 import { Guild } from 'discord.js-light';
 
 // https://www.geeksforgeeks.org/how-to-shuffle-an-array-using-javascript/
@@ -69,10 +69,22 @@ export async function play(
 
 	const channel = guild.channels.forge(manager.channelId, 'GUILD_TEXT');
 
-	const update = async (song: Song | undefined | null) => {
+	const update = (connection.update = async (
+		song: Song | undefined | null,
+		force?: boolean
+	) => {
+		if (
+			song &&
+			(lastIndex !== connection.index || lastSong?.url !== song?.url)
+		) {
+			connection.seek = undefined;
+		}
+
 		const promises: Promise<any>[] = [];
 
-		if (lastSong?.url !== song?.url && song !== undefined) {
+		if (force || (lastSong?.url !== song?.url && song !== undefined)) {
+			if (force) song = lastSong;
+
 			promises.push(
 				channel.messages.forge(manager.messageId).edit({
 					embeds: [
@@ -83,7 +95,7 @@ export async function play(
 							},
 						},
 					],
-					components: [ACTION_ROW],
+					components: ACTION_ROWS,
 				})
 			);
 		}
@@ -93,24 +105,26 @@ export async function play(
 			connection.index + 3 <= connection.queue.length ||
 			lastSong?.url !== song?.url
 		) {
-			const length = Math.ceil(
-				Math.log10(Math.min(connection.queue.length, connection.index + 3))
-			);
-			const queue = connection.queue
-				.slice(Math.max(0, connection.index - 2), connection.index + 3)
-				.map((s, i) => {
-					const string = `\`${(i + 1).toString().padStart(length, '0')}.\`${
-						i === connection.index ? '**' : ''
-					}${Util.escapeMarkdown(s.title)} \`[${formatSeconds(s.duration)}]\`${
-						i === connection.index ? '**' : ''
-					}`;
+			const lower = Math.max(0, connection.index - 2);
+			const upper = Math.min(connection.queue.length, connection.index + 3);
 
-					return string;
-				});
+			const length = Math.ceil(Math.log10(upper));
+
+			const queue = connection.queue.slice(lower, upper).map((s, i) => {
+				const string = `\`${(lower + i + 1)
+					.toString()
+					.padStart(length, '0')}.\` ${
+					i + lower === connection.index ? '**' : ''
+				}${Util.escapeMarkdown(s.title)} \`[${formatSeconds(s.duration)}]\`${
+					i + lower === connection.index ? '**' : ''
+				}`;
+
+				return string;
+			});
 
 			promises.push(
 				channel.messages.forge(manager.queueId).edit({
-					content: queue.join('\n'),
+					content: queue.join('\n') || '\u200b',
 				})
 			);
 		}
@@ -122,7 +136,7 @@ export async function play(
 		}
 
 		await Promise.all(promises);
-	};
+	});
 
 	// @ts-ignore
 	connection.subscription.player.on('song_add', update);
@@ -136,16 +150,36 @@ export async function play(
 
 		await update(song);
 
-		connection.subscription.player.play(
-			createAudioResource(
-				ytdl(song.url, {
-					filter: 'audioonly',
-				})
-			)
+		const resource = createAudioResource(
+			ytdl(song.url, {
+				seek: connection.seek ? connection.seek : undefined,
+				highWaterMark: 1 << 25,
+				opusEncoded: true,
+				filter: 'audioonly',
+				encoderArgs: connection.loud
+					? [
+							'-filter_complex',
+							'acontrast, acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
+					  ]
+					: [],
+			}),
+			{
+				inlineVolume: true,
+			}
 		);
 
-		await new Promise<void>(resolve => {
-			const listener = (_: AudioPlayerState, newState: AudioPlayerState) => {
+		if (connection.loud) {
+			resource.volume?.setVolume(80);
+		}
+
+		connection.resource = resource;
+		connection.subscription.player.play(resource);
+
+		await new Promise<boolean>(resolve => {
+			const listener = async (
+				_: AudioPlayerState,
+				newState: AudioPlayerState
+			) => {
 				if (newState.status === AudioPlayerStatus.Idle) {
 					connection.subscription.player.removeListener(
 						// @ts-ignore
@@ -154,7 +188,22 @@ export async function play(
 					);
 
 					connection.subscription.player.removeListener('error', error);
-					resolve();
+					resolve(false);
+				} else if (newState.status === AudioPlayerStatus.AutoPaused) {
+					connection.subscription.player.removeListener(
+						// @ts-ignore
+						'stateChange',
+						listener
+					);
+
+					connection.subscription.player.removeListener('error', error);
+
+					await new Promise(resolve => {
+						// @ts-ignore
+						connection.subscription.player.once('new_subscriber', resolve);
+					});
+
+					resolve(true);
 				}
 			};
 
@@ -165,7 +214,7 @@ export async function play(
 					listener
 				);
 
-				resolve();
+				resolve(false);
 			};
 
 			// @ts-ignore
@@ -175,6 +224,7 @@ export async function play(
 		});
 	}
 
+	connection.resource = null;
 	update(null);
 
 	// @ts-ignore

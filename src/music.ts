@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Datastore from 'nedb-promises';
-import { PlayerSubscription } from '@discordjs/voice';
+import { AudioResource, PlayerSubscription } from '@discordjs/voice';
 import {
 	BaseCommandInteraction,
 	MessageActionRow,
@@ -8,35 +8,46 @@ import {
 } from 'discord.js';
 import ytdl from 'ytdl-core';
 
-export const ACTION_ROW = new MessageActionRow({
-	components: [
-		new MessageButton({
-			customId: 'toggle',
-			label: '⏯️',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'previous',
-			label: '⏮️',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'next',
-			label: '⏭️',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'remove',
-			label: '🗑️',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'shuffle',
-			label: '🔀',
-			style: 'PRIMARY',
-		}),
-	],
-});
+export const ACTION_ROWS = [
+	new MessageActionRow({
+		components: [
+			new MessageButton({
+				customId: 'toggle',
+				label: '⏯️',
+				style: 'PRIMARY',
+			}),
+			new MessageButton({
+				customId: 'previous',
+				label: '⏮️',
+				style: 'PRIMARY',
+			}),
+			new MessageButton({
+				customId: 'next',
+				label: '⏭️',
+				style: 'PRIMARY',
+			}),
+			new MessageButton({
+				customId: 'remove',
+				label: '🗑️',
+				style: 'PRIMARY',
+			}),
+			new MessageButton({
+				customId: 'shuffle',
+				label: '🔀',
+				style: 'PRIMARY',
+			}),
+		],
+	}),
+	new MessageActionRow({
+		components: [
+			new MessageButton({
+				customId: 'loud',
+				label: '🧨',
+				style: 'DANGER',
+			}),
+		],
+	}),
+];
 
 export interface Manager {
 	_id: string;
@@ -55,8 +66,12 @@ export interface Song {
 
 export interface Connection {
 	subscription: PlayerSubscription;
+	resource: AudioResource | null;
 	queue: Song[];
+	loud: boolean;
 	index: number;
+	update: (song?: Song | null, force?: boolean) => Awaited<void>;
+	seek?: number;
 }
 
 export const managers: Datastore<Manager> = Datastore.create({
@@ -106,7 +121,7 @@ export async function createAudioManager(interaction: BaseCommandInteraction) {
 				},
 			},
 		],
-		components: [ACTION_ROW],
+		components: ACTION_ROWS,
 	});
 
 	const queue = await interaction.channel!.send({
