@@ -1,90 +1,48 @@
+import { ButtonInteraction, Client, Intents, Options } from 'discord.js-light';
 import {
-	BaseCommandInteraction,
-	ButtonInteraction,
-	Client,
-	Intents,
-	MessageActionRow,
-	MessageButton,
-	VoiceChannel,
-} from 'discord.js';
-import {
-	AudioPlayer,
-	AudioPlayerState,
-	AudioPlayerStatus,
-	AudioResource,
 	createAudioPlayer,
-	createAudioResource,
 	joinVoiceChannel,
-	NoSubscriberBehavior,
-	PlayerSubscription,
-	StreamType,
 	entersState,
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
-import Datastore from 'nedb-promises';
-import ytdl from 'ytdl-core';
-import ytdlDiscord from 'discord-ytdl-core';
-import axios from 'axios';
 
 import dotenv from 'dotenv';
 
-const player = createAudioPlayer();
-
-const YOUTUBE_URL_REGEX =
-	/^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})(?:\S+)?$/;
+import { connections, createAudioManager, getVideo, managers } from './music';
+import {
+	moveTrackBy,
+	moveTrackTo,
+	play,
+	shuffleArray,
+	togglePlayback,
+} from './utils';
 
 dotenv.config({ override: true });
 
-interface Manager {
-	_id: string;
-	messageId: string;
-	channelId: string;
-	guildId: string;
-}
-
-interface Connection {
-	subscription: PlayerSubscription;
-	queue: string[];
-	index: number;
-}
-
-const managers: Datastore<Manager> = Datastore.create({
-	filename: 'managers.db',
-	autoload: true,
-});
-const connections: Map<string, Connection> = new Map();
-
-const ACTION_ROW = new MessageActionRow({
-	components: [
-		new MessageButton({
-			customId: 'toggle',
-			label: '⏯️',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'previous',
-			label: '⏮️',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'next',
-			label: '⏭️',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'repeat',
-			label: '🔁',
-			style: 'PRIMARY',
-		}),
-		new MessageButton({
-			customId: 'shuffle',
-			label: '🔀',
-			style: 'PRIMARY',
-		}),
-	],
-});
-
 const client = new Client({
+	makeCache: Options.cacheWithLimits({
+		ApplicationCommandManager: 0,
+		BaseGuildEmojiManager: 0,
+		ChannelManager: 0,
+		GuildChannelManager: Infinity,
+		GuildBanManager: 0,
+		GuildInviteManager: 0,
+		GuildManager: Infinity,
+		GuildMemberManager: 100,
+		GuildStickerManager: 0,
+		GuildScheduledEventManager: 0,
+		MessageManager: 0,
+		PermissionOverwriteManager: 0,
+		PresenceManager: 0,
+		ReactionManager: 0,
+		ReactionUserManager: 0,
+		RoleManager: 0,
+		StageInstanceManager: 0,
+		ThreadManager: 0,
+		ThreadMemberManager: 0,
+		UserManager: 0,
+		VoiceStateManager: Infinity,
+	}),
 	intents: [
 		Intents.FLAGS.GUILDS,
 		Intents.FLAGS.GUILD_MEMBERS,
@@ -96,7 +54,7 @@ const client = new Client({
 
 client.once('ready', async () => {
 	console.log('ready');
-
+	/*
 	await client.application!.commands.create(
 		{
 			name: 'create',
@@ -105,7 +63,7 @@ client.once('ready', async () => {
 			options: [],
 		},
 		'637031306370220084'
-	);
+	);*/
 });
 
 async function handleButton(interaction: ButtonInteraction) {
@@ -114,60 +72,33 @@ async function handleButton(interaction: ButtonInteraction) {
 
 	switch (interaction.customId) {
 		case 'toggle':
-			if (
-				connection.subscription.player.state.status !== AudioPlayerStatus.Paused
-			) {
-				connection.subscription.player.pause();
-			} else {
-				connection.subscription.player.unpause();
-			}
+			togglePlayback(connection);
 
 			break;
 		case 'previous':
-			connection.index =
-				connection.index === 0
-					? connection.queue.length - 1
-					: connection.index - 1;
-
+			moveTrackBy(connection, -2);
 			connection.subscription.player.stop();
 
 			break;
 		case 'next':
-			connection.index =
-				connection.index === connection.queue.length - 1
-					? 0
-					: connection.index + 1;
+			connection.subscription.player.stop();
 
+			break;
+		case 'remove':
+			connection.queue.splice(connection.index, 1);
+			moveTrackBy(connection, -1);
+			connection.subscription.player.stop();
+
+			break;
+		case 'shuffle':
+			shuffleArray(connection.queue);
+			moveTrackTo(connection, -1);
 			connection.subscription.player.stop();
 
 			break;
 	}
 
 	await interaction.deferUpdate({ fetchReply: false });
-}
-
-async function createAudioManager(interaction: BaseCommandInteraction) {
-	const message = await interaction.channel!.send({
-		embeds: [
-			{
-				title: 'No music playing',
-				description: 'Queue is empty',
-				image: {
-					url: 'https://i.imgur.com/ycyPRSb.png',
-				},
-			},
-		],
-		content: 'Queue (0 songs)',
-		components: [ACTION_ROW],
-	});
-
-	managers.insert({
-		messageId: message.id,
-		channelId: interaction.channelId,
-		guildId: interaction.guildId!,
-	});
-
-	await interaction.deferReply({ fetchReply: false });
 }
 
 client.on('interactionCreate', async interaction => {
@@ -181,99 +112,24 @@ client.on('interactionCreate', async interaction => {
 	}
 });
 
-async function getUrl(name: string) {
-	const result = await axios.get<string>('https://www.youtube.com/results', {
-		params: {
-			search_query: name,
-			sp: 'EgIQAQ==',
-		},
-	});
-
-	const video = result.data.match(/\/watch\?v=([\w-]{11})/)?.[1] ?? null;
-
-	return video;
-}
-
-async function getVideo(query: string) {
-	if (YOUTUBE_URL_REGEX.test(query)) {
-		return ytdl.getBasicInfo(query);
-	}
-
-	const url = await getUrl(query);
-
-	if (url) {
-		return ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${url}`);
-	}
-
-	return null;
-}
-
-async function play(connection: Connection) {
-	while (connection.queue.length > 0) {
-		connection.index++;
-
-		if (connection.index >= connection.queue.length) {
-			connection.index = 0;
-		}
-
-		const url = connection.queue[connection.index];
-
-		connection.subscription.player.play(
-			createAudioResource(
-				ytdl(url, {
-					filter: 'audioonly',
-				})
-			)
-		);
-
-		await new Promise<void>(resolve => {
-			const listener = (_: AudioPlayerState, newState: AudioPlayerState) => {
-				if (newState.status === AudioPlayerStatus.Idle) {
-					connection.subscription.player.removeListener(
-						// @ts-ignore
-						'stateChange',
-						listener
-					);
-
-					connection.subscription.player.removeListener('error', error);
-					resolve();
-				}
-			};
-
-			const error = () => {
-				connection.subscription.player.removeListener(
-					// @ts-ignore
-					'stateChange',
-					listener
-				);
-
-				resolve();
-			};
-
-			// @ts-ignore
-			connection.subscription.player.on('stateChange', listener);
-
-			connection.subscription.player.once('error', error);
-		});
-	}
-}
-
-function formatSeconds(seconds: number) {
-	const minutes = Math.floor(seconds / 60);
-	const secondsLeft = seconds % 60;
-
-	return `${minutes}:${secondsLeft < 10 ? '0' : ''}${secondsLeft}`;
-}
-
 client.on('messageCreate', async message => {
 	if (message.author.bot || !message.inGuild()) return;
 
 	const manager = await managers.findOne({ channelId: message.channelId });
 	if (!manager) return;
 
+	await message.delete().catch(() => {});
+
 	const song = await getVideo(message.content);
 
 	if (song) {
+		const data = {
+			url: song.videoDetails.video_url,
+			title: song.videoDetails.title,
+			thumbnail: song.videoDetails.thumbnails.at(-1)!.url,
+			duration: parseInt(song.videoDetails.lengthSeconds),
+		};
+
 		const connection = connections.get(manager.guildId);
 
 		if (!connection && message.member!.voice.channelId) {
@@ -285,28 +141,35 @@ client.on('messageCreate', async message => {
 
 			await entersState(stream, VoiceConnectionStatus.Ready, 30e3);
 
+			const player = createAudioPlayer();
 			const subscription = stream.subscribe(player)!;
 
 			const connection = {
 				subscription,
-				queue: [song.videoDetails.video_url],
+				queue: [data],
 				index: 0,
 			};
 
 			connections.set(manager.guildId, connection);
 
-			play(connection);
+			play(connection, manager, message.guild!);
 		} else if (connection) {
-			connection.queue.push(song.videoDetails.video_url);
+			connection.queue.push(data);
 
 			// @ts-ignore
-			connection.subscription.player.emit('song_add', song);
+			connection.subscription.player.emit('song_add');
 		}
 
-		await message.delete().catch(() => {});
-
 		const notification = await message.channel.send(
-			`Added **${song.videoDetails.title}** to the queue`
+			`Added **${song.videoDetails.title}** to the queue.`
+		);
+
+		setTimeout(() => {
+			notification.delete().catch(() => {});
+		}, 3000);
+	} else {
+		const notification = await message.channel.send(
+			`Could not find a song from the query \`${message.content}\`.`
 		);
 
 		setTimeout(() => {
