@@ -5,8 +5,11 @@ import {
 	createAudioResource,
 } from '@discordjs/voice';
 import ytdl from 'discord-ytdl-core';
-import { ACTION_ROWS, Connection, Manager, Song } from './music';
+import { ACTION_ROWS, Connection, connections, Manager, Song } from './music';
 import { Guild } from 'discord.js-light';
+
+export const YOUTUBE_PLAYLIST_REGEX =
+	/^https?:\/\/(?:w{3}\.)?youtu(?:\.be\/|be\.com\/)(?:(?:watch\?v=)?[\w-]{11}|playlist)[?&]list=([\w-]+)/;
 
 // https://www.geeksforgeeks.org/how-to-shuffle-an-array-using-javascript/
 export function shuffleArray<T>(array: T[]): T[] {
@@ -115,7 +118,7 @@ export async function play(
 					.toString()
 					.padStart(length, '0')}.\` ${
 					i + lower === connection.index ? '**' : ''
-				}${Util.escapeMarkdown(s.title)} \`[${formatSeconds(s.duration)}]\`${
+				}${Util.escapeMarkdown(s.title)} \`[${s.duration}]\`${
 					i + lower === connection.index ? '**' : ''
 				}`;
 
@@ -229,4 +232,5 @@ export async function play(
 
 	// @ts-ignore
 	connection.subscription.player.off('song_add', update);
+	connections.delete(guild.id);
 }

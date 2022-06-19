@@ -7,6 +7,8 @@ import {
 	MessageButton,
 } from 'discord.js';
 import ytdl from 'ytdl-core';
+import { YOUTUBE_PLAYLIST_REGEX } from './utils';
+import scraper from './playlist';
 
 export const ACTION_ROWS = [
 	new MessageActionRow({
@@ -45,6 +47,11 @@ export const ACTION_ROWS = [
 				label: '🧨',
 				style: 'DANGER',
 			}),
+			new MessageButton({
+				customId: 'remove_all',
+				label: '💣',
+				style: 'PRIMARY',
+			}),
 		],
 	}),
 ];
@@ -60,7 +67,7 @@ export interface Manager {
 export interface Song {
 	url: string;
 	title: string;
-	duration: number;
+	duration: string;
 	thumbnail: string;
 }
 
@@ -98,14 +105,25 @@ export async function getUrl(name: string) {
 }
 
 export async function getVideo(query: string) {
+	if (YOUTUBE_PLAYLIST_REGEX.test(query)) {
+		const [, id] = query.match(YOUTUBE_PLAYLIST_REGEX) ?? [];
+
+		return await scraper(id);
+	}
+
 	if (YOUTUBE_URL_REGEX.test(query)) {
-		return ytdl.getBasicInfo(query);
+		return { videos: [await ytdl.getBasicInfo(query)], title: null };
 	}
 
 	const url = await getUrl(query);
 
 	if (url) {
-		return ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${url}`);
+		return {
+			videos: [
+				await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${url}`),
+			],
+			title: null,
+		};
 	}
 
 	return null;

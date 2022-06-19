@@ -16,6 +16,7 @@ import {
 	managers,
 } from './music';
 import {
+	formatSeconds,
 	moveTrackBy,
 	moveTrackTo,
 	play,
@@ -115,6 +116,8 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			connection.update(undefined, true);
 
+			ACTION_ROWS[1].components[0].style = 'DANGER';
+
 			if (connection.resource) {
 				if (connection.seek) {
 					connection.seek += connection.resource.playbackDuration / 1000;
@@ -124,6 +127,12 @@ async function handleButton(interaction: ButtonInteraction) {
 			}
 
 			moveTrackBy(connection, -1);
+			connection.subscription.player.stop();
+
+			break;
+		case 'remove_all':
+			connection.seek = 0;
+			connection.queue.splice(0, connection.queue.length);
 			connection.subscription.player.stop();
 
 			break;
@@ -154,12 +163,19 @@ client.on('messageCreate', async message => {
 	const song = await getVideo(message.content);
 
 	if (song) {
-		const data = {
-			url: song.videoDetails.video_url,
-			title: song.videoDetails.title,
-			thumbnail: song.videoDetails.thumbnails.at(-1)!.url,
-			duration: parseInt(song.videoDetails.lengthSeconds),
-		};
+		const data =
+			song.title === null
+				? [
+						{
+							url: song.videos[0].videoDetails.video_url,
+							title: song.videos[0].videoDetails.title,
+							thumbnail: `https://i.ytimg.com/vi/${song.videos[0].videoDetails.videoId}/hqdefault.jpg`,
+							duration: formatSeconds(
+								parseInt(song.videos[0].videoDetails.lengthSeconds)
+							),
+						},
+				  ]
+				: song.videos;
 
 		const connection = connections.get(manager.guildId);
 
@@ -177,7 +193,7 @@ client.on('messageCreate', async message => {
 
 			const connection = {
 				subscription,
-				queue: [data],
+				queue: data,
 				index: 0,
 				loud: false,
 				update: () => {},
@@ -188,7 +204,7 @@ client.on('messageCreate', async message => {
 
 			play(connection, manager, message.guild!);
 		} else if (connection) {
-			connection.queue.push(data);
+			connection.queue.push(...data);
 
 			if (
 				message.member!.voice.channel &&
@@ -209,12 +225,18 @@ client.on('messageCreate', async message => {
 				connection.subscription.player.emit('new_subscriber');
 			}
 
-			// @ts-ignore
-			connection.subscription.player.emit('song_add');
+			if (connection.queue.length === 0) {
+				play(connection, manager, message.guild!);
+			} else {
+				// @ts-ignore
+				connection.subscription.player.emit('song_add');
+			}
 		}
 
 		const notification = await message.channel.send(
-			`Added **${song.videoDetails.title}** to the queue.`
+			song.title === null
+				? `Added **${song.videos[0].videoDetails.title}** to the queue.`
+				: `Added **${song.videos.length}** songs from the playlist **${song.title}** to the queue.`
 		);
 
 		setTimeout(() => {
