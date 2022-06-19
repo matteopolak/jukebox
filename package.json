@@ -1,0 +1,34 @@
+{
+	"name": "@matteopolak/binky",
+	"version": "1.0.0",
+	"description": "",
+	"main": "src/index.js",
+	"scripts": {
+		"start": "ts-node src/index.ts"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/matteopolak/binky.git"
+	},
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/matteopolak/binky/issues"
+	},
+	"homepage": "https://github.com/matteopolak/binky#readme",
+	"dependencies": {
+		"@discordjs/voice": "^0.10.0",
+		"axios": "^0.27.2",
+		"discord-ytdl-core": "^5.0.4",
+		"discord.js": "^13.8.0",
+		"dotenv": "^16.0.1",
+		"ffmpeg-static": "^5.0.0",
+		"libsodium-wrappers": "^0.7.10",
+		"nedb-promises": "^6.0.3",
+		"opusscript": "^0.0.8",
+		"ytdl-core": "^4.11.0"
+	},
+	"devDependencies": {
+		"@types/nedb": "^1.8.12"
+	}
+}
