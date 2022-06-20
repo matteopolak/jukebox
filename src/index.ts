@@ -9,11 +9,11 @@ import {
 import dotenv from 'dotenv';
 
 import {
-	ACTION_ROWS,
 	connections,
 	createAudioManager,
 	getVideo,
 	managers,
+	Effect,
 } from './music';
 import {
 	formatSeconds,
@@ -25,6 +25,13 @@ import {
 } from './utils';
 
 dotenv.config({ override: true });
+
+const NAME_TO_ENUM = {
+	loud: Effect.LOUD,
+	underwater: Effect.UNDER_WATER,
+	bass: Effect.BASS,
+	echo: Effect.ECHO,
+};
 
 const client = new Client({
 	makeCache: Options.cacheWithLimits({
@@ -60,17 +67,31 @@ const client = new Client({
 });
 
 client.once('ready', async () => {
-	console.log('ready');
-	/*
-	await client.application!.commands.create(
-		{
-			name: 'create',
-			description: 'Creates a new audio player',
-			type: 'CHAT_INPUT',
-			options: [],
-		},
-		'637031306370220084'
-	);*/
+	console.log(`Logged in as ${client.user!.username}`);
+
+	await client
+		.application!.commands.create(
+			{
+				name: 'create',
+				description: 'Creates a new audio player',
+				type: 'CHAT_INPUT',
+				options: [],
+			},
+			'637031306370220084'
+		)
+		.catch(() => {});
+
+	client.user!.setPresence({
+		status: 'dnd',
+		afk: false,
+		activities: [
+			{
+				type: 'STREAMING',
+				name: 'the freedom convoy',
+				url: 'https://twitch.tv/balls',
+			},
+		],
+	});
 });
 
 async function handleButton(interaction: ButtonInteraction) {
@@ -90,6 +111,7 @@ async function handleButton(interaction: ButtonInteraction) {
 			break;
 		case 'next':
 			connection.seek = 0;
+			moveTrackBy(connection, 0);
 			connection.subscription.player.stop();
 
 			break;
@@ -108,15 +130,13 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			break;
 		case 'loud':
-			connection.loud = !connection.loud;
+		case 'underwater':
+		case 'bass':
+		case 'echo':
+			const effect = NAME_TO_ENUM[interaction.customId];
 
-			ACTION_ROWS[1].components[0].style = connection.loud
-				? 'SUCCESS'
-				: 'DANGER';
-
+			connection.effect = connection.effect === effect ? Effect.NONE : effect;
 			connection.update(undefined, true);
-
-			ACTION_ROWS[1].components[0].style = 'DANGER';
 
 			if (connection.resource) {
 				if (connection.seek) {
@@ -134,6 +154,11 @@ async function handleButton(interaction: ButtonInteraction) {
 			connection.seek = 0;
 			connection.queue.splice(0, connection.queue.length);
 			connection.subscription.player.stop();
+
+			break;
+		case 'repeat':
+			connection.repeat = !connection.repeat;
+			connection.update(undefined, true);
 
 			break;
 	}
@@ -195,9 +220,10 @@ client.on('messageCreate', async message => {
 				subscription,
 				queue: data,
 				index: 0,
-				loud: false,
+				effect: Effect.NONE,
 				update: () => {},
 				resource: null,
+				repeat: false,
 			};
 
 			connections.set(manager.guildId, connection);

@@ -1,12 +1,33 @@
-import { Util } from 'discord.js';
+import { ButtonInteraction, Util } from 'discord.js';
 import {
 	AudioPlayerState,
 	AudioPlayerStatus,
 	createAudioResource,
 } from '@discordjs/voice';
 import ytdl from 'discord-ytdl-core';
-import { ACTION_ROWS, Connection, connections, Manager, Song } from './music';
+import {
+	getComponents,
+	Connection,
+	connections,
+	Manager,
+	Song,
+	Effect,
+} from './music';
 import { Guild } from 'discord.js-light';
+
+export const EFFECTS: Record<Effect, string[]> = {
+	[Effect.NONE]: ['-af', 'loudnorm=I=-16:LRA=11:TP=-1.5'],
+	[Effect.LOUD]: [
+		'-filter_complex',
+		'acontrast, acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
+	],
+	[Effect.UNDER_WATER]: ['-af', 'lowpass=f=450, volume=3.0'],
+	[Effect.BASS]: ['-af', 'bass=g=30, volume=0.7, asubboost'],
+	[Effect.ECHO]: [
+		'-af',
+		'aecho=1.0:1.0:1000|1400:1.0|0.25, aphaser=0.4:0.4:2.0:0.6:0.5:s, asubboost, volume=4.0',
+	],
+};
 
 export const YOUTUBE_PLAYLIST_REGEX =
 	/^https?:\/\/(?:w{3}\.)?youtu(?:\.be\/|be\.com\/)(?:(?:watch\?v=)?[\w-]{11}|playlist)[?&]list=([\w-]+)/;
@@ -43,6 +64,9 @@ export function togglePlayback(connection: Connection) {
 }
 
 export function moveTrackBy(connection: Connection, index: number) {
+	if (connection.repeat) ++index;
+	if (index === 0) return;
+
 	const newIndex = (connection.index + index) % connection.queue.length;
 
 	if (newIndex < 0) {
@@ -53,6 +77,8 @@ export function moveTrackBy(connection: Connection, index: number) {
 }
 
 export function moveTrackTo(connection: Connection, index: number) {
+	if (connection.repeat) ++index;
+
 	const newIndex = index % connection.queue.length;
 
 	if (newIndex < 0) {
@@ -74,32 +100,33 @@ export async function play(
 
 	const update = (connection.update = async (
 		song: Song | undefined | null,
-		force?: boolean
+		force?: boolean,
+		interaction?: ButtonInteraction
 	) => {
-		if (
-			song &&
-			(lastIndex !== connection.index || lastSong?.url !== song?.url)
-		) {
-			connection.seek = undefined;
-		}
-
 		const promises: Promise<any>[] = [];
 
 		if (force || (lastSong?.url !== song?.url && song !== undefined)) {
 			if (force) song = lastSong;
 
-			promises.push(
-				channel.messages.forge(manager.messageId).edit({
-					embeds: [
-						{
-							title: song?.title ?? 'No music playing',
-							image: {
-								url: song?.thumbnail ?? 'https://i.imgur.com/ycyPRSb.png',
-							},
+			const data = {
+				embeds: [
+					{
+						title: song?.title ?? 'No music playing',
+						url: song?.url,
+						image: {
+							url:
+								song?.thumbnail ??
+								'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
 						},
-					],
-					components: ACTION_ROWS,
-				})
+					},
+				],
+				components: getComponents(connection),
+			};
+
+			promises.push(
+				interaction
+					? interaction.update(data)
+					: channel.messages.forge(manager.messageId).edit(data)
 			);
 		}
 
@@ -144,34 +171,27 @@ export async function play(
 	// @ts-ignore
 	connection.subscription.player.on('song_add', update);
 
-	connection.index = -1;
+	connection.index = 0;
 
 	while (connection.queue.length > 0) {
-		moveTrackBy(connection, 1);
-
 		const song = connection.queue[connection.index];
 
-		await update(song);
+		update(song);
 
 		const resource = createAudioResource(
 			ytdl(song.url, {
-				seek: connection.seek ? connection.seek : undefined,
+				seek: connection.seek || undefined,
 				highWaterMark: 1 << 25,
 				opusEncoded: true,
 				filter: 'audioonly',
-				encoderArgs: connection.loud
-					? [
-							'-filter_complex',
-							'acontrast, acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
-					  ]
-					: [],
+				encoderArgs: EFFECTS[connection.effect],
 			}),
 			{
 				inlineVolume: true,
 			}
 		);
 
-		if (connection.loud) {
+		if (connection.effect === Effect.LOUD) {
 			resource.volume?.setVolume(80);
 		}
 
@@ -184,22 +204,33 @@ export async function play(
 				newState: AudioPlayerState
 			) => {
 				if (newState.status === AudioPlayerStatus.Idle) {
-					connection.subscription.player.removeListener(
+					const d = song.duration.split(':');
+					const duration = parseInt(d[0]) * 60_000 + parseInt(d[1]) * 1_000;
+
+					if (
+						duration -
+							((connection.seek ?? 0) * 1_000 + resource.playbackDuration) <
+						2_000
+					) {
+						connection.seek = undefined;
+					}
+
+					connection.subscription.player.off(
 						// @ts-ignore
 						'stateChange',
 						listener
 					);
 
-					connection.subscription.player.removeListener('error', error);
+					connection.subscription.player.off('error', error);
 					resolve(false);
 				} else if (newState.status === AudioPlayerStatus.AutoPaused) {
-					connection.subscription.player.removeListener(
+					connection.subscription.player.off(
 						// @ts-ignore
 						'stateChange',
 						listener
 					);
 
-					connection.subscription.player.removeListener('error', error);
+					connection.subscription.player.off('error', error);
 
 					await new Promise(resolve => {
 						// @ts-ignore
@@ -211,7 +242,7 @@ export async function play(
 			};
 
 			const error = () => {
-				connection.subscription.player.removeListener(
+				connection.subscription.player.off(
 					// @ts-ignore
 					'stateChange',
 					listener
@@ -225,6 +256,10 @@ export async function play(
 
 			connection.subscription.player.once('error', error);
 		});
+
+		if (!connection.repeat) {
+			moveTrackBy(connection, 1);
+		}
 	}
 
 	connection.resource = null;

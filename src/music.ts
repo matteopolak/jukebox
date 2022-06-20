@@ -3,6 +3,7 @@ import Datastore from 'nedb-promises';
 import { AudioResource, PlayerSubscription } from '@discordjs/voice';
 import {
 	BaseCommandInteraction,
+	ButtonInteraction,
 	MessageActionRow,
 	MessageButton,
 } from 'discord.js';
@@ -10,51 +11,80 @@ import ytdl from 'ytdl-core';
 import { YOUTUBE_PLAYLIST_REGEX } from './utils';
 import scraper from './playlist';
 
-export const ACTION_ROWS = [
-	new MessageActionRow({
-		components: [
-			new MessageButton({
-				customId: 'toggle',
-				label: '⏯️',
-				style: 'PRIMARY',
-			}),
-			new MessageButton({
-				customId: 'previous',
-				label: '⏮️',
-				style: 'PRIMARY',
-			}),
-			new MessageButton({
-				customId: 'next',
-				label: '⏭️',
-				style: 'PRIMARY',
-			}),
-			new MessageButton({
-				customId: 'remove',
-				label: '🗑️',
-				style: 'PRIMARY',
-			}),
-			new MessageButton({
-				customId: 'shuffle',
-				label: '🔀',
-				style: 'PRIMARY',
-			}),
-		],
-	}),
-	new MessageActionRow({
-		components: [
-			new MessageButton({
-				customId: 'loud',
-				label: '🧨',
-				style: 'DANGER',
-			}),
-			new MessageButton({
-				customId: 'remove_all',
-				label: '💣',
-				style: 'PRIMARY',
-			}),
-		],
-	}),
-];
+export function getComponents(connection?: Connection) {
+	const components = [
+		new MessageActionRow({
+			components: [
+				new MessageButton({
+					customId: 'toggle',
+					label: '⏯️',
+					style: 'PRIMARY',
+				}),
+				new MessageButton({
+					customId: 'previous',
+					label: '⏮️',
+					style: 'PRIMARY',
+				}),
+				new MessageButton({
+					customId: 'next',
+					label: '⏭️',
+					style: 'PRIMARY',
+				}),
+				new MessageButton({
+					customId: 'repeat',
+					label: '🔂',
+					style: connection?.repeat ? 'SUCCESS' : 'DANGER',
+				}),
+				new MessageButton({
+					customId: 'shuffle',
+					label: '🔀',
+					style: 'PRIMARY',
+				}),
+			],
+		}),
+		new MessageActionRow({
+			components: [
+				new MessageButton({
+					customId: 'remove',
+					label: '🗑️',
+					style: 'PRIMARY',
+				}),
+				new MessageButton({
+					customId: 'remove_all',
+					label: '💣',
+					style: 'PRIMARY',
+				}),
+			],
+		}),
+		new MessageActionRow({
+			components: [
+				new MessageButton({
+					customId: 'loud',
+					label: '🧨',
+					style: connection?.effect === Effect.LOUD ? 'SUCCESS' : 'DANGER',
+				}),
+				new MessageButton({
+					customId: 'underwater',
+					label: '🌊',
+					style:
+						connection?.effect === Effect.UNDER_WATER ? 'SUCCESS' : 'DANGER',
+				}),
+				new MessageButton({
+					customId: 'bass',
+					label: '🥁',
+					style: connection?.effect === Effect.BASS ? 'SUCCESS' : 'DANGER',
+				}),
+				new MessageButton({
+					customId: 'echo',
+					label: '🧯',
+					style: connection?.effect === Effect.ECHO ? 'SUCCESS' : 'DANGER',
+				}),
+			],
+		}),
+	];
+
+	return components;
+}
 
 export interface Manager {
 	_id: string;
@@ -71,13 +101,26 @@ export interface Song {
 	thumbnail: string;
 }
 
+export const enum Effect {
+	NONE,
+	LOUD,
+	UNDER_WATER,
+	BASS,
+	ECHO,
+}
+
 export interface Connection {
 	subscription: PlayerSubscription;
 	resource: AudioResource | null;
 	queue: Song[];
-	loud: boolean;
+	effect: Effect;
+	repeat: boolean;
 	index: number;
-	update: (song?: Song | null, force?: boolean) => Awaited<void>;
+	update: (
+		song?: Song | null,
+		force?: boolean,
+		interaction?: ButtonInteraction
+	) => Awaited<void>;
 	seek?: number;
 }
 
@@ -92,6 +135,8 @@ export const YOUTUBE_URL_REGEX =
 	/^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})(?:\S+)?$/;
 
 export async function getUrl(name: string) {
+	if (name.toLowerCase() === 'solomon john neufeld') return 'KMU8TwC652M';
+
 	const result = await axios.get<string>('https://www.youtube.com/results', {
 		params: {
 			search_query: name,
@@ -135,11 +180,11 @@ export async function createAudioManager(interaction: BaseCommandInteraction) {
 			{
 				title: 'No music playing',
 				image: {
-					url: 'https://i.imgur.com/ycyPRSb.png',
+					url: 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
 				},
 			},
 		],
-		components: ACTION_ROWS,
+		components: getComponents(),
 	});
 
 	const queue = await interaction.channel!.send({
