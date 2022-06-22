@@ -1,4 +1,10 @@
-import { ButtonInteraction, Client, Intents, Options } from 'discord.js-light';
+import {
+	ButtonInteraction,
+	Client,
+	Intents,
+	Options,
+	Util,
+} from 'discord.js-light';
 import {
 	createAudioPlayer,
 	joinVoiceChannel,
@@ -14,6 +20,7 @@ import {
 	getVideo,
 	managers,
 	Effect,
+	Song,
 } from './music';
 import {
 	formatSeconds,
@@ -23,6 +30,7 @@ import {
 	shuffleArray,
 	togglePlayback,
 } from './utils';
+import ytdl from 'ytdl-core';
 
 dotenv.config({ override: true });
 
@@ -31,6 +39,8 @@ const NAME_TO_ENUM = {
 	underwater: Effect.UNDER_WATER,
 	bass: Effect.BASS,
 	echo: Effect.ECHO,
+	high_pitch: Effect.HIGH_PITCH,
+	reverse: Effect.REVERSE,
 };
 
 const client = new Client({
@@ -101,6 +111,7 @@ async function handleButton(interaction: ButtonInteraction) {
 	switch (interaction.customId) {
 		case 'toggle':
 			togglePlayback(connection);
+			connection.update(undefined, true);
 
 			break;
 		case 'previous':
@@ -110,6 +121,22 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			break;
 		case 'next':
+			const song = connection.queue[connection.index];
+
+			if (
+				connection.autoplay &&
+				song &&
+				connection.index + 1 === connection.queue.length
+			) {
+				const parent = song.related
+					? song
+					: (await getVideo(song.url))!.videos[0];
+
+				if (parent.related) {
+					connection.queue.push((await getVideo(parent.related))!.videos[0]);
+				}
+			}
+
 			connection.seek = 0;
 			moveTrackBy(connection, 0);
 			connection.subscription.player.stop();
@@ -133,6 +160,8 @@ async function handleButton(interaction: ButtonInteraction) {
 		case 'underwater':
 		case 'bass':
 		case 'echo':
+		case 'high_pitch':
+		case 'reverse':
 			const effect = NAME_TO_ENUM[interaction.customId];
 
 			connection.effect = connection.effect === effect ? Effect.NONE : effect;
@@ -158,6 +187,11 @@ async function handleButton(interaction: ButtonInteraction) {
 			break;
 		case 'repeat':
 			connection.repeat = !connection.repeat;
+			connection.update(undefined, true);
+
+			break;
+		case 'autoplay':
+			connection.autoplay = !connection.autoplay;
 			connection.update(undefined, true);
 
 			break;
@@ -188,20 +222,6 @@ client.on('messageCreate', async message => {
 	const song = await getVideo(message.content);
 
 	if (song) {
-		const data =
-			song.title === null
-				? [
-						{
-							url: song.videos[0].videoDetails.video_url,
-							title: song.videos[0].videoDetails.title,
-							thumbnail: `https://i.ytimg.com/vi/${song.videos[0].videoDetails.videoId}/hqdefault.jpg`,
-							duration: formatSeconds(
-								parseInt(song.videos[0].videoDetails.lengthSeconds)
-							),
-						},
-				  ]
-				: song.videos;
-
 		const connection = connections.get(manager.guildId);
 
 		if (!connection && message.member!.voice.channelId) {
@@ -218,19 +238,20 @@ client.on('messageCreate', async message => {
 
 			const connection = {
 				subscription,
-				queue: data,
+				queue: song.videos,
 				index: 0,
 				effect: Effect.NONE,
 				update: () => {},
 				resource: null,
 				repeat: false,
+				autoplay: false,
 			};
 
 			connections.set(manager.guildId, connection);
 
 			play(connection, manager, message.guild!);
 		} else if (connection) {
-			connection.queue.push(...data);
+			connection.queue.push(...song.videos);
 
 			if (
 				message.member!.voice.channel &&
@@ -261,8 +282,12 @@ client.on('messageCreate', async message => {
 
 		const notification = await message.channel.send(
 			song.title === null
-				? `Added **${song.videos[0].videoDetails.title}** to the queue.`
-				: `Added **${song.videos.length}** songs from the playlist **${song.title}** to the queue.`
+				? `Added **${Util.escapeMarkdown(song.videos[0].title)}** to the queue.`
+				: `Added **${
+						song.videos.length
+				  }** songs from the playlist **${Util.escapeMarkdown(
+						song.title
+				  )}** to the queue.`
 		);
 
 		setTimeout(() => {

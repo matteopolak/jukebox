@@ -64,6 +64,7 @@ export default async function scraper(
 						title,
 						duration: time,
 						thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+						live: false,
 					};
 				} catch {
 					return null;
@@ -90,7 +91,7 @@ export default async function scraper(
 	});
 	await new Promise(r => setTimeout(r, 1000));
 
-	return {
+	const data = {
 		videos: (await scrape()) as Song[],
 		title: await page.evaluate(
 			e => e.textContent,
@@ -99,4 +100,8 @@ export default async function scraper(
 			)
 		),
 	};
+
+	await browser.close();
+
+	return data;
 }

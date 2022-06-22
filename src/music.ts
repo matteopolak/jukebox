@@ -1,14 +1,18 @@
 import axios from 'axios';
 import Datastore from 'nedb-promises';
-import { AudioResource, PlayerSubscription } from '@discordjs/voice';
+import {
+	AudioPlayerStatus,
+	AudioResource,
+	PlayerSubscription,
+} from '@discordjs/voice';
 import {
 	BaseCommandInteraction,
 	ButtonInteraction,
 	MessageActionRow,
 	MessageButton,
 } from 'discord.js';
-import ytdl from 'ytdl-core';
-import { YOUTUBE_PLAYLIST_REGEX } from './utils';
+import ytdl, { videoFormat, videoInfo } from 'ytdl-core';
+import { formatSeconds, randomElement, YOUTUBE_PLAYLIST_REGEX } from './utils';
 import scraper from './playlist';
 
 export function getComponents(connection?: Connection) {
@@ -17,7 +21,11 @@ export function getComponents(connection?: Connection) {
 			components: [
 				new MessageButton({
 					customId: 'toggle',
-					label: '⏯️',
+					label:
+						connection?.subscription?.player?.state?.status !==
+						AudioPlayerStatus.Paused
+							? '⏸️'
+							: '▶️',
 					style: 'PRIMARY',
 				}),
 				new MessageButton({
@@ -44,6 +52,11 @@ export function getComponents(connection?: Connection) {
 		}),
 		new MessageActionRow({
 			components: [
+				new MessageButton({
+					customId: 'autoplay',
+					label: '♾️',
+					style: connection?.autoplay ? 'SUCCESS' : 'DANGER',
+				}),
 				new MessageButton({
 					customId: 'remove',
 					label: '🗑️',
@@ -79,6 +92,21 @@ export function getComponents(connection?: Connection) {
 					label: '🧯',
 					style: connection?.effect === Effect.ECHO ? 'SUCCESS' : 'DANGER',
 				}),
+				new MessageButton({
+					customId: 'high_pitch',
+					label: '🐿️',
+					style:
+						connection?.effect === Effect.HIGH_PITCH ? 'SUCCESS' : 'DANGER',
+				}),
+			],
+		}),
+		new MessageActionRow({
+			components: [
+				new MessageButton({
+					customId: 'reverse',
+					label: '⏪',
+					style: connection?.effect === Effect.REVERSE ? 'SUCCESS' : 'DANGER',
+				}),
 			],
 		}),
 	];
@@ -99,6 +127,9 @@ export interface Song {
 	title: string;
 	duration: string;
 	thumbnail: string;
+	live: boolean;
+	format?: videoFormat;
+	related?: string;
 }
 
 export const enum Effect {
@@ -107,6 +138,8 @@ export const enum Effect {
 	UNDER_WATER,
 	BASS,
 	ECHO,
+	HIGH_PITCH,
+	REVERSE,
 }
 
 export interface Connection {
@@ -115,6 +148,7 @@ export interface Connection {
 	queue: Song[];
 	effect: Effect;
 	repeat: boolean;
+	autoplay: boolean;
 	index: number;
 	update: (
 		song?: Song | null,
@@ -149,6 +183,25 @@ export async function getUrl(name: string) {
 	return video;
 }
 
+export function videoInfoToSong(data: videoInfo): Song {
+	const info = data.videoDetails;
+	const relatedId = randomElement(data.related_videos.filter(v => v.id)).id;
+
+	return {
+		url: info.video_url,
+		title: info.title,
+		thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
+		duration: formatSeconds(parseInt(info.lengthSeconds)),
+		live: info.isLiveContent,
+		format: info.isLiveContent
+			? ytdl.chooseFormat(data.formats, {})
+			: undefined,
+		related: relatedId
+			? `https://www.youtube.com/watch?v=${relatedId}`
+			: undefined,
+	};
+}
+
 export async function getVideo(query: string) {
 	if (YOUTUBE_PLAYLIST_REGEX.test(query)) {
 		const [, id] = query.match(YOUTUBE_PLAYLIST_REGEX) ?? [];
@@ -157,7 +210,10 @@ export async function getVideo(query: string) {
 	}
 
 	if (YOUTUBE_URL_REGEX.test(query)) {
-		return { videos: [await ytdl.getBasicInfo(query)], title: null };
+		return {
+			videos: [videoInfoToSong(await ytdl.getBasicInfo(query))],
+			title: null,
+		};
 	}
 
 	const url = await getUrl(query);
@@ -165,7 +221,9 @@ export async function getVideo(query: string) {
 	if (url) {
 		return {
 			videos: [
-				await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${url}`),
+				videoInfoToSong(
+					await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${url}`)
+				),
 			],
 			title: null,
 		};

@@ -3,6 +3,7 @@ import {
 	AudioPlayerState,
 	AudioPlayerStatus,
 	createAudioResource,
+	StreamType,
 } from '@discordjs/voice';
 import ytdl from 'discord-ytdl-core';
 import {
@@ -12,6 +13,7 @@ import {
 	Manager,
 	Song,
 	Effect,
+	getVideo,
 } from './music';
 import { Guild } from 'discord.js-light';
 
@@ -21,16 +23,22 @@ export const EFFECTS: Record<Effect, string[]> = {
 		'-filter_complex',
 		'acontrast, acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
 	],
-	[Effect.UNDER_WATER]: ['-af', 'lowpass=f=450, volume=3.0'],
+	[Effect.UNDER_WATER]: ['-af', 'lowpass=f=450, volume=2.0'],
 	[Effect.BASS]: ['-af', 'bass=g=30, volume=0.7, asubboost'],
 	[Effect.ECHO]: [
 		'-af',
 		'aecho=1.0:1.0:1000|1400:1.0|0.25, aphaser=0.4:0.4:2.0:0.6:0.5:s, asubboost, volume=4.0',
 	],
+	[Effect.HIGH_PITCH]: ['-af', 'atempo=2/4, asetrate=44100*4/2'],
+	[Effect.REVERSE]: ['-filter_complex', 'areverse'],
 };
 
 export const YOUTUBE_PLAYLIST_REGEX =
 	/^https?:\/\/(?:w{3}\.)?youtu(?:\.be\/|be\.com\/)(?:(?:watch\?v=)?[\w-]{11}|playlist)[?&]list=([\w-]+)/;
+
+export function randomElement<T>(array: T[]): T {
+	return array[Math.floor(Math.random() * array.length)];
+}
 
 // https://www.geeksforgeeks.org/how-to-shuffle-an-array-using-javascript/
 export function shuffleArray<T>(array: T[]): T[] {
@@ -111,7 +119,9 @@ export async function play(
 			const data = {
 				embeds: [
 					{
-						title: song?.title ?? 'No music playing',
+						title: song?.title
+							? Util.escapeMarkdown(song.title)
+							: 'No music playing',
 						url: song?.url,
 						image: {
 							url:
@@ -182,17 +192,20 @@ export async function play(
 			ytdl(song.url, {
 				seek: connection.seek || undefined,
 				highWaterMark: 1 << 25,
+				format: song.format,
+				filter: song.live ? undefined : 'audioonly',
+				quality: 'highestaudio',
 				opusEncoded: true,
-				filter: 'audioonly',
 				encoderArgs: EFFECTS[connection.effect],
 			}),
 			{
 				inlineVolume: true,
+				inputType: StreamType.Opus,
 			}
 		);
 
 		if (connection.effect === Effect.LOUD) {
-			resource.volume?.setVolume(80);
+			resource.volume?.setVolume(100);
 		}
 
 		connection.resource = resource;
@@ -241,7 +254,8 @@ export async function play(
 				}
 			};
 
-			const error = () => {
+			const error = (e: Error) => {
+				console.log(e);
 				connection.subscription.player.off(
 					// @ts-ignore
 					'stateChange',
@@ -258,6 +272,19 @@ export async function play(
 		});
 
 		if (!connection.repeat) {
+			if (
+				connection.autoplay &&
+				connection.index + 1 === connection.queue.length
+			) {
+				const parent = song.related
+					? song
+					: (await getVideo(song.url))!.videos[0];
+
+				if (parent.related) {
+					connection.queue.push((await getVideo(parent.related))!.videos[0]);
+				}
+			}
+
 			moveTrackBy(connection, 1);
 		}
 	}
