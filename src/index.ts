@@ -117,7 +117,7 @@ async function handleButton(interaction: ButtonInteraction) {
 		case 'previous':
 			moveTrackBy(connection, -2);
 			connection.seek = 0;
-			connection.subscription.player.stop();
+			connection.subscription!.player.stop();
 
 			break;
 		case 'next':
@@ -139,21 +139,21 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			connection.seek = 0;
 			moveTrackBy(connection, 0);
-			connection.subscription.player.stop();
+			connection.subscription!.player.stop();
 
 			break;
 		case 'remove':
 			connection.seek = 0;
 			connection.queue.splice(connection.index, 1);
 			moveTrackBy(connection, -1);
-			connection.subscription.player.stop();
+			connection.subscription!.player.stop();
 
 			break;
 		case 'shuffle':
 			connection.seek = 0;
 			shuffleArray(connection.queue);
 			moveTrackTo(connection, -1);
-			connection.subscription.player.stop();
+			connection.subscription!.player.stop();
 
 			break;
 		case 'loud':
@@ -176,13 +176,13 @@ async function handleButton(interaction: ButtonInteraction) {
 			}
 
 			moveTrackBy(connection, -1);
-			connection.subscription.player.stop();
+			connection.subscription!.player.stop();
 
 			break;
 		case 'remove_all':
 			connection.seek = 0;
 			connection.queue.splice(0, connection.queue.length);
-			connection.subscription.player.stop();
+			connection.subscription!.player.stop();
 
 			break;
 		case 'repeat':
@@ -224,7 +224,10 @@ client.on('messageCreate', async message => {
 	if (song) {
 		const connection = connections.get(manager.guildId);
 
-		if (!connection && message.member!.voice.channelId) {
+		if (
+			(!connection || connection.subscription === null) &&
+			message.member!.voice.channelId
+		) {
 			const stream = joinVoiceChannel({
 				channelId: message.member!.voice.channelId!,
 				guildId: message.guildId!,
@@ -236,20 +239,28 @@ client.on('messageCreate', async message => {
 			const player = createAudioPlayer();
 			const subscription = stream.subscribe(player)!;
 
-			const connection = {
-				subscription,
-				queue: song.videos,
-				index: 0,
-				effect: Effect.NONE,
-				update: () => {},
-				resource: null,
-				repeat: false,
-				autoplay: false,
-			};
+			let conn = connection;
 
-			connections.set(manager.guildId, connection);
+			if (connection?.subscription === null) {
+				connection.subscription = subscription;
+			} else {
+				const newConnection = {
+					subscription,
+					queue: song.videos,
+					index: 0,
+					effect: Effect.NONE,
+					update: () => {},
+					resource: null,
+					repeat: false,
+					autoplay: false,
+				};
 
-			play(connection, manager, message.guild!);
+				conn = newConnection;
+
+				connections.set(manager.guildId, newConnection);
+			}
+
+			play(conn!, manager, message.guild!);
 		} else if (connection) {
 			connection.queue.push(...song.videos);
 
@@ -263,9 +274,9 @@ client.on('messageCreate', async message => {
 					adapterCreator: message.guild.voiceAdapterCreator,
 				});
 
-				const subscription = stream.subscribe(connection.subscription.player)!;
+				const subscription = stream.subscribe(connection.subscription!.player)!;
 
-				connection.subscription.unsubscribe();
+				connection.subscription!.unsubscribe();
 				connection.subscription = subscription;
 
 				// @ts-ignore

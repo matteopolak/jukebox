@@ -63,11 +63,11 @@ export function formatSeconds(seconds: number) {
 
 export function togglePlayback(connection: Connection) {
 	if (
-		connection.subscription.player.state.status !== AudioPlayerStatus.Paused
+		connection.subscription!.player.state.status !== AudioPlayerStatus.Paused
 	) {
-		connection.subscription.player.pause();
+		connection.subscription!.player.pause();
 	} else {
-		connection.subscription.player.unpause();
+		connection.subscription!.player.unpause();
 	}
 }
 
@@ -209,7 +209,7 @@ export async function play(
 		}
 
 		connection.resource = resource;
-		connection.subscription.player.play(resource);
+		connection.subscription!.player.play(resource);
 
 		await new Promise<boolean>(resolve => {
 			const listener = async (
@@ -228,22 +228,22 @@ export async function play(
 						connection.seek = undefined;
 					}
 
-					connection.subscription.player.off(
+					connection.subscription!.player.off(
 						// @ts-ignore
 						'stateChange',
 						listener
 					);
 
-					connection.subscription.player.off('error', error);
+					connection.subscription!.player.off('error', error);
 					resolve(false);
 				} else if (newState.status === AudioPlayerStatus.AutoPaused) {
-					connection.subscription.player.off(
+					connection.subscription!.player.off(
 						// @ts-ignore
 						'stateChange',
 						listener
 					);
 
-					connection.subscription.player.off('error', error);
+					connection.subscription!.player.off('error', error);
 
 					await new Promise(resolve => {
 						// @ts-ignore
@@ -256,7 +256,7 @@ export async function play(
 
 			const error = (e: Error) => {
 				console.log(e);
-				connection.subscription.player.off(
+				connection.subscription!.player.off(
 					// @ts-ignore
 					'stateChange',
 					listener
@@ -268,7 +268,7 @@ export async function play(
 			// @ts-ignore
 			connection.subscription.player.on('stateChange', listener);
 
-			connection.subscription.player.once('error', error);
+			connection.subscription!.player.once('error', error);
 		});
 
 		if (!connection.repeat) {
@@ -294,5 +294,5 @@ export async function play(
 
 	// @ts-ignore
 	connection.subscription.player.off('song_add', update);
-	connections.delete(guild.id);
+	connection.subscription = null;
 }

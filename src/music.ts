@@ -143,7 +143,7 @@ export const enum Effect {
 }
 
 export interface Connection {
-	subscription: PlayerSubscription;
+	subscription: PlayerSubscription | null;
 	resource: AudioResource | null;
 	queue: Song[];
 	effect: Effect;
