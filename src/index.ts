@@ -20,17 +20,16 @@ import {
 	getVideo,
 	managers,
 	Effect,
-	Song,
+	starred,
 } from './music';
 import {
-	formatSeconds,
+	getManager,
 	moveTrackBy,
 	moveTrackTo,
 	play,
 	shuffleArray,
 	togglePlayback,
 } from './utils';
-import ytdl from 'ytdl-core';
 
 dotenv.config({ override: true });
 
@@ -108,6 +107,8 @@ async function handleButton(interaction: ButtonInteraction) {
 	const connection = connections.get(interaction.guildId!);
 	if (!connection) return;
 
+	const song = connection.queue[connection.index];
+
 	switch (interaction.customId) {
 		case 'toggle':
 			togglePlayback(connection);
@@ -121,8 +122,6 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			break;
 		case 'next':
-			const song = connection.queue[connection.index];
-
 			if (
 				connection.autoplay &&
 				song &&
@@ -195,6 +194,43 @@ async function handleButton(interaction: ButtonInteraction) {
 			connection.update(undefined, true);
 
 			break;
+		case 'star':
+			if (song) {
+				if (connection.manager.starred.has(song.id)) {
+					connection.manager.starred.delete(song.id);
+
+					await starred.remove(
+						{
+							guildId: connection.manager.guildId,
+							id: song.id,
+						},
+						{ multi: false }
+					);
+				} else {
+					connection.manager.starred.add(song.id);
+
+					await starred.insert({
+						guildId: connection.manager.guildId,
+						id: song.id,
+					});
+				}
+
+				connection.update(undefined, true);
+			}
+
+			break;
+		case 'play_starred':
+			const songs = await Promise.all(
+				[...connection.manager.starred.values()].map(
+					async id =>
+						(await getVideo(`https://youtube.com/watch?v=${id}`))!.videos[0]
+				)
+			);
+
+			connection.queue.push(...songs);
+			connection.update();
+
+			break;
 	}
 
 	await interaction.deferUpdate({ fetchReply: false });
@@ -214,7 +250,7 @@ client.on('interactionCreate', async interaction => {
 client.on('messageCreate', async message => {
 	if (message.author.bot || !message.inGuild()) return;
 
-	const manager = await managers.findOne({ channelId: message.channelId });
+	const manager = await getManager(message.channelId);
 	if (!manager) return;
 
 	await message.delete().catch(() => {});
@@ -239,10 +275,11 @@ client.on('messageCreate', async message => {
 			const player = createAudioPlayer();
 			const subscription = stream.subscribe(player)!;
 
-			let conn = connection;
-
 			if (connection?.subscription === null) {
 				connection.subscription = subscription;
+				connection.queue = song.videos;
+
+				play(connection, manager, message.guild!);
 			} else {
 				const newConnection = {
 					subscription,
@@ -253,15 +290,14 @@ client.on('messageCreate', async message => {
 					resource: null,
 					repeat: false,
 					autoplay: false,
+					manager: manager,
 				};
 
-				conn = newConnection;
-
 				connections.set(manager.guildId, newConnection);
-			}
 
-			play(conn!, manager, message.guild!);
-		} else if (connection) {
+				play(newConnection, manager, message.guild!);
+			}
+		} else if (connection?.subscription) {
 			connection.queue.push(...song.videos);
 
 			if (
@@ -274,9 +310,9 @@ client.on('messageCreate', async message => {
 					adapterCreator: message.guild.voiceAdapterCreator,
 				});
 
-				const subscription = stream.subscribe(connection.subscription!.player)!;
+				const subscription = stream.subscribe(connection.subscription.player)!;
 
-				connection.subscription!.unsubscribe();
+				connection.subscription.unsubscribe();
 				connection.subscription = subscription;
 
 				// @ts-ignore

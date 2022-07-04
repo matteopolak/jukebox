@@ -14,6 +14,8 @@ import {
 	Song,
 	Effect,
 	getVideo,
+	managers,
+	starred,
 } from './music';
 import { Guild } from 'discord.js-light';
 
@@ -42,16 +44,29 @@ export function randomElement<T>(array: T[]): T {
 
 // https://www.geeksforgeeks.org/how-to-shuffle-an-array-using-javascript/
 export function shuffleArray<T>(array: T[]): T[] {
-	for (var i = array.length - 1; i > 0; i--) {
+	for (let i = array.length - 1; i > 0; --i) {
 		// Generate random number
-		var j = Math.floor(Math.random() * (i + 1));
+		const j = Math.floor(Math.random() * (i + 1));
 
-		var temp = array[i];
+		const temp = array[i];
+
 		array[i] = array[j];
 		array[j] = temp;
 	}
 
 	return array;
+}
+
+export async function getManager(channelId: string) {
+	const raw = await managers.findOne({ channelId: channelId });
+	if (!raw) return null;
+
+	const starredVideos = await starred.find({ guild_id: raw.guildId });
+	const manager = raw as Manager;
+
+	manager.starred = new Set(starredVideos.map(v => v.id));
+
+	return manager;
 }
 
 export function formatSeconds(seconds: number) {
@@ -109,6 +124,7 @@ export async function play(
 	const update = (connection.update = async (
 		song: Song | undefined | null,
 		force?: boolean,
+		forceQueue?: boolean,
 		interaction?: ButtonInteraction
 	) => {
 		const promises: Promise<any>[] = [];
@@ -130,7 +146,7 @@ export async function play(
 						},
 					},
 				],
-				components: getComponents(connection),
+				components: getComponents(manager, connection),
 			};
 
 			promises.push(
@@ -141,6 +157,7 @@ export async function play(
 		}
 
 		if (
+			forceQueue ||
 			lastIndex !== connection.index ||
 			connection.index + 3 <= connection.queue.length ||
 			lastSong?.url !== song?.url
@@ -157,7 +174,7 @@ export async function play(
 					i + lower === connection.index ? '**' : ''
 				}${Util.escapeMarkdown(s.title)} \`[${s.duration}]\`${
 					i + lower === connection.index ? '**' : ''
-				}`;
+				}${manager.starred.has(s.id) ? ' ⭐' : ''}`;
 
 				return string;
 			});
@@ -188,21 +205,26 @@ export async function play(
 
 		update(song);
 
-		const resource = createAudioResource(
-			ytdl(song.url, {
-				seek: connection.seek || undefined,
-				highWaterMark: 1 << 25,
-				format: song.format,
-				filter: song.live ? undefined : 'audioonly',
-				quality: 'highestaudio',
-				opusEncoded: true,
-				encoderArgs: EFFECTS[connection.effect],
-			}),
-			{
-				inlineVolume: true,
-				inputType: StreamType.Opus,
-			}
-		);
+		const stream = ytdl(song.url, {
+			seek: connection.seek || undefined,
+			highWaterMark: 1 << 25,
+			format: song.format,
+			filter: song.live ? undefined : 'audioonly',
+			quality: 'highestaudio',
+			opusEncoded: true,
+			encoderArgs: EFFECTS[connection.effect],
+		});
+
+		const errorListener = () => {
+			stream.off('error', errorListener);
+		};
+
+		stream.on('error', errorListener);
+
+		const resource = createAudioResource(stream, {
+			inlineVolume: true,
+			inputType: StreamType.Opus,
+		});
 
 		if (connection.effect === Effect.LOUD) {
 			resource.volume?.setVolume(100);
@@ -255,7 +277,7 @@ export async function play(
 			};
 
 			const error = (e: Error) => {
-				console.log(e);
+				console.error(e);
 				connection.subscription!.player.off(
 					// @ts-ignore
 					'stateChange',
@@ -270,6 +292,8 @@ export async function play(
 
 			connection.subscription!.player.once('error', error);
 		});
+
+		stream.off('error', errorListener);
 
 		if (!connection.repeat) {
 			if (
@@ -291,8 +315,12 @@ export async function play(
 
 	connection.resource = null;
 	update(null);
+	connection.update = () => {};
 
 	// @ts-ignore
 	connection.subscription.player.off('song_add', update);
-	connection.subscription = null;
+	connection.subscription!.unsubscribe();
+
+	// connection.subscription = null;
+	connections.delete(guild.id);
 }

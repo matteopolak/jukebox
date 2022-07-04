@@ -61,6 +61,7 @@ export default async function scraper(
 
 					return {
 						url: `https://www.youtube.com${link}`,
+						id,
 						title,
 						duration: time,
 						thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,

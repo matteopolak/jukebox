@@ -15,7 +15,7 @@ import ytdl, { videoFormat, videoInfo } from 'ytdl-core';
 import { formatSeconds, randomElement, YOUTUBE_PLAYLIST_REGEX } from './utils';
 import scraper from './playlist';
 
-export function getComponents(connection?: Connection) {
+export function getComponents(manager?: Manager, connection?: Connection) {
 	const components = [
 		new MessageActionRow({
 			components: [
@@ -67,6 +67,21 @@ export function getComponents(connection?: Connection) {
 					label: '💣',
 					style: 'PRIMARY',
 				}),
+				new MessageButton({
+					customId: 'star',
+					label: '⭐️',
+					style:
+						manager &&
+						connection?.queue?.[connection?.index] &&
+						manager.starred.has(connection.queue[connection.index].id)
+							? 'SUCCESS'
+							: 'DANGER',
+				}),
+				new MessageButton({
+					customId: 'play_starred',
+					label: '☀️',
+					style: 'PRIMARY',
+				}),
 			],
 		}),
 		new MessageActionRow({
@@ -114,7 +129,7 @@ export function getComponents(connection?: Connection) {
 	return components;
 }
 
-export interface Manager {
+export interface RawManager {
 	_id: string;
 	messageId: string;
 	queueId: string;
@@ -122,8 +137,13 @@ export interface Manager {
 	guildId: string;
 }
 
+export interface Manager extends RawManager {
+	starred: Set<string>;
+}
+
 export interface Song {
 	url: string;
+	id: string;
 	title: string;
 	duration: string;
 	thumbnail: string;
@@ -153,15 +173,23 @@ export interface Connection {
 	update: (
 		song?: Song | null,
 		force?: boolean,
+		forceQueue?: boolean,
 		interaction?: ButtonInteraction
 	) => Awaited<void>;
 	seek?: number;
+	manager: Manager;
 }
 
-export const managers: Datastore<Manager> = Datastore.create({
+export const managers: Datastore<RawManager> = Datastore.create({
 	filename: 'managers.db',
 	autoload: true,
 });
+
+export const starred: Datastore<{ id: string; guild_id: string }> =
+	Datastore.create({
+		filename: 'starred.db',
+		autoload: true,
+	});
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -185,9 +213,10 @@ export async function getUrl(name: string) {
 
 export function videoInfoToSong(data: videoInfo): Song {
 	const info = data.videoDetails;
-	const relatedId = randomElement(data.related_videos.filter(v => v.id)).id;
+	const relatedId = randomElement(data.related_videos.filter(v => v?.id))?.id;
 
 	return {
+		id: info.videoId,
 		url: info.video_url,
 		title: info.title,
 		thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
