@@ -28,7 +28,6 @@
 		"libsodium-wrappers": "^0.7.10",
 		"nedb-promises": "^6.0.3",
 		"puppeteer": "^14.4.1",
-		"yt-playlist-scraper": "^1.2.1",
 		"ytdl-core": "^4.11.0"
 	},
 	"devDependencies": {
