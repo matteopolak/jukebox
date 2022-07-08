@@ -36,11 +36,7 @@ import {
 
 dotenv.config({ override: true });
 
-const tweets = fs
-	.readFileSync('./tweets.txt', 'utf8')
-	.split(/\r?\n/)
-	.map(t => t.trim())
-	.filter(t => t.length <= 128);
+const tweets = fs.readFileSync('./tweets.txt', 'utf8').split(/\r?\n/);
 
 const NAME_TO_ENUM = {
 	loud: Effect.LOUD,
