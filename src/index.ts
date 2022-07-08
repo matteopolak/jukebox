@@ -11,6 +11,7 @@ import {
 	entersState,
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
+import fs from 'fs';
 
 import dotenv from 'dotenv';
 
@@ -28,11 +29,18 @@ import {
 	moveTrackBy,
 	moveTrackTo,
 	play,
+	randomElement,
 	shuffleArray,
 	togglePlayback,
 } from './utils';
 
 dotenv.config({ override: true });
+
+const tweets = fs
+	.readFileSync('./tweets.txt', 'utf8')
+	.split(/\r?\n/)
+	.map(t => t.trim())
+	.filter(t => t.length <= 128);
 
 const NAME_TO_ENUM = {
 	loud: Effect.LOUD,
@@ -96,12 +104,24 @@ client.once('ready', async () => {
 		afk: false,
 		activities: [
 			{
-				type: 'STREAMING',
-				name: 'the freedom convoy',
-				url: 'https://twitch.tv/balls',
+				type: 'WATCHING',
+				name: randomElement(tweets),
 			},
 		],
 	});
+
+	setInterval(() => {
+		client.user!.setPresence({
+			status: 'dnd',
+			afk: false,
+			activities: [
+				{
+					type: 'WATCHING',
+					name: randomElement(tweets),
+				},
+			],
+		});
+	}, 20_000);
 });
 
 async function handleButton(interaction: ButtonInteraction) {
