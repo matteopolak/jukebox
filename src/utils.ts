@@ -1,4 +1,4 @@
-import { ButtonInteraction, Util } from 'discord.js';
+import { ButtonInteraction, User, Util } from 'discord.js';
 import {
 	AudioPlayerState,
 	AudioPlayerStatus,
@@ -55,6 +55,29 @@ export function shuffleArray<T>(array: T[]): T[] {
 	}
 
 	return array;
+}
+
+export async function getConnection(guildId: string, channelId: string) {
+	if (connections.has(guildId)) return connections.get(guildId)!;
+
+	const manager = await getManager(channelId);
+	if (!manager) return null;
+
+	const connection: Connection = {
+		subscription: null,
+		queue: [],
+		index: 0,
+		effect: Effect.NONE,
+		update: () => {},
+		resource: null,
+		repeat: false,
+		autoplay: false,
+		manager,
+	};
+
+	connections.set(guildId, connection);
+
+	return connection;
 }
 
 export async function getManager(channelId: string) {

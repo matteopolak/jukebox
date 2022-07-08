@@ -23,6 +23,7 @@ import {
 	starred,
 } from './music';
 import {
+	getConnection,
 	getManager,
 	moveTrackBy,
 	moveTrackTo,
@@ -104,8 +105,11 @@ client.once('ready', async () => {
 });
 
 async function handleButton(interaction: ButtonInteraction) {
-	const connection = connections.get(interaction.guildId!);
-	if (!connection) return;
+	const connection = await getConnection(
+		interaction.guildId!,
+		interaction.channelId
+	);
+	if (!connection) return interaction.deferUpdate({ fetchReply: false });
 
 	const song = connection.queue[connection.index];
 
@@ -164,7 +168,7 @@ async function handleButton(interaction: ButtonInteraction) {
 			const effect = NAME_TO_ENUM[interaction.customId];
 
 			connection.effect = connection.effect === effect ? Effect.NONE : effect;
-			connection.update(undefined, true);
+			connection.update(undefined, true, undefined);
 
 			if (connection.resource) {
 				if (connection.seek) {
@@ -186,12 +190,12 @@ async function handleButton(interaction: ButtonInteraction) {
 			break;
 		case 'repeat':
 			connection.repeat = !connection.repeat;
-			connection.update(undefined, true);
+			connection.update(undefined, true, undefined);
 
 			break;
 		case 'autoplay':
 			connection.autoplay = !connection.autoplay;
-			connection.update(undefined, true);
+			connection.update(undefined, true, undefined);
 
 			break;
 		case 'star':
@@ -215,7 +219,7 @@ async function handleButton(interaction: ButtonInteraction) {
 					});
 				}
 
-				connection.update(undefined, true);
+				connection.update(undefined, undefined, true);
 			}
 
 			break;
@@ -233,7 +237,7 @@ async function handleButton(interaction: ButtonInteraction) {
 			break;
 	}
 
-	await interaction.deferUpdate({ fetchReply: false });
+	return interaction.deferUpdate({ fetchReply: false });
 }
 
 client.on('interactionCreate', async interaction => {
@@ -255,7 +259,7 @@ client.on('messageCreate', async message => {
 
 	await message.delete().catch(() => {});
 
-	const song = await getVideo(message.content);
+	const song = await getVideo(message.content, message.author);
 
 	if (song) {
 		const connection = connections.get(manager.guildId);
@@ -290,7 +294,7 @@ client.on('messageCreate', async message => {
 					resource: null,
 					repeat: false,
 					autoplay: false,
-					manager: manager,
+					manager,
 				};
 
 				connections.set(manager.guildId, newConnection);

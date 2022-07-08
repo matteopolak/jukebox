@@ -10,6 +10,8 @@ import {
 	ButtonInteraction,
 	MessageActionRow,
 	MessageButton,
+	User,
+	Util,
 } from 'discord.js';
 import ytdl, { videoFormat, videoInfo } from 'ytdl-core';
 import { formatSeconds, randomElement, YOUTUBE_PLAYLIST_REGEX } from './utils';
@@ -231,7 +233,11 @@ export function videoInfoToSong(data: videoInfo): Song {
 	};
 }
 
-export async function getVideo(query: string) {
+export async function getVideo(
+	query: string,
+	user?: User,
+	direct?: boolean
+): Promise<null | { videos: Song[]; title: string | null }> {
 	if (YOUTUBE_PLAYLIST_REGEX.test(query)) {
 		const [, id] = query.match(YOUTUBE_PLAYLIST_REGEX) ?? [];
 
@@ -243,6 +249,23 @@ export async function getVideo(query: string) {
 			videos: [videoInfoToSong(await ytdl.getBasicInfo(query))],
 			title: null,
 		};
+	}
+
+	if (!direct) {
+		const queries = query.split('\n');
+
+		if (queries.length > 1) {
+			return {
+				videos: (
+					await Promise.all(
+						queries.map(async q => (await getVideo(q, user, true))?.videos?.[0])
+					)
+				).filter(s => s !== null) as Song[],
+				title: `${user ? Util.escapeMarkdown(user.username) : 'Unknown'}'${
+					user?.username?.at(-1)?.toLowerCase() === 's' ? '' : 's'
+				} playlist`,
+			};
+		}
 	}
 
 	const url = await getUrl(query);
