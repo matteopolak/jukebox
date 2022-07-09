@@ -17,7 +17,7 @@ import ytdl, { videoFormat, videoInfo } from 'ytdl-core';
 import { formatSeconds, randomElement, YOUTUBE_PLAYLIST_REGEX } from './utils';
 import scraper from './playlist';
 
-export function getComponents(manager?: Manager, connection?: Connection) {
+export function getComponents(connection?: Connection) {
 	const components = [
 		new MessageActionRow({
 			components: [
@@ -73,9 +73,11 @@ export function getComponents(manager?: Manager, connection?: Connection) {
 					customId: 'star',
 					label: '⭐️',
 					style:
-						manager &&
-						connection?.queue?.[connection?.index] &&
-						manager.starred.has(connection.queue[connection.index].id)
+						connection &&
+						connection.queue.length < connection.index &&
+						connection.manager.starred.has(
+							connection.queue[connection.index].id
+						)
 							? 'SUCCESS'
 							: 'DANGER',
 				}),

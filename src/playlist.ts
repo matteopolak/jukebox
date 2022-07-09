@@ -1,5 +1,3 @@
-'use strict';
-
 import puppeteer from 'puppeteer';
 import { Song } from './music';
 
