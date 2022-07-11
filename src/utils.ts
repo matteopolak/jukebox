@@ -169,7 +169,7 @@ export async function play(
 						},
 					},
 				],
-				components: getComponents(manager, connection),
+				components: getComponents(connection),
 			};
 
 			promises.push(
