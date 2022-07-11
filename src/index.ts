@@ -138,7 +138,7 @@ async function handleButton(interaction: ButtonInteraction) {
 		case 'previous':
 			moveTrackBy(connection, -2);
 			connection.seek = 0;
-			connection.subscription!.player.stop();
+			connection.subscription?.player?.stop();
 
 			break;
 		case 'next':
@@ -158,21 +158,21 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			connection.seek = 0;
 			moveTrackBy(connection, 0);
-			connection.subscription!.player.stop();
+			connection.subscription?.player?.stop();
 
 			break;
 		case 'remove':
 			connection.seek = 0;
 			connection.queue.splice(connection.index, 1);
 			moveTrackBy(connection, -1);
-			connection.subscription!.player.stop();
+			connection.subscription?.player?.stop();
 
 			break;
 		case 'shuffle':
 			connection.seek = 0;
 			shuffleArray(connection.queue);
 			moveTrackTo(connection, -1);
-			connection.subscription!.player.stop();
+			connection.subscription?.player?.stop();
 
 			break;
 		case 'loud':
@@ -195,13 +195,13 @@ async function handleButton(interaction: ButtonInteraction) {
 			}
 
 			moveTrackBy(connection, -1);
-			connection.subscription!.player.stop();
+			connection.subscription?.player?.stop();
 
 			break;
 		case 'remove_all':
 			connection.seek = 0;
 			connection.queue.splice(0, connection.queue.length);
-			connection.subscription!.player.stop();
+			connection.subscription?.player?.stop();
 
 			break;
 		case 'repeat':
