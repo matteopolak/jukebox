@@ -1,4 +1,5 @@
 import {
+	AudioPlayerStatus,
 	CreateVoiceConnectionOptions,
 	EndBehaviorType,
 	joinVoiceChannel,
@@ -16,7 +17,7 @@ import {
 	VoiceBasedChannel,
 } from 'discord.js';
 import { getVideo } from './music';
-import { getConnection } from './utils';
+import { getConnection, moveTrackBy } from './utils';
 
 axios.defaults.headers.post.authorization =
 	'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK';
@@ -60,57 +61,98 @@ export function joinVoiceChannelAndListen(
 
 		active.delete(userId);
 
-		const data = JSON.parse(response.data.split('\r\n').pop()!);
+		// Create new scope
+		{
+			const data = JSON.parse(response.data.split('\r\n').pop()!);
 
-		if (
-			!data.entities['keyword:keyword']?.length ||
-			!data.entities['order:order']?.length
-		)
-			return;
+			if (
+				!data.entities['keyword:keyword']?.length ||
+				!data.entities['order:order']?.length
+			)
+				return;
 
-		switch (data.entities['order:order'][0].value) {
-			case 'play': {
-				const name = data.entities['wit$message_body:message_body']?.[0]?.value;
+			const member = voice.members.get(userId)!;
+			const connection = await getConnection({
+				member,
+				guild: member.guild,
+				guildId: member.guild.id,
+				channel: channel,
+			});
 
-				if (name) {
-					const member = voice.members.get(userId)!;
-					const song = await getVideo(name, member.user);
+			if (!connection) return;
 
-					const connection = await getConnection({
-						member,
-						guild: member.guild,
-						guildId: member.guild.id,
-						channel: channel,
-					});
+			const song = connection.queue[connection.index];
 
-					if (song && connection) {
-						connection.queue.push(...song.videos);
+			switch (data.entities['order:order'][0].value) {
+				case 'play':
+					const name =
+						data.entities['wit$message_body:message_body']?.[0]?.value;
 
-						const notification = await channel.send(
-							song.title === null
-								? `Added **${escapeMarkdown(
-										song.videos[0].title
-								  )}** to the queue.`
-								: `Added **${
-										song.videos.length
-								  }** songs from the playlist **${escapeMarkdown(
-										song.title
-								  )}** to the queue.`
-						);
+					if (name) {
+						const song = await getVideo(name, member.user);
 
-						setTimeout(() => {
-							notification.delete().catch(() => {});
-						}, 3000);
-					} else {
-						const notification = await channel.send(
-							`Could not find a song from the query \`${name}\`.`
-						);
+						if (song) {
+							connection.queue.push(...song.videos);
 
-						setTimeout(() => {
-							notification.delete().catch(() => {});
-						}, 3000);
+							const notification = await channel.send(
+								song.title === null
+									? `Added **${escapeMarkdown(
+											song.videos[0].title
+									  )}** to the queue.`
+									: `Added **${
+											song.videos.length
+									  }** songs from the playlist **${escapeMarkdown(
+											song.title
+									  )}** to the queue.`
+							);
+
+							setTimeout(() => {
+								notification.delete().catch(() => {});
+							}, 3000);
+						} else {
+							const notification = await channel.send(
+								`Could not find a song from the query \`${name}\`.`
+							);
+
+							setTimeout(() => {
+								notification.delete().catch(() => {});
+							}, 3000);
+						}
 					}
-				}
+
+					break;
+				case 'skip':
+					if (
+						connection.autoplay &&
+						song &&
+						connection.index + 1 === connection.queue.length
+					) {
+						const parent = song.related
+							? song
+							: (await getVideo(song.url))!.videos[0];
+
+						if (parent.related) {
+							connection.queue.push(
+								(await getVideo(parent.related))!.videos[0]
+							);
+						}
+					}
+
+					connection.seek = 0;
+					moveTrackBy(connection, 0);
+					connection.subscription?.player?.stop();
+				case 'pause':
+					if (
+						connection.subscription?.player.state.status !==
+						AudioPlayerStatus.Paused
+					)
+						connection.subscription?.player.pause();
+				case 'resume':
+					if (
+						connection.subscription?.player.state.status ===
+						AudioPlayerStatus.Paused
+					)
+						connection.subscription?.player.unpause();
 			}
 		}
 	});
