@@ -5,9 +5,11 @@ import {
 	Client,
 	ComponentType,
 	escapeMarkdown,
+	GuildMember,
 	IntentsBitField,
 	InteractionType,
 	Options,
+	Partials,
 } from 'discord.js';
 import {
 	createAudioPlayer,
@@ -19,6 +21,7 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 
 import {
+	channelToConnection,
 	connections,
 	createAudioManager,
 	getVideo,
@@ -35,7 +38,7 @@ import {
 	togglePlayback,
 } from './utils';
 import { joinVoiceChannelAndListen } from './voice';
-import { Effect } from './typings';
+import { Connection, Effect } from './typings';
 
 dotenv.config({ override: true });
 
@@ -51,6 +54,7 @@ const NAME_TO_ENUM = {
 };
 
 const client = new Client({
+	partials: [Partials.GuildMember, Partials.User, Partials.Channel],
 	makeCache: Options.cacheWithLimits({
 		ApplicationCommandManager: 0,
 		BaseGuildEmojiManager: 0,
@@ -66,7 +70,7 @@ const client = new Client({
 		StageInstanceManager: 0,
 		ThreadManager: 0,
 		ThreadMemberManager: 0,
-		UserManager: 0,
+		UserManager: Infinity,
 		VoiceStateManager: Infinity,
 	}),
 	intents: [
@@ -120,9 +124,13 @@ client.once('ready', async () => {
 });
 
 async function handleButton(interaction: ButtonInteraction) {
+	const voiceChannelId = (interaction.member! as GuildMember).voice.channelId;
+	if (!voiceChannelId) return interaction.deferUpdate({ fetchReply: false });
+
 	const connection = await getConnection(
 		interaction.guildId!,
-		interaction.channelId
+		interaction.channelId,
+		voiceChannelId
 	);
 	if (!connection) return interaction.deferUpdate({ fetchReply: false });
 
@@ -286,9 +294,11 @@ client.on('messageCreate', async message => {
 			(!connection || connection.subscription === null) &&
 			message.member!.voice.channelId
 		) {
+			const voiceChannelId = message.member!.voice.channelId!;
 			const stream = joinVoiceChannelAndListen(
 				{
-					channelId: message.member!.voice.channelId!,
+					selfDeaf: false,
+					channelId: voiceChannelId,
 					guildId: message.guildId!,
 					adapterCreator: message.guild.voiceAdapterCreator,
 				},
@@ -306,7 +316,7 @@ client.on('messageCreate', async message => {
 
 				play(connection, manager, message.guild!);
 			} else {
-				const newConnection = {
+				const newConnection: Connection = {
 					subscription,
 					queue: song.videos,
 					index: 0,
@@ -316,9 +326,11 @@ client.on('messageCreate', async message => {
 					repeat: false,
 					autoplay: false,
 					manager,
+					voiceChannelId,
 				};
 
 				connections.set(manager.guildId, newConnection);
+				channelToConnection.set(newConnection.voiceChannelId, newConnection);
 
 				play(newConnection, manager, message.guild!);
 			}
@@ -329,9 +341,11 @@ client.on('messageCreate', async message => {
 				message.member!.voice.channel &&
 				!message.member!.voice.channel.members.has(client.user!.id)
 			) {
+				const voiceChannelId = message.member!.voice.channelId!;
 				const stream = joinVoiceChannelAndListen(
 					{
-						channelId: message.member!.voice.channelId!,
+						selfDeaf: false,
+						channelId: voiceChannelId,
 						guildId: message.guildId!,
 						adapterCreator: message.guild.voiceAdapterCreator,
 					},
@@ -340,6 +354,7 @@ client.on('messageCreate', async message => {
 
 				const subscription = stream.subscribe(connection.subscription.player)!;
 
+				connection.voiceChannelId = voiceChannelId;
 				connection.subscription.unsubscribe();
 				connection.subscription = subscription;
 

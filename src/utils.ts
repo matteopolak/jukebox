@@ -17,6 +17,7 @@ import {
 	getVideo,
 	managers,
 	starred,
+	channelToConnection,
 } from './music';
 import { Connection, Effect, Manager, Song } from './typings';
 
@@ -60,7 +61,11 @@ export function shuffleArray<T>(array: T[]): T[] {
 	return array;
 }
 
-export async function getConnection(guildId: string, channelId: string) {
+export async function getConnection(
+	guildId: string,
+	channelId: string,
+	voiceChannelId: string
+) {
 	if (connections.has(guildId)) return connections.get(guildId)!;
 
 	const manager = await getManager(channelId);
@@ -76,6 +81,7 @@ export async function getConnection(guildId: string, channelId: string) {
 		repeat: false,
 		autoplay: false,
 		manager,
+		voiceChannelId,
 	};
 
 	connections.set(guildId, connection);
@@ -84,7 +90,7 @@ export async function getConnection(guildId: string, channelId: string) {
 }
 
 export async function getManager(channelId: string) {
-	const raw = await managers.findOne({ channelId: channelId });
+	const raw = await managers.findOne({ channelId });
 	if (!raw) return null;
 
 	const starredVideos = await starred.find({ guild_id: raw.guildId });
@@ -367,5 +373,6 @@ export async function play(
 	connection.subscription = null;
 
 	// connection.subscription = null;
-	connections.delete(guild.id);
+	connections.delete(manager.guildId);
+	channelToConnection.delete(connection.voiceChannelId);
 }

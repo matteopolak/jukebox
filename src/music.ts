@@ -165,6 +165,7 @@ export const starred: Datastore<{ id: string; guild_id: string }> =
 	});
 
 export const connections: Map<string, Connection> = new Map();
+export const channelToConnection: Map<string, Connection> = new Map();
 
 export const YOUTUBE_URL_REGEX =
 	/^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})(?:\S+)?$/;

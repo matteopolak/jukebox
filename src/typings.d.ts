@@ -50,4 +50,5 @@ export interface Connection {
 	) => Awaited<void>;
 	seek?: number;
 	manager: Manager;
+	voiceChannelId: string;
 }
