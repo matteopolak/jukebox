@@ -23,6 +23,8 @@ import {
 	starred,
 } from './music';
 
+export const videosWithErrors: Set<string> = new Set();
+
 export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.NONE]: ['-af', 'loudnorm=I=-16:LRA=11:TP=-1.5'],
 	[Effect.LOUD]: [
@@ -203,7 +205,9 @@ export async function play(
 					i + lower === connection.index ? '**' : ''
 				}${escapeMarkdown(s.title)} \`[${s.duration}]\`${
 					i + lower === connection.index ? '**' : ''
-				}${manager.starred.has(s.id) ? ' ⭐' : ''}`;
+				}${manager.starred.has(s.id) ? ' ⭐' : ''}${
+					videosWithErrors.has(s.id) ? ' 🚫' : ''
+				}`;
 
 				return string;
 			});
@@ -231,6 +235,7 @@ export async function play(
 
 	while (connection.queue.length > 0) {
 		const song = connection.queue[connection.index];
+		if (videosWithErrors.has(song.id)) continue;
 
 		update(song);
 
@@ -306,7 +311,8 @@ export async function play(
 			};
 
 			const error = (e: Error) => {
-				console.error(e);
+				videosWithErrors.add(song.id);
+
 				connection.subscription!.player.off(
 					// @ts-ignore
 					'stateChange',
