@@ -291,84 +291,10 @@ client.on('messageCreate', async message => {
 	const song = await getVideo(message.content, message.author);
 
 	if (song) {
-		const connection = await getConnection(message);
+		const connection = (await getConnection(message))!;
 
-		if (
-			(!connection || connection.subscription === null) &&
-			message.member!.voice.channelId
-		) {
-			const voiceChannelId = message.member!.voice.channelId!;
-			const stream = joinVoiceChannelAndListen(
-				{
-					selfDeaf: false,
-					channelId: voiceChannelId,
-					guildId: message.guildId!,
-					adapterCreator: message.guild.voiceAdapterCreator,
-				},
-				message.member!.voice.channel!,
-				message.channel
-			);
-
-			await entersState(stream, VoiceConnectionStatus.Ready, 30e3);
-
-			const player = createAudioPlayer();
-			const subscription = stream.subscribe(player)!;
-
-			if (connection?.subscription === null) {
-				connection.subscription = subscription;
-				connection.queue = song.videos;
-
-				play(connection, manager, message.guild!);
-			} else {
-				const newConnection: Connection = {
-					subscription,
-					queue: song.videos,
-					index: 0,
-					effect: Effect.NONE,
-					update: () => {},
-					resource: null,
-					repeat: false,
-					autoplay: false,
-					manager,
-					voiceChannelId,
-				};
-
-				connections.set(manager.guildId, newConnection);
-				channelToConnection.set(newConnection.voiceChannelId, newConnection);
-
-				play(newConnection, manager, message.guild!);
-			}
-		} else if (connection?.subscription) {
-			connection.queue.push(...song.videos);
-
-			if (
-				message.member!.voice.channel &&
-				!message.member!.voice.channel.members.has(client.user!.id)
-			) {
-				const voiceChannelId = message.member!.voice.channelId!;
-				const stream = joinVoiceChannelAndListen(
-					{
-						selfDeaf: false,
-						channelId: voiceChannelId,
-						guildId: message.guildId!,
-						adapterCreator: message.guild.voiceAdapterCreator,
-					},
-					message.member!.voice.channel!,
-					message.channel
-				);
-
-				const subscription = stream.subscribe(connection.subscription.player)!;
-
-				connection.voiceChannelId = voiceChannelId;
-				connection.subscription.unsubscribe();
-				connection.subscription = subscription;
-
-				// @ts-ignore
-				connection.subscription.player.emit('new_subscriber');
-			}
-
-			connection.subscription.player.emit('song_add');
-		}
+		connection.queue.push(...song.videos);
+		connection.subscription?.player.emit('song_add');
 
 		const notification = await message.channel.send(
 			song.title === null

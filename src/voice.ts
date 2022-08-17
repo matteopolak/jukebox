@@ -1,10 +1,13 @@
 import {
 	AudioPlayerStatus,
+	createAudioPlayer,
 	CreateVoiceConnectionOptions,
 	EndBehaviorType,
+	entersState,
 	joinVoiceChannel,
 	JoinVoiceChannelOptions,
 	VoiceConnection,
+	VoiceConnectionStatus,
 } from '@discordjs/voice';
 
 import ffmpeg from 'fluent-ffmpeg';
@@ -16,20 +19,29 @@ import {
 	TextBasedChannel,
 	VoiceBasedChannel,
 } from 'discord.js';
-import { getVideo } from './music';
-import { getConnection, moveTrackBy } from './utils';
+import { channelToConnection, connections, getVideo } from './music';
+import { getConnection, moveTrackBy, play } from './utils';
+import { Connection, Effect } from './typings';
 
 axios.defaults.headers.post.authorization =
 	'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK';
 axios.defaults.baseURL = 'https://api.wit.ai';
+
+const activeConnections = new Map<string, VoiceConnection>();
 
 export function joinVoiceChannelAndListen(
 	options: JoinVoiceChannelOptions & CreateVoiceConnectionOptions,
 	voice: VoiceBasedChannel,
 	channel: TextBasedChannel
 ): VoiceConnection {
+	if (activeConnections.has(voice.id)) {
+		activeConnections.get(voice.id)!.destroy();
+	}
+
 	const connection = joinVoiceChannel(options);
 	const active = new Set<string>([voice.client.user!.id]);
+
+	activeConnections.set(voice.id, connection);
 
 	connection.receiver.speaking.on('start', async userId => {
 		if (active.has(userId)) return;
@@ -63,7 +75,10 @@ export function joinVoiceChannelAndListen(
 
 		// Create new scope
 		{
-			const data = JSON.parse(response.data.split('\r\n').pop()!);
+			const data =
+				typeof response.data === 'string'
+					? JSON.parse(response.data.split('\r\n').pop()!)
+					: response.data;
 
 			if (
 				!data.entities['keyword:keyword']?.length ||
@@ -72,14 +87,12 @@ export function joinVoiceChannelAndListen(
 				return;
 
 			const member = voice.members.get(userId)!;
-			const connection = await getConnection({
+			const connection = (await getConnection({
 				member,
 				guild: member.guild,
 				guildId: member.guild.id,
-				channel: channel,
-			});
-
-			if (!connection) return;
+				channel,
+			}))!;
 
 			const song = connection.queue[connection.index];
 
@@ -93,6 +106,7 @@ export function joinVoiceChannelAndListen(
 
 						if (song) {
 							connection.queue.push(...song.videos);
+							connection.subscription?.player.emit('song_add');
 
 							const notification = await channel.send(
 								song.title === null

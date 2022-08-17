@@ -72,12 +72,39 @@ export function shuffleArray<T>(array: T[]): T[] {
 export async function getConnection(
 	data: Message | ButtonInteraction | RawData
 ) {
-	if (connections.has(data.guildId!)) return connections.get(data.guildId!)!;
+	const voiceChannelId = (data.member! as GuildMember).voice.channelId;
+
+	if (connections.has(data.guildId!)) {
+		const connection = connections.get(data.guildId!)!;
+
+		if (connection.subscription === null && voiceChannelId) {
+			const stream = joinVoiceChannelAndListen(
+				{
+					selfDeaf: false,
+					channelId: voiceChannelId,
+					guildId: data.guildId!,
+					adapterCreator: data.guild!.voiceAdapterCreator,
+				},
+				(data.member! as GuildMember).voice.channel!,
+				data.channel!
+			);
+
+			await entersState(stream, VoiceConnectionStatus.Ready, 30e3);
+
+			const player = createAudioPlayer();
+			const subscription = stream.subscribe(player)!;
+
+			connection.subscription = subscription;
+
+			play(connection, connection.manager, data.guild!);
+		}
+
+		return connection;
+	}
 
 	const manager = await getManager(data.channel!.id);
 	if (!manager) return null;
 
-	const voiceChannelId = (data.member! as GuildMember).voice.channelId;
 	let subscription: PlayerSubscription | null = null;
 
 	if (voiceChannelId) {
@@ -92,7 +119,7 @@ export async function getConnection(
 			data.channel!
 		);
 
-		await entersState(stream, VoiceConnectionStatus.Ready, 30e3);
+		await entersState(stream, VoiceConnectionStatus.Ready, 30_000);
 
 		const player = createAudioPlayer();
 		const newSubscription = stream.subscribe(player)!;
@@ -115,6 +142,10 @@ export async function getConnection(
 
 	connections.set(connection.manager.guildId, connection);
 	channelToConnection.set(connection.voiceChannelId, connection);
+
+	if (connection.subscription) {
+		play(connection, manager, data.guild!);
+	}
 
 	return connection;
 }
