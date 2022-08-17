@@ -29,6 +29,8 @@
 		"libsodium-wrappers": "^0.7.10",
 		"nedb-promises": "^6.1.0",
 		"node-fetch": "^3.2.10",
+		"node-html-parser": "^5.4.2-0",
+		"parse5": "^7.0.0",
 		"puppeteer": "^16.1.0",
 		"ytdl-core": "4.9.1"
 	},

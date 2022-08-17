@@ -1,7 +1,13 @@
 import puppeteer from 'puppeteer';
-import { Song } from './music';
+import { parse } from 'node-html-parser';
 
-export default async function scraper(
+import { Song } from './typings';
+
+export async function scrapeSpotifySong() {}
+
+export async function scrapeSpotifyAlbum() {}
+
+export async function scrapeYouTubePlaylist(
 	id: string
 ): Promise<{ title: string; videos: Song[] }> {
 	const browser = await puppeteer.launch();

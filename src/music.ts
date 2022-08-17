@@ -1,13 +1,8 @@
 import axios from 'axios';
 import Datastore from 'nedb-promises';
-import {
-	AudioPlayerStatus,
-	AudioResource,
-	PlayerSubscription,
-} from '@discordjs/voice';
+import { AudioPlayerStatus } from '@discordjs/voice';
 import {
 	CommandInteraction,
-	ButtonInteraction,
 	ActionRowBuilder,
 	ButtonBuilder,
 	User,
@@ -16,9 +11,10 @@ import {
 	APIButtonComponent,
 	APIActionRowComponent,
 } from 'discord.js';
-import ytdl, { videoFormat, videoInfo } from 'ytdl-core';
+import ytdl, { videoInfo } from 'ytdl-core';
 import { formatSeconds, randomElement, YOUTUBE_PLAYLIST_REGEX } from './utils';
-import scraper from './playlist';
+import { scrapeYouTubePlaylist } from './scrape';
+import { Connection, Effect, RawManager, Song } from './typings';
 
 export function getComponents(
 	connection?: Connection
@@ -157,57 +153,6 @@ export function getComponents(
 	return components;
 }
 
-export interface RawManager {
-	_id: string;
-	messageId: string;
-	queueId: string;
-	channelId: string;
-	guildId: string;
-}
-
-export interface Manager extends RawManager {
-	starred: Set<string>;
-}
-
-export interface Song {
-	url: string;
-	id: string;
-	title: string;
-	duration: string;
-	thumbnail: string;
-	live: boolean;
-	format?: videoFormat;
-	related?: string;
-}
-
-export const enum Effect {
-	NONE,
-	LOUD,
-	UNDER_WATER,
-	BASS,
-	ECHO,
-	HIGH_PITCH,
-	REVERSE,
-}
-
-export interface Connection {
-	subscription: PlayerSubscription | null;
-	resource: AudioResource | null;
-	queue: Song[];
-	effect: Effect;
-	repeat: boolean;
-	autoplay: boolean;
-	index: number;
-	update: (
-		song?: Song | null,
-		force?: boolean,
-		forceQueue?: boolean,
-		interaction?: ButtonInteraction
-	) => Awaited<void>;
-	seek?: number;
-	manager: Manager;
-}
-
 export const managers: Datastore<RawManager> = Datastore.create({
 	filename: 'managers.db',
 	autoload: true,
@@ -267,7 +212,7 @@ export async function getVideo(
 	if (YOUTUBE_PLAYLIST_REGEX.test(query)) {
 		const [, id] = query.match(YOUTUBE_PLAYLIST_REGEX) ?? [];
 
-		return await scraper(id);
+		return await scrapeYouTubePlaylist(id);
 	}
 
 	if (YOUTUBE_URL_REGEX.test(query)) {

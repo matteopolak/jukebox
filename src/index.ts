@@ -22,8 +22,6 @@ import {
 	connections,
 	createAudioManager,
 	getVideo,
-	managers,
-	Effect,
 	starred,
 } from './music';
 import {
@@ -37,6 +35,7 @@ import {
 	togglePlayback,
 } from './utils';
 import { joinVoiceChannelAndListen } from './voice';
+import { Effect } from './typings';
 
 dotenv.config({ override: true });
 

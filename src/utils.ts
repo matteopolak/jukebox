@@ -13,15 +13,12 @@ import {
 import ytdl from 'discord-ytdl-core';
 import {
 	getComponents,
-	Connection,
 	connections,
-	Manager,
-	Song,
-	Effect,
 	getVideo,
 	managers,
 	starred,
 } from './music';
+import { Connection, Effect, Manager, Song } from './typings';
 
 export const videosWithErrors: Set<string> = new Set();
 
@@ -235,7 +232,15 @@ export async function play(
 
 	while (connection.queue.length > 0) {
 		const song = connection.queue[connection.index];
-		if (videosWithErrors.has(song.id)) continue;
+		if (!song) {
+			moveTrackBy(connection, 1);
+			continue;
+		}
+
+		if (videosWithErrors.has(song.id)) {
+			connection.queue.splice(connection.index, 1);
+			continue;
+		}
 
 		update(song);
 
