@@ -1,4 +1,9 @@
-import { ButtonInteraction, User, Util } from 'discord.js';
+import {
+	ButtonInteraction,
+	Guild,
+	escapeMarkdown,
+	TextChannel,
+} from 'discord.js';
 import {
 	AudioPlayerState,
 	AudioPlayerStatus,
@@ -17,7 +22,6 @@ import {
 	managers,
 	starred,
 } from './music';
-import { Guild } from 'discord.js-light';
 
 export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.NONE]: ['-af', 'loudnorm=I=-16:LRA=11:TP=-1.5'],
@@ -100,12 +104,14 @@ export function formatSeconds(seconds: number) {
 }
 
 export function togglePlayback(connection: Connection) {
+	if (!connection.subscription) return;
+
 	if (
-		connection.subscription!.player.state.status !== AudioPlayerStatus.Paused
+		connection.subscription.player.state.status !== AudioPlayerStatus.Paused
 	) {
-		connection.subscription!.player.pause();
+		connection.subscription.player.pause();
 	} else {
-		connection.subscription!.player.unpause();
+		connection.subscription.player.unpause();
 	}
 }
 
@@ -142,7 +148,7 @@ export async function play(
 	let lastIndex = -1;
 	let lastSong: Song | undefined | null;
 
-	const channel = guild.channels.forge(manager.channelId, 'GUILD_TEXT');
+	const channel = guild.channels.cache.get(manager.channelId)! as TextChannel;
 
 	const update = (connection.update = async (
 		song: Song | undefined | null,
@@ -159,7 +165,7 @@ export async function play(
 				embeds: [
 					{
 						title: song?.title
-							? Util.escapeMarkdown(song.title)
+							? escapeMarkdown(song.title)
 							: 'No music playing',
 						url: song?.url,
 						image: {
@@ -175,7 +181,7 @@ export async function play(
 			promises.push(
 				interaction
 					? interaction.update(data)
-					: channel.messages.forge(manager.messageId).edit(data)
+					: channel.messages.edit(manager.messageId, data)
 			);
 		}
 
@@ -195,7 +201,7 @@ export async function play(
 					.toString()
 					.padStart(length, '0')}.\` ${
 					i + lower === connection.index ? '**' : ''
-				}${Util.escapeMarkdown(s.title)} \`[${s.duration}]\`${
+				}${escapeMarkdown(s.title)} \`[${s.duration}]\`${
 					i + lower === connection.index ? '**' : ''
 				}${manager.starred.has(s.id) ? ' ⭐' : ''}`;
 
@@ -203,7 +209,7 @@ export async function play(
 			});
 
 			promises.push(
-				channel.messages.forge(manager.queueId).edit({
+				channel.messages.edit(manager.queueId, {
 					content: queue.join('\n') || '\u200b',
 				})
 			);
@@ -341,8 +347,13 @@ export async function play(
 	connection.update = () => {};
 
 	// @ts-ignore
+	connection.subscription!.player.emit('end');
+
+	// @ts-ignore
 	connection.subscription.player.off('song_add', update);
 	connection.subscription!.unsubscribe();
+
+	connection.subscription = null;
 
 	// connection.subscription = null;
 	connections.delete(guild.id);

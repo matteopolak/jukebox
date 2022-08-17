@@ -1,13 +1,16 @@
 import {
+	ActivityType,
+	ApplicationCommandType,
 	ButtonInteraction,
 	Client,
-	Intents,
+	ComponentType,
+	escapeMarkdown,
+	IntentsBitField,
+	InteractionType,
 	Options,
-	Util,
-} from 'discord.js-light';
+} from 'discord.js';
 import {
 	createAudioPlayer,
-	joinVoiceChannel,
 	entersState,
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
@@ -33,6 +36,7 @@ import {
 	shuffleArray,
 	togglePlayback,
 } from './utils';
+import { joinVoiceChannelAndListen } from './voice';
 
 dotenv.config({ override: true });
 
@@ -51,20 +55,15 @@ const client = new Client({
 	makeCache: Options.cacheWithLimits({
 		ApplicationCommandManager: 0,
 		BaseGuildEmojiManager: 0,
-		ChannelManager: 0,
-		GuildChannelManager: Infinity,
 		GuildBanManager: 0,
 		GuildInviteManager: 0,
-		GuildManager: Infinity,
 		GuildMemberManager: 100,
 		GuildStickerManager: 0,
 		GuildScheduledEventManager: 0,
 		MessageManager: 0,
-		PermissionOverwriteManager: 0,
 		PresenceManager: 0,
 		ReactionManager: 0,
 		ReactionUserManager: 0,
-		RoleManager: 0,
 		StageInstanceManager: 0,
 		ThreadManager: 0,
 		ThreadMemberManager: 0,
@@ -72,11 +71,12 @@ const client = new Client({
 		VoiceStateManager: Infinity,
 	}),
 	intents: [
-		Intents.FLAGS.GUILDS,
-		Intents.FLAGS.GUILD_MEMBERS,
-		Intents.FLAGS.GUILD_INTEGRATIONS,
-		Intents.FLAGS.GUILD_MESSAGES,
-		Intents.FLAGS.GUILD_VOICE_STATES,
+		IntentsBitField.Flags.Guilds,
+		IntentsBitField.Flags.GuildMembers,
+		IntentsBitField.Flags.GuildIntegrations,
+		IntentsBitField.Flags.GuildMessages,
+		IntentsBitField.Flags.MessageContent,
+		IntentsBitField.Flags.GuildVoiceStates,
 	],
 });
 
@@ -88,10 +88,10 @@ client.once('ready', async () => {
 			{
 				name: 'create',
 				description: 'Creates a new audio player',
-				type: 'CHAT_INPUT',
+				type: ApplicationCommandType.ChatInput,
 				options: [],
 			},
-			'637031306370220084'
+			'929442094626525275'
 		)
 		.catch(() => {});
 
@@ -100,7 +100,7 @@ client.once('ready', async () => {
 		afk: false,
 		activities: [
 			{
-				type: 'WATCHING',
+				type: ActivityType.Watching,
 				name: randomElement(tweets),
 			},
 		],
@@ -112,7 +112,7 @@ client.once('ready', async () => {
 			afk: false,
 			activities: [
 				{
-					type: 'WATCHING',
+					type: ActivityType.Watching,
 					name: randomElement(tweets),
 				},
 			],
@@ -257,12 +257,15 @@ async function handleButton(interaction: ButtonInteraction) {
 }
 
 client.on('interactionCreate', async interaction => {
-	if (interaction.isButton()) {
-		return handleButton(interaction);
-	} else if (interaction.isApplicationCommand()) {
+	if (
+		interaction.type === InteractionType.MessageComponent &&
+		interaction.componentType === ComponentType.Button
+	) {
+		return void handleButton(interaction);
+	} else if (interaction.type === InteractionType.ApplicationCommand) {
 		switch (interaction.commandName) {
 			case 'create':
-				return createAudioManager(interaction);
+				return void createAudioManager(interaction);
 		}
 	}
 });
@@ -284,11 +287,14 @@ client.on('messageCreate', async message => {
 			(!connection || connection.subscription === null) &&
 			message.member!.voice.channelId
 		) {
-			const stream = joinVoiceChannel({
-				channelId: message.member!.voice.channelId!,
-				guildId: message.guildId!,
-				adapterCreator: message.guild.voiceAdapterCreator,
-			});
+			const stream = joinVoiceChannelAndListen(
+				{
+					channelId: message.member!.voice.channelId!,
+					guildId: message.guildId!,
+					adapterCreator: message.guild.voiceAdapterCreator,
+				},
+				message.member!.voice.channel!
+			);
 
 			await entersState(stream, VoiceConnectionStatus.Ready, 30e3);
 
@@ -324,11 +330,14 @@ client.on('messageCreate', async message => {
 				message.member!.voice.channel &&
 				!message.member!.voice.channel.members.has(client.user!.id)
 			) {
-				const stream = joinVoiceChannel({
-					channelId: message.member!.voice.channelId!,
-					guildId: message.guildId!,
-					adapterCreator: message.guild.voiceAdapterCreator,
-				});
+				const stream = joinVoiceChannelAndListen(
+					{
+						channelId: message.member!.voice.channelId!,
+						guildId: message.guildId!,
+						adapterCreator: message.guild.voiceAdapterCreator,
+					},
+					message.member!.voice.channel!
+				);
 
 				const subscription = stream.subscribe(connection.subscription.player)!;
 
@@ -349,10 +358,10 @@ client.on('messageCreate', async message => {
 
 		const notification = await message.channel.send(
 			song.title === null
-				? `Added **${Util.escapeMarkdown(song.videos[0].title)}** to the queue.`
+				? `Added **${escapeMarkdown(song.videos[0].title)}** to the queue.`
 				: `Added **${
 						song.videos.length
-				  }** songs from the playlist **${Util.escapeMarkdown(
+				  }** songs from the playlist **${escapeMarkdown(
 						song.title
 				  )}** to the queue.`
 		);

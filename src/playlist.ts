@@ -14,14 +14,14 @@ export default async function scraper(
 	const videoCount = parseInt(
 		(
 			await page.evaluate(
-				element => element.textContent,
+				element => element!.textContent!,
 				await page.$(
 					'div[id=stats] yt-formatted-string[class="style-scope ytd-playlist-sidebar-primary-info-renderer"]'
 				)
 			)
 		)
 			.split(' ')
-			.shift()
+			.shift()!
 	);
 	const scrolls = Math.ceil(videoCount / 100) - 1;
 
@@ -37,23 +37,23 @@ export default async function scraper(
 							e
 								.querySelector(
 									'span[class="style-scope ytd-thumbnail-overlay-time-status-renderer"]'
-								)
-								.textContent.trim(),
+								)!
+								.textContent!.trim(),
 						div
 					);
 					const title = await page.evaluate(
-						e => e.querySelector('a[id="video-title"]').getAttribute('title'),
+						e => e.querySelector('a[id="video-title"]')!.getAttribute('title'),
 						div
 					);
-					const link = await page.evaluate(
+					const link = (await page.evaluate(
 						e =>
 							e
 								.querySelector(
 									'a[class="yt-simple-endpoint style-scope ytd-playlist-video-renderer"]'
-								)
+								)!
 								.getAttribute('href'),
 						div
-					);
+					))!;
 
 					const id = link.slice(9, 20);
 
@@ -93,7 +93,7 @@ export default async function scraper(
 	const data = {
 		videos: (await scrape()) as Song[],
 		title: await page.evaluate(
-			e => e.textContent,
+			e => e!.textContent!,
 			await page.$(
 				'a[class="yt-simple-endpoint style-scope yt-formatted-string"]'
 			)

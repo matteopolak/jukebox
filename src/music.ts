@@ -6,70 +6,77 @@ import {
 	PlayerSubscription,
 } from '@discordjs/voice';
 import {
-	BaseCommandInteraction,
+	CommandInteraction,
 	ButtonInteraction,
-	MessageActionRow,
-	MessageButton,
+	ActionRowBuilder,
+	ButtonBuilder,
 	User,
-	Util,
+	ButtonStyle,
+	escapeMarkdown,
+	APIButtonComponent,
+	APIActionRowComponent,
 } from 'discord.js';
 import ytdl, { videoFormat, videoInfo } from 'ytdl-core';
 import { formatSeconds, randomElement, YOUTUBE_PLAYLIST_REGEX } from './utils';
 import scraper from './playlist';
 
-export function getComponents(connection?: Connection) {
+export function getComponents(
+	connection?: Connection
+): APIActionRowComponent<APIButtonComponent>[] {
 	const components = [
-		new MessageActionRow({
+		new ActionRowBuilder({
 			components: [
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'toggle',
 					label:
 						connection?.subscription?.player?.state?.status !==
 						AudioPlayerStatus.Paused
 							? '⏸️'
 							: '▶️',
-					style: 'PRIMARY',
+					style: ButtonStyle.Primary,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'previous',
 					label: '⏮️',
-					style: 'PRIMARY',
+					style: ButtonStyle.Primary,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'next',
 					label: '⏭️',
-					style: 'PRIMARY',
+					style: ButtonStyle.Primary,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'repeat',
 					label: '🔂',
-					style: connection?.repeat ? 'SUCCESS' : 'DANGER',
+					style: connection?.repeat ? ButtonStyle.Success : ButtonStyle.Danger,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'shuffle',
 					label: '🔀',
-					style: 'PRIMARY',
+					style: ButtonStyle.Primary,
 				}),
 			],
-		}),
-		new MessageActionRow({
+		}).toJSON(),
+		new ActionRowBuilder({
 			components: [
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'autoplay',
 					label: '♾️',
-					style: connection?.autoplay ? 'SUCCESS' : 'DANGER',
+					style: connection?.autoplay
+						? ButtonStyle.Success
+						: ButtonStyle.Danger,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'remove',
 					label: '🗑️',
-					style: 'PRIMARY',
+					style: ButtonStyle.Primary,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'remove_all',
 					label: '💣',
-					style: 'PRIMARY',
+					style: ButtonStyle.Primary,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'star',
 					label: '⭐️',
 					style:
@@ -78,58 +85,75 @@ export function getComponents(connection?: Connection) {
 						connection.manager.starred.has(
 							connection.queue[connection.index].id
 						)
-							? 'SUCCESS'
-							: 'DANGER',
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'play_starred',
 					label: '☀️',
-					style: 'PRIMARY',
+					style: ButtonStyle.Primary,
 				}),
 			],
-		}),
-		new MessageActionRow({
+		}).toJSON(),
+		new ActionRowBuilder({
 			components: [
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'loud',
 					label: '🧨',
-					style: connection?.effect === Effect.LOUD ? 'SUCCESS' : 'DANGER',
+					style:
+						connection?.effect === Effect.LOUD
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'underwater',
 					label: '🌊',
 					style:
-						connection?.effect === Effect.UNDER_WATER ? 'SUCCESS' : 'DANGER',
+						connection?.effect === Effect.UNDER_WATER
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'bass',
 					label: '🥁',
-					style: connection?.effect === Effect.BASS ? 'SUCCESS' : 'DANGER',
+					style:
+						connection?.effect === Effect.BASS
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'echo',
 					label: '🧯',
-					style: connection?.effect === Effect.ECHO ? 'SUCCESS' : 'DANGER',
+					style:
+						connection?.effect === Effect.ECHO
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
 				}),
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'high_pitch',
 					label: '🐿️',
 					style:
-						connection?.effect === Effect.HIGH_PITCH ? 'SUCCESS' : 'DANGER',
+						connection?.effect === Effect.HIGH_PITCH
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
 				}),
 			],
-		}),
-		new MessageActionRow({
+		}).toJSON(),
+		new ActionRowBuilder({
 			components: [
-				new MessageButton({
+				new ButtonBuilder({
 					customId: 'reverse',
 					label: '⏪',
-					style: connection?.effect === Effect.REVERSE ? 'SUCCESS' : 'DANGER',
+					style:
+						connection?.effect === Effect.REVERSE
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
 				}),
 			],
-		}),
+		}).toJSON(),
 	];
 
+	// @ts-ignore
 	return components;
 }
 
@@ -263,7 +287,7 @@ export async function getVideo(
 						queries.map(async q => (await getVideo(q, user, true))?.videos?.[0])
 					)
 				).filter(s => s !== null) as Song[],
-				title: `${user ? Util.escapeMarkdown(user.username) : 'Unknown'}'${
+				title: `${user ? escapeMarkdown(user.username) : 'Unknown'}'${
 					user?.username?.at(-1)?.toLowerCase() === 's' ? '' : 's'
 				} playlist`,
 			};
@@ -286,7 +310,7 @@ export async function getVideo(
 	return null;
 }
 
-export async function createAudioManager(interaction: BaseCommandInteraction) {
+export async function createAudioManager(interaction: CommandInteraction) {
 	const message = await interaction.channel!.send({
 		embeds: [
 			{
@@ -296,6 +320,7 @@ export async function createAudioManager(interaction: BaseCommandInteraction) {
 				},
 			},
 		],
+		// @ts-ignore
 		components: getComponents(),
 	});
 
