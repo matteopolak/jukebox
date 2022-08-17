@@ -3,14 +3,21 @@ import {
 	Guild,
 	escapeMarkdown,
 	TextChannel,
+	Message,
+	GuildMember,
 } from 'discord.js';
 import {
 	AudioPlayerState,
 	AudioPlayerStatus,
+	createAudioPlayer,
 	createAudioResource,
+	entersState,
+	PlayerSubscription,
 	StreamType,
+	VoiceConnectionStatus,
 } from '@discordjs/voice';
 import ytdl from 'discord-ytdl-core';
+import { once } from 'node:stream';
 import {
 	getComponents,
 	connections,
@@ -19,7 +26,8 @@ import {
 	starred,
 	channelToConnection,
 } from './music';
-import { Connection, Effect, Manager, Song } from './typings';
+import { Connection, Effect, Manager, RawData, Song } from './typings';
+import { joinVoiceChannelAndListen } from './voice';
 
 export const videosWithErrors: Set<string> = new Set();
 
@@ -62,17 +70,38 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 export async function getConnection(
-	guildId: string,
-	channelId: string,
-	voiceChannelId: string
+	data: Message | ButtonInteraction | RawData
 ) {
-	if (connections.has(guildId)) return connections.get(guildId)!;
+	if (connections.has(data.guildId!)) return connections.get(data.guildId!)!;
 
-	const manager = await getManager(channelId);
+	const manager = await getManager(data.channel!.id);
 	if (!manager) return null;
 
+	const voiceChannelId = (data.member! as GuildMember).voice.channelId;
+	let subscription: PlayerSubscription | null = null;
+
+	if (voiceChannelId) {
+		const stream = joinVoiceChannelAndListen(
+			{
+				selfDeaf: false,
+				channelId: voiceChannelId,
+				guildId: data.guildId!,
+				adapterCreator: data.guild!.voiceAdapterCreator,
+			},
+			(data.member! as GuildMember)!.voice.channel!,
+			data.channel!
+		);
+
+		await entersState(stream, VoiceConnectionStatus.Ready, 30e3);
+
+		const player = createAudioPlayer();
+		const newSubscription = stream.subscribe(player)!;
+
+		subscription = newSubscription;
+	}
+
 	const connection: Connection = {
-		subscription: null,
+		subscription,
 		queue: [],
 		index: 0,
 		effect: Effect.NONE,
@@ -81,10 +110,11 @@ export async function getConnection(
 		repeat: false,
 		autoplay: false,
 		manager,
-		voiceChannelId,
+		voiceChannelId: voiceChannelId!,
 	};
 
-	connections.set(guildId, connection);
+	connections.set(connection.manager.guildId, connection);
+	channelToConnection.set(connection.voiceChannelId, connection);
 
 	return connection;
 }
@@ -236,7 +266,13 @@ export async function play(
 
 	connection.index = 0;
 
-	while (connection.queue.length > 0) {
+	while (true) {
+		if (connection.queue.length === 0) {
+			await once(connection.subscription!.player, 'song_add');
+			moveTrackBy(connection, 1);
+			continue;
+		}
+
 		const song = connection.queue[connection.index];
 		if (!song) {
 			moveTrackBy(connection, 1);
@@ -358,7 +394,7 @@ export async function play(
 			moveTrackBy(connection, 1);
 		}
 	}
-
+	/*
 	connection.resource = null;
 	update(null);
 	connection.update = () => {};
@@ -374,5 +410,5 @@ export async function play(
 
 	// connection.subscription = null;
 	connections.delete(manager.guildId);
-	channelToConnection.delete(connection.voiceChannelId);
+	channelToConnection.delete(connection.voiceChannelId);*/
 }

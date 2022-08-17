@@ -1,5 +1,10 @@
 import { PlayerSubscription, AudioResource } from '@discordjs/voice';
-import { ButtonInteraction } from 'discord.js';
+import {
+	ButtonInteraction,
+	Guild,
+	GuildMember,
+	TextBasedChannel,
+} from 'discord.js';
 
 export interface RawManager {
 	_id: string;
@@ -51,4 +56,11 @@ export interface Connection {
 	seek?: number;
 	manager: Manager;
 	voiceChannelId: string;
+}
+
+export interface RawData {
+	channel: TextBasedChannel;
+	guildId: string;
+	guild: Guild;
+	member: GuildMember;
 }

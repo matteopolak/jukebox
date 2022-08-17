@@ -25,6 +25,7 @@ import {
 	connections,
 	createAudioManager,
 	getVideo,
+	managers,
 	starred,
 } from './music';
 import {
@@ -127,12 +128,14 @@ async function handleButton(interaction: ButtonInteraction) {
 	const voiceChannelId = (interaction.member! as GuildMember).voice.channelId;
 	if (!voiceChannelId) return interaction.deferUpdate({ fetchReply: false });
 
-	const connection = await getConnection(
-		interaction.guildId!,
-		interaction.channelId,
-		voiceChannelId
-	);
-	if (!connection) return interaction.deferUpdate({ fetchReply: false });
+	const manager = await getManager(interaction.channelId);
+	if (!manager) return interaction.deferUpdate({ fetchReply: false });
+
+	const connection = await getConnection(interaction);
+
+	if (!connection) {
+		return interaction.deferUpdate({ fetchReply: false });
+	}
 
 	const song = connection.queue[connection.index];
 
@@ -288,7 +291,7 @@ client.on('messageCreate', async message => {
 	const song = await getVideo(message.content, message.author);
 
 	if (song) {
-		const connection = connections.get(manager.guildId);
+		const connection = await getConnection(message);
 
 		if (
 			(!connection || connection.subscription === null) &&
@@ -302,7 +305,8 @@ client.on('messageCreate', async message => {
 					guildId: message.guildId!,
 					adapterCreator: message.guild.voiceAdapterCreator,
 				},
-				message.member!.voice.channel!
+				message.member!.voice.channel!,
+				message.channel
 			);
 
 			await entersState(stream, VoiceConnectionStatus.Ready, 30e3);
@@ -349,7 +353,8 @@ client.on('messageCreate', async message => {
 						guildId: message.guildId!,
 						adapterCreator: message.guild.voiceAdapterCreator,
 					},
-					message.member!.voice.channel!
+					message.member!.voice.channel!,
+					message.channel
 				);
 
 				const subscription = stream.subscribe(connection.subscription.player)!;
@@ -362,12 +367,7 @@ client.on('messageCreate', async message => {
 				connection.subscription.player.emit('new_subscriber');
 			}
 
-			if (connection.queue.length === 0) {
-				play(connection, manager, message.guild!);
-			} else {
-				// @ts-ignore
-				connection.subscription.player.emit('song_add');
-			}
+			connection.subscription.player.emit('song_add');
 		}
 
 		const notification = await message.channel.send(

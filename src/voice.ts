@@ -1,5 +1,4 @@
 import {
-	AudioReceiveStream,
 	CreateVoiceConnectionOptions,
 	EndBehaviorType,
 	joinVoiceChannel,
@@ -7,31 +6,32 @@ import {
 	VoiceConnection,
 } from '@discordjs/voice';
 
-import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
-import fetch from 'node-fetch';
-import { Readable } from 'stream';
-import { on } from 'events';
-import { buffer } from 'node:stream/consumers';
 import prism from 'prism-media';
 
 import axios from 'axios';
-import { GuildMember, VoiceBasedChannel } from 'discord.js';
+import {
+	escapeMarkdown,
+	TextBasedChannel,
+	VoiceBasedChannel,
+} from 'discord.js';
+import { getVideo } from './music';
+import { getConnection } from './utils';
 
 axios.defaults.headers.post.authorization =
-	'Bearer AR4CCSLXXR6GY2ZQFDEDNTHABLB7AFZX';
+	'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK';
 axios.defaults.baseURL = 'https://api.wit.ai';
 
 export function joinVoiceChannelAndListen(
 	options: JoinVoiceChannelOptions & CreateVoiceConnectionOptions,
-	channel: VoiceBasedChannel
+	voice: VoiceBasedChannel,
+	channel: TextBasedChannel
 ): VoiceConnection {
 	const connection = joinVoiceChannel(options);
-	const active = new Set<string>([channel.client.user!.id]);
+	const active = new Set<string>([voice.client.user!.id]);
 
 	connection.receiver.speaking.on('start', async userId => {
 		if (active.has(userId)) return;
-		console.log('speaking', userId);
 		active.add(userId);
 
 		const pcmStream = connection.receiver
@@ -49,7 +49,10 @@ export function joinVoiceChannelAndListen(
 			.inputOption('-f', 's16le', '-ar', '48000', '-ac', '2')
 			.outputFormat('mp3');
 
-		const { data } = await axios.post('/speech', mp3Stream, {
+		const response = await axios.post<string>('/speech?v=20220622', mp3Stream, {
+			responseType: 'text',
+			maxContentLength: Infinity,
+			maxBodyLength: Infinity,
 			headers: {
 				'content-type': 'audio/mpeg3',
 			},
@@ -57,33 +60,60 @@ export function joinVoiceChannelAndListen(
 
 		active.delete(userId);
 
-		const bodies = data.split(/\n\}/g);
+		const data = JSON.parse(response.data.split('\r\n').pop()!);
 
-		console.trace(bodies);
-		/*
-		const out = ffmpeg(stream)
-			.audioCodec('pcm_s16le')
-			.audioChannels(2)
-			.audioBitrate(48_000)
-			.toFormat('mp3');
-*/
+		if (
+			!data.entities['keyword:keyword']?.length ||
+			!data.entities['order:order']?.length
+		)
+			return;
+
+		switch (data.entities['order:order'][0].value) {
+			case 'play': {
+				const name = data.entities['wit$message_body:message_body']?.[0]?.value;
+
+				if (name) {
+					const member = voice.members.get(userId)!;
+					const song = await getVideo(name, member.user);
+
+					const connection = await getConnection({
+						member,
+						guild: member.guild,
+						guildId: member.guild.id,
+						channel: channel,
+					});
+
+					if (song && connection) {
+						connection.queue.push(...song.videos);
+
+						const notification = await channel.send(
+							song.title === null
+								? `Added **${escapeMarkdown(
+										song.videos[0].title
+								  )}** to the queue.`
+								: `Added **${
+										song.videos.length
+								  }** songs from the playlist **${escapeMarkdown(
+										song.title
+								  )}** to the queue.`
+						);
+
+						setTimeout(() => {
+							notification.delete().catch(() => {});
+						}, 3000);
+					} else {
+						const notification = await channel.send(
+							`Could not find a song from the query \`${name}\`.`
+						);
+
+						setTimeout(() => {
+							notification.delete().catch(() => {});
+						}, 3000);
+					}
+				}
+			}
+		}
 	});
 
 	return connection;
-}
-
-export async function* streamToGenerator(
-	stream: AudioReceiveStream,
-	callback: (stop: () => void) => void
-) {
-	let stop = false;
-
-	const stopper = () => (stop = true);
-
-	callback(stopper);
-
-	for await (const [data] of on(stream, 'data')) {
-		if (stop || data[0] === 248) return;
-		yield data;
-	}
 }
