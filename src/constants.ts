@@ -4,9 +4,9 @@ import { Effect, SongProvider } from './typings';
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
 
 export const PROVIDER_TO_EMOJI: Record<SongProvider, string> = {
-	[SongProvider.SoundCloud]: '<:soundcloud:1009913414501544067>',
-	[SongProvider.Spotify]: '<:spotify:1009913541446336693>',
-	[SongProvider.YouTube]: '<:youtube:1009913431090020492>',
+	[SongProvider.SoundCloud]: '<:soundcloud:1009952387005431858>',
+	[SongProvider.Spotify]: '<:spotify:1009952127512223834>',
+	[SongProvider.YouTube]: '<:youtube:1009952565301096448>',
 };
 
 export const EFFECTS: Record<Effect, string[]> = {
