@@ -22,7 +22,7 @@ import { randomElement } from './util/random';
 
 dotenv.config({ override: true });
 
-const tweets = fs.readFileSync('./tweets.txt', 'utf8').split(/\r?\n/);
+const tweets = fs.readFileSync('./data/tweets.txt', 'utf8').split(/\r?\n/);
 
 const NAME_TO_ENUM = {
 	loud: Effect.Loud,
