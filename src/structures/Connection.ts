@@ -19,7 +19,6 @@ import {
 	ButtonInteraction,
 	Message,
 	GuildMember,
-	User,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
@@ -434,7 +433,8 @@ export default class Connection extends EventEmitter {
 	public nextIndex(): number {
 		// If the current song should be repeated, don't modify the index
 		if (this.settings.repeat) return this._index;
-		if (this.settings.shuffle) return randomInteger(this._queueLength);
+		if (this.settings.shuffle)
+			return (this._index = randomInteger(this._queueLength));
 
 		// Increase the index by 1
 		++this._index;

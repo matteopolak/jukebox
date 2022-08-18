@@ -16,8 +16,6 @@ import { handleSpotifyAlbum, handleSpotifyVideo } from '../providers/spotify';
 import { Browser } from 'puppeteer';
 import { ALLOWED_PROTOCOLS } from '../constants';
 
-export const sharedBrowser: { browser: Option<Browser> } = { browser: null };
-
 export function getCachedSong(id: string) {
 	return songDataCache.findOne({ id }).exec();
 }

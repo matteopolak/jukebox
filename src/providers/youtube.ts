@@ -6,7 +6,7 @@ import { Option, SearchResult, Song, SongData, SongProvider } from '../typings';
 import { songDataCache } from '../util/database';
 import { formatSeconds } from '../util/duration';
 import { randomElement } from '../util/random';
-import { getCachedSong, sharedBrowser } from '../util/search';
+import { getCachedSong } from '../util/search';
 
 export const ID_REGEX = /^[\w-]{11}$/;
 
@@ -95,9 +95,7 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 export async function handleYouTubePlaylist(
 	id: string
 ): Promise<Option<SearchResult>> {
-	const browser =
-		sharedBrowser.browser ?? (sharedBrowser.browser = await puppeteer.launch());
-
+	const browser = await puppeteer.launch();
 	const page = await browser.newPage();
 
 	await page.goto(`https://www.youtube.com/playlist?list=${id}`, {

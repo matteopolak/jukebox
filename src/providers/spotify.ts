@@ -3,7 +3,6 @@ import { parseDocument } from 'htmlparser2';
 import { Element } from 'domhandler';
 import axios from 'axios';
 import { handleYouTubeQuery } from './youtube';
-import { sharedBrowser } from '../util/search';
 import puppeteer from 'puppeteer';
 
 const META_TAGS = new Set(['og:title', 'og:description', 'og:image']);
@@ -48,9 +47,7 @@ export async function handleSpotifyAlbum(
 	id: string,
 	type: 'album' | 'playlist'
 ): Promise<Option<SearchResult>> {
-	const browser =
-		sharedBrowser.browser ?? (sharedBrowser.browser = await puppeteer.launch());
-
+	const browser = await puppeteer.launch();
 	const page = await browser.newPage();
 
 	await page.setViewport({
