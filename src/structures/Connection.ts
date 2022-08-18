@@ -370,7 +370,7 @@ export default class Connection extends EventEmitter {
 				}))
 		);
 
-		if (Math.abs(this._index - this._queueLength + 1) < 3) {
+		if (Math.abs(this._index - this._queueLength) < 3) {
 			this.updateQueueMessage();
 		}
 
