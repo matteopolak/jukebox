@@ -97,6 +97,7 @@ export async function handleYouTubePlaylist(
 ): Promise<Option<SearchResult>> {
 	const browser =
 		sharedBrowser.browser ?? (sharedBrowser.browser = await puppeteer.launch());
+
 	const page = await browser.newPage();
 
 	await page.goto(`https://www.youtube.com/playlist?list=${id}`, {

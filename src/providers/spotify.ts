@@ -45,19 +45,28 @@ export async function handleSpotifyVideo(
 }
 
 export async function handleSpotifyAlbum(
-	id: string
+	id: string,
+	type: 'album' | 'playlist'
 ): Promise<Option<SearchResult>> {
 	const browser =
 		sharedBrowser.browser ?? (sharedBrowser.browser = await puppeteer.launch());
 
 	const page = await browser.newPage();
 
-	await page.goto('https://open.spotify.com/album/4xkM0BwLM9H2IUcbYzpcBI', {
+	await page.setViewport({
+		width: 1080,
+		height: 30000,
+		deviceScaleFactor: 0.1,
+	});
+
+	await page.goto(`https://open.spotify.com/${type}/${id}`, {
 		waitUntil: 'networkidle2',
 	});
 
 	const title = await page.evaluate(
-		e => e.children[4].children[1].textContent,
+		type === 'album'
+			? e => e.children[4].children[1].textContent
+			: e => e.children[1].children[1].textContent,
 		(await page.$('.contentSpacing'))!
 	);
 

@@ -81,7 +81,8 @@ export async function createQuery(
 
 			if (!id) break;
 			if (type === 'track') return handleSpotifyVideo(id);
-			if (type === 'album') return handleSpotifyAlbum(id);
+			if (type === 'album' || type === 'playlist')
+				return handleSpotifyAlbum(id, type);
 
 			break;
 		}
