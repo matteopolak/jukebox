@@ -4,18 +4,17 @@ import {
 	ButtonInteraction,
 	Client,
 	ComponentType,
-	escapeMarkdown,
 	GuildMember,
 	IntentsBitField,
 	InteractionType,
 	Options,
 	Partials,
 } from 'discord.js';
-import fs from 'fs';
+import fs from 'node:fs';
 
 import dotenv from 'dotenv';
 
-import { createAudioManager, getVideo } from './music';
+import { createAudioManager } from './util/music';
 import { Effect } from './typings';
 import Connection from './structures/Connection';
 import { randomElement } from './util/random';
@@ -56,7 +55,6 @@ const client = new Client({
 	intents: [
 		IntentsBitField.Flags.Guilds,
 		IntentsBitField.Flags.GuildMembers,
-		IntentsBitField.Flags.GuildIntegrations,
 		IntentsBitField.Flags.GuildMessages,
 		IntentsBitField.Flags.MessageContent,
 		IntentsBitField.Flags.GuildVoiceStates,
@@ -177,7 +175,9 @@ client.on('interactionCreate', async interaction => {
 	} else if (interaction.type === InteractionType.ApplicationCommand) {
 		switch (interaction.commandName) {
 			case 'create':
-				return void createAudioManager(interaction);
+				await interaction.deferReply();
+				await createAudioManager(interaction);
+				await interaction.deleteReply();
 		}
 	}
 });
@@ -190,33 +190,7 @@ client.on('messageCreate', async message => {
 
 	await message.delete().catch(() => {});
 
-	const result = await getVideo(message.content, message.author);
-
-	if (result) {
-		connection.addSongs(result.videos, true);
-
-		const notification = await message.channel.send(
-			result.title === null
-				? `Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
-				: `Added **${
-						result.videos.length
-				  }** songs from the playlist **${escapeMarkdown(
-						result.title
-				  )}** to the queue.`
-		);
-
-		setTimeout(() => {
-			notification.delete().catch(() => {});
-		}, 3000);
-	} else {
-		const notification = await message.channel.send(
-			`Could not find a song from the query \`${message.content}\`.`
-		);
-
-		setTimeout(() => {
-			notification.delete().catch(() => {});
-		}, 3000);
-	}
+	return connection.addSongByQuery(message.content);
 });
 
 client.login(process.env.TOKEN!);

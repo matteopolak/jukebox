@@ -19,16 +19,19 @@ import {
 	ButtonInteraction,
 	Message,
 	GuildMember,
+	User,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
 import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
 
 import { starred, queue, managers } from '../util/database';
 import {
 	EFFECTS,
 	EFFECT_TO_INDEX_LIST,
 	CUSTOM_ID_TO_INDEX_LIST,
+	PROVIDER_TO_EMOJI,
 } from '../constants';
 import {
 	ConnectionSettings,
@@ -39,11 +42,13 @@ import {
 	WithId,
 	RawData,
 	SongData,
+	SongProvider,
 } from '../typings';
 import { parseDurationString } from '../util/duration';
-import { joinVoiceChannelAndListen } from '../voice';
+import { joinVoiceChannelAndListen } from '../util/voice';
 import { randomInteger } from '../util/random';
-import { getSongDataById } from '../music';
+import { createQuery, songToData } from '../util/search';
+import scdl from 'soundcloud-downloader';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -66,11 +71,11 @@ export default class Connection extends EventEmitter {
 	};
 
 	private _index: number = 0;
-	private _currentStream: Option<Opus.Encoder | FFmpeg> = null;
+	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable> = null;
 	private _errored: Set<string> = new Set();
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
 	private _queueLength: number = 0;
-	private _starred: Set<string> = new Set();
+	private _starred: Map<string, SongData> = new Map();
 	private _playing: boolean = false;
 	private _components = [
 		new ActionRowBuilder<ButtonBuilder>({
@@ -219,8 +224,12 @@ export default class Connection extends EventEmitter {
 		this._queueLength = queueLengthResult;
 		this._index = -1;
 
-		for (const { id } of starredSongsResult) {
-			this._starred.add(id);
+		for (const data of starredSongsResult) {
+			// Remove the _id
+			// @ts-ignore
+			data._id = undefined;
+
+			this._starred.set(data.id, data);
 		}
 	}
 
@@ -337,16 +346,22 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async addAllStarredSongs() {
-		const songs = await Promise.all(
-			[...this._starred.values()].map(getSongDataById)
-		);
+		const songs: SongData[] = [];
+
+		for (const song of this._starred.values()) {
+			// Remove _id
+			// @ts-ignore
+			song._id = undefined;
+
+			songs.push(song);
+		}
 
 		this.addSongs(songs);
 
 		const notification = await this.textChannel.send(
 			`Added **${this._starred.size} song${
 				this._starred.size === 1 ? '' : 's'
-			}** from the starred list`
+			}** from the starred list.`
 		);
 
 		setTimeout(() => {
@@ -523,7 +538,7 @@ export default class Connection extends EventEmitter {
 				{ multi: false }
 			);
 		} else {
-			this._starred.add(song.id);
+			this._starred.set(song.id, song);
 
 			await starred.insert({
 				guildId: this.manager.guildId,
@@ -629,18 +644,37 @@ export default class Connection extends EventEmitter {
 		const content = songs.map(
 			(s, i) =>
 				`\`${(lower + i + 1).toString().padStart(length, '0')}.\` ${
-					i + lower === this._index ? '**' : ''
-				}${escapeMarkdown(s.title)} \`[${s.duration}]\`${
-					i + lower === this._index ? '**' : ''
-				}${this._starred.has(s.id) ? ' ⭐' : ''}${
-					this._errored.has(s.id) ? ' 🚫' : ''
-				}`
+					PROVIDER_TO_EMOJI[s.type]
+				} ${i + lower === this._index ? '**' : ''}${escapeMarkdown(
+					s.title
+				)} \`[${s.duration}]\`${i + lower === this._index ? '**' : ''}${
+					this._starred.has(s.id) ? ' ⭐' : ''
+				}${this._errored.has(s.id) ? ' 🚫' : ''}`
 		);
 
 		this.textChannel.messages.edit(
 			this.manager.queueId,
 			content.join('\n') || '\u200b'
 		);
+	}
+
+	private async createStream(song: SongData) {
+		if (
+			song.type === SongProvider.YouTube ||
+			song.type === SongProvider.Spotify
+		) {
+			return createAudioStream(song.url, {
+				seek: this.settings.seek || undefined,
+				highWaterMark: 1 << 25,
+				format: song.format,
+				filter: song.live ? undefined : 'audioonly',
+				quality: 'highestaudio',
+				opusEncoded: true,
+				encoderArgs: EFFECTS[this.settings.effect],
+			});
+		}
+
+		return scdl.download(song.url) as Promise<Readable>;
 	}
 
 	public async nextResource(): Promise<Option<AudioResource<WithId<Song>>>> {
@@ -651,26 +685,18 @@ export default class Connection extends EventEmitter {
 		if (song === null) return null;
 
 		// Create the audio stream
-		const stream = createAudioStream(song.url, {
-			seek: this.settings.seek || undefined,
-			highWaterMark: 1 << 25,
-			format: song.format,
-			filter: song.live ? undefined : 'audioonly',
-			quality: 'highestaudio',
-			opusEncoded: true,
-			encoderArgs: EFFECTS[this.settings.effect],
-		});
+		const stream = await this.createStream(song);
 
 		// Set the current stream so it can be destroyed if needed
 		this._currentStream = stream;
 
-		stream.on('error', (e: any) => console.log('error', e));
-		stream.on('end', (e: any) => console.log('end', e));
-
 		// Create the audio resource
 		const resource = createAudioResource(stream, {
 			inlineVolume: true,
-			inputType: StreamType.Opus,
+			inputType:
+				song.type === SongProvider.SoundCloud
+					? StreamType.Arbitrary
+					: StreamType.Opus,
 			metadata: song,
 		});
 
@@ -763,6 +789,36 @@ export default class Connection extends EventEmitter {
 			const error = await this.playNextResource();
 
 			if (error) break;
+		}
+	}
+
+	public async addSongByQuery(query: string) {
+		const result = await createQuery(query);
+
+		if (result) {
+			this.addSongs(result.videos, true);
+
+			const notification = await this.textChannel.send(
+				result.videos.length === 1
+					? `Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
+					: `Added **${result.videos.length}** songs from ${
+							result.title !== null
+								? `the playlist **${escapeMarkdown(result.title)}**`
+								: 'an anonymous playlist'
+					  } to the queue.`
+			);
+
+			setTimeout(() => {
+				notification.delete().catch(() => {});
+			}, 3000);
+		} else {
+			const notification = await this.textChannel.send(
+				`Could not find a song from the query \`${query}\`.`
+			);
+
+			setTimeout(() => {
+				notification.delete().catch(() => {});
+			}, 3000);
 		}
 	}
 }

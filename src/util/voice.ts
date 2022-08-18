@@ -1,5 +1,4 @@
 import {
-	AudioPlayerStatus,
 	CreateVoiceConnectionOptions,
 	EndBehaviorType,
 	joinVoiceChannel,
@@ -11,13 +10,8 @@ import ffmpeg from 'fluent-ffmpeg';
 import prism from 'prism-media';
 
 import axios from 'axios';
-import {
-	escapeMarkdown,
-	TextBasedChannel,
-	VoiceBasedChannel,
-} from 'discord.js';
-import { getVideo } from './music';
-import Connection from './structures/Connection';
+import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
+import Connection from '../structures/Connection';
 
 axios.defaults.headers.post.authorization =
 	'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK';
@@ -98,40 +92,16 @@ export function joinVoiceChannelAndListen(
 						data.entities['wit$message_body:message_body']?.[0]?.value;
 
 					if (name) {
-						const result = await getVideo(name);
-
-						if (result) {
-							connection.addSongs(result.videos, true);
-
-							const notification = await channel.send(
-								result.title === null
-									? `Added **${escapeMarkdown(
-											result.videos[0].title
-									  )}** to the queue.`
-									: `Added **${
-											result.videos.length
-									  }** songs from the playlist **${escapeMarkdown(
-											result.title
-									  )}** to the queue.`
-							);
-
-							setTimeout(() => {
-								notification.delete().catch(() => {});
-							}, 3000);
-						} else {
-							const notification = await channel.send(
-								`Could not find a song from the query \`${name}\`.`
-							);
-
-							setTimeout(() => {
-								notification.delete().catch(() => {});
-							}, 3000);
-						}
+						return void connection.addSongByQuery(name);
 					}
 
 					break;
 				case 'skip':
 					connection.skip();
+
+					break;
+				case 'previous':
+					connection.previous();
 
 					break;
 				case 'pause':
@@ -140,6 +110,14 @@ export function joinVoiceChannelAndListen(
 					break;
 				case 'resume':
 					connection.resume();
+
+					break;
+				case 'repeat':
+					connection.setRepeat(!connection.settings.repeat);
+
+					break;
+				case 'shuffle':
+					connection.setShuffle(!connection.settings.shuffle);
 
 					break;
 			}

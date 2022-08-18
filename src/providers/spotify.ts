@@ -1,0 +1,103 @@
+import { Option, SearchResult, SongData, SongProvider } from '../typings';
+import { parseDocument } from 'htmlparser2';
+import { Element } from 'domhandler';
+import axios from 'axios';
+import { handleYouTubeQuery } from './youtube';
+import { sharedBrowser } from '../util/search';
+import puppeteer from 'puppeteer';
+
+const META_TAGS = new Set(['og:title', 'og:description', 'og:image']);
+
+export async function handleSpotifyVideo(
+	id: string
+): Promise<Option<SearchResult>> {
+	const { data: html } = await axios.get(
+		`https://open.spotify.com/track/${id}`
+	);
+
+	const document = parseDocument(html);
+	const meta = new Map<string, string>();
+
+	const children = (
+		(document.children[0].next! as Element).children[0] as Element
+	).children as Element[];
+
+	for (const child of children) {
+		if (!META_TAGS.has(child.attribs.property)) continue;
+		if (META_TAGS.size <= meta.size) break;
+
+		meta.set(child.attribs.property, child.attribs.content);
+	}
+
+	if (meta.size !== META_TAGS.size) return null;
+
+	const data = await handleYouTubeQuery(
+		`${meta.get('og:title')} - ${meta.get('og:description')}`
+	);
+
+	if (data) {
+		data.videos[0].thumbnail = meta.get('og:image')!;
+		data.videos[0].title = meta.get('og:title')!;
+		data.videos[0].type = SongProvider.Spotify;
+	}
+
+	return data;
+}
+
+export async function handleSpotifyAlbum(
+	id: string
+): Promise<Option<SearchResult>> {
+	const browser =
+		sharedBrowser.browser ?? (sharedBrowser.browser = await puppeteer.launch());
+
+	const page = await browser.newPage();
+
+	await page.goto('https://open.spotify.com/album/4xkM0BwLM9H2IUcbYzpcBI', {
+		waitUntil: 'networkidle2',
+	});
+
+	const title = await page.evaluate(
+		e => e.children[4].children[1].textContent,
+		(await page.$('.contentSpacing'))!
+	);
+
+	const elements = await page.$$('div[role="row"]');
+
+	// Remove the first entry
+	elements.shift();
+
+	const tracks: string[] = [];
+
+	for (const element of elements) {
+		const [title, author] = await page.evaluate(e => {
+			const text = [];
+			const elements = e.querySelectorAll('.standalone-ellipsis-one-line');
+
+			for (const element of elements) {
+				text.push(element.textContent);
+			}
+
+			return text;
+		}, element);
+
+		tracks.push(`${title} - ${author}`);
+	}
+
+	const resolved = (
+		await Promise.all(
+			tracks.map(async title => {
+				const result = await handleYouTubeQuery(title, true);
+				if (result === null) return null;
+
+				result.videos[0].type = SongProvider.Spotify;
+
+				return result.videos[0];
+			})
+		)
+	).filter(s => s !== null) as SongData[];
+
+	return {
+		title,
+		videos: resolved,
+	};
+}

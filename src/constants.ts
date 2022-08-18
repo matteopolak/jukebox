@@ -1,8 +1,13 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { Effect } from './typings';
+import { Effect, SongProvider } from './typings';
 
-export const YOUTUBE_PLAYLIST_REGEX =
-	/^https?:\/\/(?:w{3}\.)?youtu(?:\.be\/|be\.com\/)(?:(?:watch\?v=)?[\w-]{11}|playlist)[?&]list=([\w-]+)/;
+export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
+
+export const PROVIDER_TO_EMOJI: Record<SongProvider, string> = {
+	[SongProvider.SoundCloud]: '<:soundcloud:1009913414501544067>',
+	[SongProvider.Spotify]: '<:spotify:1009913541446336693>',
+	[SongProvider.YouTube]: '<:youtube:1009913431090020492>',
+};
 
 export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.None]: ['-af', 'loudnorm=I=-16:LRA=11:TP=-1.5'],

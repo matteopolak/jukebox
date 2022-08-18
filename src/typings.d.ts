@@ -18,6 +18,12 @@ export interface Manager extends RawManager {
 	starred: Set<string>;
 }
 
+export const enum SongProvider {
+	YouTube,
+	Spotify,
+	SoundCloud,
+}
+
 export interface SongData {
 	url: string;
 	id: string;
@@ -25,6 +31,7 @@ export interface SongData {
 	duration: string;
 	thumbnail: string;
 	live: boolean;
+	type: SongProvider;
 	format?: videoFormat;
 	related?: string;
 }
