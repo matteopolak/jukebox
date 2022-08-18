@@ -1,13 +1,10 @@
 import {
 	AudioPlayerStatus,
-	createAudioPlayer,
 	CreateVoiceConnectionOptions,
 	EndBehaviorType,
-	entersState,
 	joinVoiceChannel,
 	JoinVoiceChannelOptions,
 	VoiceConnection,
-	VoiceConnectionStatus,
 } from '@discordjs/voice';
 
 import ffmpeg from 'fluent-ffmpeg';
@@ -19,9 +16,8 @@ import {
 	TextBasedChannel,
 	VoiceBasedChannel,
 } from 'discord.js';
-import { channelToConnection, connections, getVideo } from './music';
-import { getConnection, moveTrackBy, play } from './utils';
-import { Connection, Effect } from './typings';
+import { getVideo } from './music';
+import Connection from './structures/Connection';
 
 axios.defaults.headers.post.authorization =
 	'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK';
@@ -87,14 +83,14 @@ export function joinVoiceChannelAndListen(
 				return;
 
 			const member = voice.members.get(userId)!;
-			const connection = (await getConnection({
+			const connection = await Connection.getOrCreate({
 				member,
 				guild: member.guild,
 				guildId: member.guild.id,
 				channel,
-			}))!;
+			});
 
-			const song = connection.queue[connection.index];
+			if (connection === null) return;
 
 			switch (data.entities['order:order'][0].value) {
 				case 'play':
@@ -102,21 +98,20 @@ export function joinVoiceChannelAndListen(
 						data.entities['wit$message_body:message_body']?.[0]?.value;
 
 					if (name) {
-						const song = await getVideo(name, member.user);
+						const result = await getVideo(name);
 
-						if (song) {
-							connection.queue.push(...song.videos);
-							connection.subscription?.player.emit('song_add');
+						if (result) {
+							connection.addSongs(result.videos, true);
 
 							const notification = await channel.send(
-								song.title === null
+								result.title === null
 									? `Added **${escapeMarkdown(
-											song.videos[0].title
+											result.videos[0].title
 									  )}** to the queue.`
 									: `Added **${
-											song.videos.length
+											result.videos.length
 									  }** songs from the playlist **${escapeMarkdown(
-											song.title
+											result.title
 									  )}** to the queue.`
 							);
 
@@ -136,37 +131,17 @@ export function joinVoiceChannelAndListen(
 
 					break;
 				case 'skip':
-					if (
-						connection.autoplay &&
-						song &&
-						connection.index + 1 === connection.queue.length
-					) {
-						const parent = song.related
-							? song
-							: (await getVideo(song.url))!.videos[0];
+					connection.skip();
 
-						if (parent.related) {
-							connection.queue.push(
-								(await getVideo(parent.related))!.videos[0]
-							);
-						}
-					}
-
-					connection.seek = 0;
-					moveTrackBy(connection, 0);
-					connection.subscription?.player?.stop();
+					break;
 				case 'pause':
-					if (
-						connection.subscription?.player.state.status !==
-						AudioPlayerStatus.Paused
-					)
-						connection.subscription?.player.pause();
+					connection.pause();
+
+					break;
 				case 'resume':
-					if (
-						connection.subscription?.player.state.status ===
-						AudioPlayerStatus.Paused
-					)
-						connection.subscription?.player.unpause();
+					connection.resume();
+
+					break;
 			}
 		}
 	});

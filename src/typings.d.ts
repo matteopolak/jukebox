@@ -18,7 +18,7 @@ export interface Manager extends RawManager {
 	starred: Set<string>;
 }
 
-export interface Song {
+export interface SongData {
 	url: string;
 	id: string;
 	title: string;
@@ -29,14 +29,24 @@ export interface Song {
 	related?: string;
 }
 
+export interface Song extends SongData {
+	addedAt: number;
+	guildId: string;
+}
+
+export interface StarredData {
+	id: string;
+	guildId: string;
+}
+
 export const enum Effect {
-	NONE,
-	LOUD,
-	UNDER_WATER,
-	BASS,
-	ECHO,
-	HIGH_PITCH,
-	REVERSE,
+	None,
+	Loud,
+	UnderWater,
+	Bass,
+	Echo,
+	HighPitch,
+	Reverse,
 }
 
 export interface Connection {
@@ -64,3 +74,19 @@ export interface RawData {
 	guild: Guild;
 	member: GuildMember;
 }
+
+export interface SearchResult {
+	videos: SongData[];
+	title: Option<string>;
+}
+
+export interface ConnectionSettings {
+	effect: Effect;
+	repeat: boolean;
+	autoplay: boolean;
+	seek: number;
+	shuffle: boolean;
+}
+
+export type Option<T> = T | null;
+export type WithId<T> = T & { _id: string };

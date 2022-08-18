@@ -11,47 +11,26 @@ import {
 	Options,
 	Partials,
 } from 'discord.js';
-import {
-	createAudioPlayer,
-	entersState,
-	VoiceConnectionStatus,
-} from '@discordjs/voice';
 import fs from 'fs';
 
 import dotenv from 'dotenv';
 
-import {
-	channelToConnection,
-	connections,
-	createAudioManager,
-	getVideo,
-	managers,
-	starred,
-} from './music';
-import {
-	getConnection,
-	getManager,
-	moveTrackBy,
-	moveTrackTo,
-	play,
-	randomElement,
-	shuffleArray,
-	togglePlayback,
-} from './utils';
-import { joinVoiceChannelAndListen } from './voice';
-import { Connection, Effect } from './typings';
+import { createAudioManager, getVideo } from './music';
+import { Effect } from './typings';
+import Connection from './structures/Connection';
+import { randomElement } from './util/random';
 
 dotenv.config({ override: true });
 
 const tweets = fs.readFileSync('./tweets.txt', 'utf8').split(/\r?\n/);
 
 const NAME_TO_ENUM = {
-	loud: Effect.LOUD,
-	underwater: Effect.UNDER_WATER,
-	bass: Effect.BASS,
-	echo: Effect.ECHO,
-	high_pitch: Effect.HIGH_PITCH,
-	reverse: Effect.REVERSE,
+	loud: Effect.Loud,
+	underwater: Effect.UnderWater,
+	bass: Effect.Bass,
+	echo: Effect.Echo,
+	high_pitch: Effect.HighPitch,
+	reverse: Effect.Reverse,
 };
 
 const client = new Client({
@@ -128,61 +107,31 @@ async function handleButton(interaction: ButtonInteraction) {
 	const voiceChannelId = (interaction.member! as GuildMember).voice.channelId;
 	if (!voiceChannelId) return interaction.deferUpdate({ fetchReply: false });
 
-	const manager = await getManager(interaction.channelId);
-	if (!manager) return interaction.deferUpdate({ fetchReply: false });
-
-	const connection = await getConnection(interaction);
+	const connection = await Connection.getOrCreate(interaction);
 
 	if (!connection) {
 		return interaction.deferUpdate({ fetchReply: false });
 	}
 
-	const song = connection.queue[connection.index];
-
 	switch (interaction.customId) {
 		case 'toggle':
-			togglePlayback(connection);
-			connection.update(undefined, true);
+			connection.togglePlayback();
 
 			break;
 		case 'previous':
-			moveTrackBy(connection, -2);
-			connection.seek = 0;
-			connection.subscription?.player?.stop();
+			connection.previous();
 
 			break;
 		case 'next':
-			if (
-				connection.autoplay &&
-				song &&
-				connection.index + 1 === connection.queue.length
-			) {
-				const parent = song.related
-					? song
-					: (await getVideo(song.url))!.videos[0];
-
-				if (parent.related) {
-					connection.queue.push((await getVideo(parent.related))!.videos[0]);
-				}
-			}
-
-			connection.seek = 0;
-			moveTrackBy(connection, 0);
-			connection.subscription?.player?.stop();
+			connection.skip();
 
 			break;
 		case 'remove':
-			connection.seek = 0;
-			connection.queue.splice(connection.index, 1);
-			moveTrackBy(connection, -1);
-			connection.subscription?.player?.stop();
+			connection.removeCurrentSong();
 
 			break;
 		case 'shuffle':
-			connection.seek = 0;
-			shuffleArray(connection.queue);
-			moveTrackTo(connection, -1);
-			connection.subscription?.player?.stop();
+			connection.setShuffle(!connection.settings.shuffle);
 
 			break;
 		case 'loud':
@@ -191,74 +140,27 @@ async function handleButton(interaction: ButtonInteraction) {
 		case 'echo':
 		case 'high_pitch':
 		case 'reverse':
-			const effect = NAME_TO_ENUM[interaction.customId];
-
-			connection.effect = connection.effect === effect ? Effect.NONE : effect;
-			connection.update(undefined, true, undefined);
-
-			if (connection.resource) {
-				if (connection.seek) {
-					connection.seek += connection.resource.playbackDuration / 1000;
-				} else {
-					connection.seek = connection.resource.playbackDuration / 1000;
-				}
-			}
-
-			moveTrackBy(connection, -1);
-			connection.subscription?.player?.stop();
+			connection.setEffect(NAME_TO_ENUM[interaction.customId]);
 
 			break;
 		case 'remove_all':
-			connection.seek = 0;
-			connection.queue.splice(0, connection.queue.length);
-			connection.subscription?.player?.stop();
+			connection.removeAllSongs();
 
 			break;
 		case 'repeat':
-			connection.repeat = !connection.repeat;
-			connection.update(undefined, true, undefined);
+			connection.setRepeat(!connection.settings.repeat);
 
 			break;
 		case 'autoplay':
-			connection.autoplay = !connection.autoplay;
-			connection.update(undefined, true, undefined);
+			connection.setAutoplay(!connection.settings.autoplay);
 
 			break;
 		case 'star':
-			if (song) {
-				if (connection.manager.starred.has(song.id)) {
-					connection.manager.starred.delete(song.id);
-
-					await starred.remove(
-						{
-							guildId: connection.manager.guildId,
-							id: song.id,
-						},
-						{ multi: false }
-					);
-				} else {
-					connection.manager.starred.add(song.id);
-
-					await starred.insert({
-						guildId: connection.manager.guildId,
-						id: song.id,
-					});
-				}
-
-				connection.update(undefined, undefined, true);
-			}
+			connection.starCurrentSongToggle();
 
 			break;
 		case 'play_starred':
-			const songs = await Promise.all(
-				[...connection.manager.starred.values()].map(
-					async id =>
-						(await getVideo(`https://youtube.com/watch?v=${id}`))!.videos[0]
-				)
-			);
-
-			connection.queue.push(...songs);
-			connection.update();
+			connection.addAllStarredSongs();
 
 			break;
 	}
@@ -283,26 +185,23 @@ client.on('interactionCreate', async interaction => {
 client.on('messageCreate', async message => {
 	if (message.author.bot || !message.inGuild()) return;
 
-	const manager = await getManager(message.channelId);
-	if (!manager) return;
+	const connection = await Connection.getOrCreate(message);
+	if (!connection) return;
 
 	await message.delete().catch(() => {});
 
-	const song = await getVideo(message.content, message.author);
+	const result = await getVideo(message.content, message.author);
 
-	if (song) {
-		const connection = (await getConnection(message))!;
-
-		connection.queue.push(...song.videos);
-		connection.subscription?.player.emit('song_add');
+	if (result) {
+		connection.addSongs(result.videos, true);
 
 		const notification = await message.channel.send(
-			song.title === null
-				? `Added **${escapeMarkdown(song.videos[0].title)}** to the queue.`
+			result.title === null
+				? `Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
 				: `Added **${
-						song.videos.length
+						result.videos.length
 				  }** songs from the playlist **${escapeMarkdown(
-						song.title
+						result.title
 				  )}** to the queue.`
 		);
 

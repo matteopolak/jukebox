@@ -1,5 +1,4 @@
 import puppeteer from 'puppeteer';
-import { parse } from 'node-html-parser';
 
 import { Song } from './typings';
 

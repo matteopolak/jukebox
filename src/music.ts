@@ -1,168 +1,12 @@
 import axios from 'axios';
-import Datastore from 'nedb-promises';
-import { AudioPlayerStatus } from '@discordjs/voice';
-import {
-	CommandInteraction,
-	ActionRowBuilder,
-	ButtonBuilder,
-	User,
-	ButtonStyle,
-	escapeMarkdown,
-	APIButtonComponent,
-	APIActionRowComponent,
-} from 'discord.js';
+import { CommandInteraction, User, escapeMarkdown } from 'discord.js';
 import ytdl, { videoInfo } from 'ytdl-core';
-import { formatSeconds, randomElement, YOUTUBE_PLAYLIST_REGEX } from './utils';
+import { randomElement } from './util/random';
 import { scrapeYouTubePlaylist } from './scrape';
-import { Connection, Effect, RawManager, Song } from './typings';
-
-export function getComponents(
-	connection?: Connection
-): APIActionRowComponent<APIButtonComponent>[] {
-	const components = [
-		new ActionRowBuilder({
-			components: [
-				new ButtonBuilder({
-					customId: 'toggle',
-					label:
-						connection?.subscription?.player?.state?.status !==
-						AudioPlayerStatus.Paused
-							? '⏸️'
-							: '▶️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'previous',
-					label: '⏮️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'next',
-					label: '⏭️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'repeat',
-					label: '🔂',
-					style: connection?.repeat ? ButtonStyle.Success : ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'shuffle',
-					label: '🔀',
-					style: ButtonStyle.Primary,
-				}),
-			],
-		}).toJSON(),
-		new ActionRowBuilder({
-			components: [
-				new ButtonBuilder({
-					customId: 'autoplay',
-					label: '♾️',
-					style: connection?.autoplay
-						? ButtonStyle.Success
-						: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'remove',
-					label: '🗑️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'remove_all',
-					label: '💣',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'star',
-					label: '⭐️',
-					style:
-						connection &&
-						connection.queue.length < connection.index &&
-						connection.manager.starred.has(
-							connection.queue[connection.index].id
-						)
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'play_starred',
-					label: '☀️',
-					style: ButtonStyle.Primary,
-				}),
-			],
-		}).toJSON(),
-		new ActionRowBuilder({
-			components: [
-				new ButtonBuilder({
-					customId: 'loud',
-					label: '🧨',
-					style:
-						connection?.effect === Effect.LOUD
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'underwater',
-					label: '🌊',
-					style:
-						connection?.effect === Effect.UNDER_WATER
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'bass',
-					label: '🥁',
-					style:
-						connection?.effect === Effect.BASS
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'echo',
-					label: '🧯',
-					style:
-						connection?.effect === Effect.ECHO
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'high_pitch',
-					label: '🐿️',
-					style:
-						connection?.effect === Effect.HIGH_PITCH
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-				}),
-			],
-		}).toJSON(),
-		new ActionRowBuilder({
-			components: [
-				new ButtonBuilder({
-					customId: 'reverse',
-					label: '⏪',
-					style:
-						connection?.effect === Effect.REVERSE
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-				}),
-			],
-		}).toJSON(),
-	];
-
-	// @ts-ignore
-	return components;
-}
-
-export const managers: Datastore<RawManager> = Datastore.create({
-	filename: 'managers.db',
-	autoload: true,
-});
-
-export const starred: Datastore<{ id: string; guild_id: string }> =
-	Datastore.create({
-		filename: 'starred.db',
-		autoload: true,
-	});
+import { Connection, SearchResult, Song, SongData, Option } from './typings';
+import { managers, songDataCache } from './util/database';
+import { formatSeconds } from './util/duration';
+import { DEFAULT_COMPONENTS, YOUTUBE_PLAYLIST_REGEX } from './constants';
 
 export const connections: Map<string, Connection> = new Map();
 export const channelToConnection: Map<string, Connection> = new Map();
@@ -170,7 +14,7 @@ export const channelToConnection: Map<string, Connection> = new Map();
 export const YOUTUBE_URL_REGEX =
 	/^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})(?:\S+)?$/;
 
-export async function getUrl(name: string) {
+export async function getUrl(name: string): Promise<Option<string>> {
 	if (name.toLowerCase() === 'solomon john neufeld') return 'KMU8TwC652M';
 
 	const result = await axios.get<string>('https://www.youtube.com/results', {
@@ -180,12 +24,12 @@ export async function getUrl(name: string) {
 		},
 	});
 
-	const video = result.data.match(/\/watch\?v=([\w-]{11})/)?.[1] ?? null;
+	const videoId = result.data.match(/\/watch\?v=([\w-]{11})/)?.[1] ?? null;
 
-	return video;
+	return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
 }
 
-export function videoInfoToSong(data: videoInfo): Song {
+export function videoInfoToSongData(data: videoInfo): SongData {
 	const info = data.videoDetails;
 	const relatedId = randomElement(data.related_videos.filter(v => v?.id))?.id;
 
@@ -205,22 +49,53 @@ export function videoInfoToSong(data: videoInfo): Song {
 	};
 }
 
+export function getCachedSong(id: string) {
+	return songDataCache.findOne({ id }).exec();
+}
+
+export function songDataToSong(data: SongData, guildId: string): Song {
+	return {
+		url: data.url,
+		id: data.id,
+		title: data.title,
+		duration: data.duration,
+		thumbnail: data.thumbnail,
+		live: data.live,
+		format: data.format,
+		related: data.related,
+		addedAt: Date.now(),
+		guildId,
+	};
+}
+
+export async function getSongDataById(id: string): Promise<SongData> {
+	const cached = await getCachedSong(id);
+	if (cached) {
+		// Remove the unique id
+		// @ts-ignore
+		cached._id = undefined;
+
+		return cached;
+	}
+
+	const data = videoInfoToSongData(
+		await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`)
+	);
+
+	await songDataCache.insert(data);
+
+	return data;
+}
+
 export async function getVideo(
 	query: string,
 	user?: User,
 	direct?: boolean
-): Promise<null | { videos: Song[]; title: string | null }> {
+): Promise<Option<SearchResult>> {
 	if (YOUTUBE_PLAYLIST_REGEX.test(query)) {
 		const [, id] = query.match(YOUTUBE_PLAYLIST_REGEX) ?? [];
 
 		return await scrapeYouTubePlaylist(id);
-	}
-
-	if (YOUTUBE_URL_REGEX.test(query)) {
-		return {
-			videos: [videoInfoToSong(await ytdl.getBasicInfo(query))],
-			title: null,
-		};
 	}
 
 	if (!direct) {
@@ -240,17 +115,16 @@ export async function getVideo(
 		}
 	}
 
-	const url = await getUrl(query);
+	try {
+		const id = ytdl.getURLVideoID(query);
 
-	if (url) {
 		return {
-			videos: [
-				videoInfoToSong(
-					await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${url}`)
-				),
-			],
+			videos: [await getSongDataById(id)],
 			title: null,
 		};
+	} catch {
+		const url = await getUrl(query);
+		if (url) return getVideo(url, user, true);
 	}
 
 	return null;
@@ -266,15 +140,14 @@ export async function createAudioManager(interaction: CommandInteraction) {
 				},
 			},
 		],
-		// @ts-ignore
-		components: getComponents(),
+		components: DEFAULT_COMPONENTS,
 	});
 
 	const queue = await interaction.channel!.send({
 		content: '\u200b',
 	});
 
-	managers.insert({
+	await managers.insert({
 		messageId: message.id,
 		queueId: queue.id,
 		channelId: interaction.channelId,

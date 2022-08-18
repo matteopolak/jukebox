@@ -20,10 +20,6 @@
 		"@discordjs/opus": "^0.8.0",
 		"@discordjs/voice": "^0.11.0",
 		"@types/fluent-ffmpeg": "^2.1.20",
-		"@types/jsonstream": "^0.8.30",
-		"@types/ndjson": "^2.0.1",
-		"@types/split": "^1.0.1",
-		"JSONStream": "^1.3.5",
 		"axios": "^0.27.2",
 		"discord-ytdl-core": "^5.0.4",
 		"discord.js": "^14.2.0",
@@ -31,14 +27,10 @@
 		"ffmpeg-static": "^5.0.2",
 		"fluent-ffmpeg": "^2.1.2",
 		"libsodium-wrappers": "^0.7.10",
-		"ndjson": "^2.0.0",
 		"nedb-promises": "^6.1.0",
-		"node-fetch": "^3.2.10",
-		"node-html-parser": "^5.4.2-0",
-		"parse5": "^7.0.0",
+		"prism-media": "^1.3.4",
 		"puppeteer": "^16.1.0",
-		"split": "^1.0.1",
-		"ytdl-core": "4.9.1"
+		"ytdl-core": "4.11.0"
 	},
 	"devDependencies": {
 		"@types/nedb": "^1.8.12"
