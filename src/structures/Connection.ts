@@ -622,7 +622,6 @@ export default class Connection extends EventEmitter {
 			this._queueLengthWithRelated > 0 &&
 			this.settings.autoplay
 		) {
-			console.log('search');
 			const [random] = await queue
 				.find({ guildId: this.manager.guildId, related: { $exists: true } })
 				.sort({ addedAt: 1 })
@@ -709,13 +708,9 @@ export default class Connection extends EventEmitter {
 		);
 	}
 
-	private async createStream(song: SongData) {
-		console.log(
-			song,
-			SongProvider.YouTube,
-			SongProvider.Spotify,
-			SongProvider.SoundCloud
-		);
+	private async createStream(
+		song: SongData
+	): Promise<Readable | Opus.Encoder | FFmpeg> {
 		if (
 			song.type === SongProvider.YouTube ||
 			song.type === SongProvider.Spotify
