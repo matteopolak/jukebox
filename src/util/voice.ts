@@ -12,6 +12,7 @@ import prism from 'prism-media';
 import axios from 'axios';
 import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import Connection from '../structures/Connection';
+import { CommandOrigin } from '../typings';
 
 axios.defaults.headers.post.authorization =
 	'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK';
@@ -92,7 +93,7 @@ export function joinVoiceChannelAndListen(
 						data.entities['wit$message_body:message_body']?.[0]?.value;
 
 					if (name) {
-						return void connection.addSongByQuery(name);
+						return void connection.addSongByQuery(name, CommandOrigin.Voice);
 					}
 
 					break;
@@ -113,11 +114,28 @@ export function joinVoiceChannelAndListen(
 
 					break;
 				case 'repeat':
-					connection.setRepeat(!connection.settings.repeat);
+					connection.setRepeat(
+						!connection.settings.repeat,
+						CommandOrigin.Voice
+					);
 
 					break;
 				case 'shuffle':
-					connection.setShuffle(!connection.settings.shuffle);
+					connection.setShuffle(
+						!connection.settings.shuffle,
+						CommandOrigin.Voice
+					);
+
+					break;
+				case 'autoplay':
+					connection.setAutoplay(
+						!connection.settings.autoplay,
+						CommandOrigin.Voice
+					);
+
+					break;
+				case 'star':
+					connection.starCurrentSongToggle(CommandOrigin.Voice);
 
 					break;
 			}

@@ -42,6 +42,7 @@ import {
 	RawData,
 	SongData,
 	SongProvider,
+	CommandOrigin,
 } from '../typings';
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
@@ -49,6 +50,7 @@ import { randomInteger } from '../util/random';
 import { createQuery } from '../util/search';
 import scdl from 'soundcloud-downloader';
 import { handleYouTubeVideo } from '../providers/youtube';
+import { sendMessageAndDelete } from '../util/message';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -285,7 +287,10 @@ export default class Connection extends EventEmitter {
 		this.subscription = stream.subscribe(player)!;
 	}
 
-	public setRepeat(enabled: boolean): void {
+	public async setRepeat(
+		enabled: boolean,
+		origin: CommandOrigin = CommandOrigin.Text
+	): Promise<void> {
 		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.repeat;
 		const old = this.settings.repeat;
 
@@ -296,10 +301,20 @@ export default class Connection extends EventEmitter {
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
+
+			if (origin === CommandOrigin.Voice) {
+				await sendMessageAndDelete(
+					this.textChannel,
+					`🎙️ Repeat has been **${enabled ? 'enabled' : 'disabled'}**.`
+				);
+			}
 		}
 	}
 
-	public setAutoplay(enabled: boolean): void {
+	public async setAutoplay(
+		enabled: boolean,
+		origin: CommandOrigin = CommandOrigin.Text
+	): Promise<void> {
 		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.autoplay;
 		const old = this.settings.autoplay;
 
@@ -310,6 +325,13 @@ export default class Connection extends EventEmitter {
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
+
+			if (origin === CommandOrigin.Voice) {
+				await sendMessageAndDelete(
+					this.textChannel,
+					`🎙️ Autoplay has been **${enabled ? 'enabled' : 'disabled'}**.`
+				);
+			}
 		}
 	}
 
@@ -341,7 +363,10 @@ export default class Connection extends EventEmitter {
 		}
 	}
 
-	public setShuffle(enabled: boolean): void {
+	public async setShuffle(
+		enabled: boolean,
+		origin: CommandOrigin = CommandOrigin.Text
+	): Promise<void> {
 		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.shuffle;
 		const old = this.settings.shuffle;
 
@@ -352,6 +377,13 @@ export default class Connection extends EventEmitter {
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
+
+			if (origin === CommandOrigin.Voice) {
+				await sendMessageAndDelete(
+					this.textChannel,
+					`🎙️ Shuffle has been **${enabled ? 'enabled' : 'disabled'}**.`
+				);
+			}
 		}
 	}
 
@@ -368,15 +400,12 @@ export default class Connection extends EventEmitter {
 
 		this.addSongs(songs);
 
-		const notification = await this.textChannel.send(
+		await sendMessageAndDelete(
+			this.textChannel,
 			`Added **${this._starred.size} song${
 				this._starred.size === 1 ? '' : 's'
 			}** from the starred list.`
 		);
-
-		setTimeout(() => {
-			notification.delete().catch(() => {});
-		}, 3_000);
 	}
 
 	public async addSongs(songs: SongData[], autoplay: boolean = true) {
@@ -541,7 +570,9 @@ export default class Connection extends EventEmitter {
 		this.endCurrentSong();
 	}
 
-	public async starCurrentSongToggle() {
+	public async starCurrentSongToggle(
+		origin: CommandOrigin = CommandOrigin.Text
+	) {
 		if (!this.currentResource) return;
 
 		const song = this.currentResource.metadata;
@@ -556,6 +587,13 @@ export default class Connection extends EventEmitter {
 				},
 				{ multi: false }
 			);
+
+			if (origin === CommandOrigin.Voice) {
+				await sendMessageAndDelete(
+					this.textChannel,
+					`🎙️ The track **${escapeMarkdown(song.title)}** has been unstarred.`
+				);
+			}
 		} else {
 			this._starred.set(song.id, song);
 
@@ -563,6 +601,13 @@ export default class Connection extends EventEmitter {
 				guildId: this.manager.guildId,
 				id: song.id,
 			});
+
+			if (origin === CommandOrigin.Voice) {
+				await sendMessageAndDelete(
+					this.textChannel,
+					`🎙️ The track **${escapeMarkdown(song.title)}** has been starred.`
+				);
+			}
 		}
 
 		return Promise.all([this.updateEmbedMessage(), this.updateQueueMessage()]);
@@ -756,6 +801,9 @@ export default class Connection extends EventEmitter {
 		this.currentResource = resource;
 
 		if (previousResource?.metadata.id !== song.id) {
+			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
+			this._components[row].components[index].setLabel('⏸️');
+
 			// Different song
 			this.updateEmbedMessage();
 			this.updateQueueMessage();
@@ -844,33 +892,36 @@ export default class Connection extends EventEmitter {
 		}
 	}
 
-	public async addSongByQuery(query: string) {
+	public async addSongByQuery(
+		query: string,
+		origin: CommandOrigin = CommandOrigin.Text
+	) {
 		const result = await createQuery(query);
 
 		if (result) {
 			this.addSongs(result.videos, true);
 
-			const notification = await this.textChannel.send(
+			await sendMessageAndDelete(
+				this.textChannel,
 				result.videos.length === 1
-					? `Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
-					: `Added **${result.videos.length}** songs from ${
+					? `${
+							origin === CommandOrigin.Voice ? '🎙️ ' : ''
+					  }Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
+					: `${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Added **${
+							result.videos.length
+					  }** songs from ${
 							result.title !== null
 								? `the playlist **${escapeMarkdown(result.title)}**`
 								: 'an anonymous playlist'
 					  } to the queue.`
 			);
-
-			setTimeout(() => {
-				notification.delete().catch(() => {});
-			}, 3000);
 		} else {
-			const notification = await this.textChannel.send(
-				`Could not find a song from the query \`${query}\`.`
+			await sendMessageAndDelete(
+				this.textChannel,
+				`${
+					origin === CommandOrigin.Voice ? '🎙️ ' : ''
+				}Could not find a song from the query \`${query}\`.`
 			);
-
-			setTimeout(() => {
-				notification.delete().catch(() => {});
-			}, 3000);
 		}
 	}
 }

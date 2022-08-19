@@ -5,7 +5,7 @@ import ytdl, { videoInfo } from 'ytdl-core';
 import { Option, SearchResult, Song, SongData, SongProvider } from '../typings';
 import { songDataCache } from '../util/database';
 import { formatSeconds } from '../util/duration';
-import { randomElement } from '../util/random';
+import { randomElement, randomInteger } from '../util/random';
 import { getCachedSong } from '../util/search';
 
 export const ID_REGEX = /^[\w-]{11}$/;
@@ -29,19 +29,37 @@ function videoInfoToSongData(data: videoInfo): SongData {
 	};
 }
 
+async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
+	if (query === '!random') {
+		const count = await songDataCache.count({});
+		if (count === 0) return null;
+
+		const [song] = await songDataCache
+			.find({})
+			.sort({ _id: 1 })
+			.skip(randomInteger(count))
+			.limit(1)
+			.exec();
+
+		return song?.id ?? null;
+	}
+
+	const result = await axios.get<string>('https://www.youtube.com/results', {
+		params: {
+			search_query: query,
+			sp: 'EgIQAQ==',
+		},
+	});
+
+	return result.data.match(/\/watch\?v=([\w-]{11})/)?.[1] ?? null;
+}
+
 export async function handleYouTubeQuery(
 	query: string,
 	single = false
 ): Promise<Option<SearchResult>> {
 	if (single) {
-		const result = await axios.get<string>('https://www.youtube.com/results', {
-			params: {
-				search_query: query,
-				sp: 'EgIQAQ==',
-			},
-		});
-
-		const videoId = result.data.match(/\/watch\?v=([\w-]{11})/)?.[1] ?? null;
+		const videoId = await getVideoIdFromQuery(query);
 		if (videoId === null) return null;
 
 		return handleYouTubeVideo(videoId);

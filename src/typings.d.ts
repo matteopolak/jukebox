@@ -93,3 +93,8 @@ export interface ConnectionSettings {
 
 export type Option<T> = T | null;
 export type WithId<T> = T & { _id: string };
+
+export const enum CommandOrigin {
+	Text,
+	Voice,
+}
