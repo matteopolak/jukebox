@@ -624,6 +624,8 @@ export default class Connection extends EventEmitter {
 		this._queueLength = 0;
 		this._queueLengthWithRelated = 0;
 		this.settings.seek = 0;
+
+		this._index = 0;
 		this.endCurrentSong();
 
 		// Forcefully remove the current resource

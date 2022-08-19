@@ -5,14 +5,16 @@ import { formatSeconds } from '../util/duration';
 import { getCachedSong } from '../util/search';
 import { songDataCache } from '../util/database';
 
-export const ID_REGEX = /^\/[\w-]+\/[\w-]+$/;
-
 function videoInfoToSongData(data: TrackInfo): SongData {
 	return {
 		id: data.id.toString(),
 		url: data.uri!,
 		title: data.title!,
-		thumbnail: data.artwork_url!.replace('-large.', '-t500x500.'),
+		thumbnail: (
+			data.artwork_url ??
+			data.user?.avatar_url ??
+			'https://icons.iconarchive.com/icons/danleech/simple/1024/soundcloud-icon.png'
+		).replace('-large.', '-t500x500.'),
 		duration: formatSeconds(Math.floor(data.duration! / 1_000)),
 		live: false,
 		type: SongProvider.SoundCloud,
@@ -45,5 +47,19 @@ export async function handleSoundCloudVideo(
 	return {
 		videos: [data],
 		title: null,
+	};
+}
+
+// Handles albums and playlists
+export async function handleSoundCloudAlbum(
+	url: string
+): Promise<Option<SearchResult>> {
+	const set = await scdl.getSetInfo(url);
+
+	return {
+		// The property `title` exists
+		// @ts-ignore
+		title: set.title,
+		videos: set.tracks.map(videoInfoToSongData),
 	};
 }

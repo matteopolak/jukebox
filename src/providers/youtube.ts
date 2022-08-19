@@ -216,7 +216,7 @@ export async function handleYouTubePlaylist(
 		),
 	};
 
-	await browser.close();
+	browser.close();
 
 	return data;
 }

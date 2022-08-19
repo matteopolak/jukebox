@@ -7,8 +7,8 @@ import {
 	handleYouTubeQuery,
 } from '../providers/youtube';
 import {
+	handleSoundCloudAlbum,
 	handleSoundCloudVideo,
-	ID_REGEX as SOUNDCLOUD_ID_REGEX,
 } from '../providers/soundcloud';
 import { Option, SearchResult, Song, SongData } from '../typings';
 import { songDataCache } from './database';
@@ -70,10 +70,17 @@ export async function createQuery(
 
 		// Handle SoundCloud queries
 		case 'www.soundcloud.com':
-		case 'soundcloud.com':
-			if (!SOUNDCLOUD_ID_REGEX.test(parsed.pathname)) break;
+		case 'soundcloud.com': {
+			// if (parsed.pathname === '/charts/top')
+			//	return handleSoundCloudChart(parsed.href);
+
+			const [, user, song, album] = parsed.pathname.split('/');
+
+			if (!user || !song) break;
+			if (song === 'sets' && album) return handleSoundCloudAlbum(parsed.href);
 
 			return handleSoundCloudVideo(parsed.href);
+		}
 		case 'open.spotify.com': {
 			const [, type, id] = parsed.pathname.split('/');
 
