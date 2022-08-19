@@ -14,10 +14,6 @@ export interface RawManager {
 	guildId: string;
 }
 
-export interface Manager extends RawManager {
-	starred: Set<string>;
-}
-
 export const enum SongProvider {
 	YouTube,
 	Spotify,

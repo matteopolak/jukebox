@@ -46,8 +46,9 @@ import {
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { randomInteger } from '../util/random';
-import { createQuery, songToData } from '../util/search';
+import { createQuery } from '../util/search';
 import scdl from 'soundcloud-downloader';
+import { handleYouTubeVideo } from '../providers/youtube';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -74,6 +75,7 @@ export default class Connection extends EventEmitter {
 	private _errored: Set<string> = new Set();
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
 	private _queueLength: number = 0;
+	private _queueLengthWithRelated: number = 0;
 	private _starred: Map<string, SongData> = new Map();
 	private _playing: boolean = false;
 	private _components = [
@@ -211,9 +213,17 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async init() {
-		const [queueLengthResult, starredSongsResult] = await Promise.all([
+		const [
+			queueLengthResult,
+			queueLengthWithRelatedResult,
+			starredSongsResult,
+		] = await Promise.all([
 			queue.count({
 				guildId: this.manager.guildId,
+			}),
+			queue.count({
+				guildId: this.manager.guildId,
+				related: { $exists: true },
 			}),
 			starred.find({
 				guildId: this.manager.guildId,
@@ -221,6 +231,7 @@ export default class Connection extends EventEmitter {
 		]);
 
 		this._queueLength = queueLengthResult;
+		this._queueLengthWithRelated = queueLengthWithRelatedResult;
 		this._index = -1;
 
 		for (const data of starredSongsResult) {
@@ -389,6 +400,11 @@ export default class Connection extends EventEmitter {
 		}
 
 		this._queueLength += songs.length;
+		this._queueLengthWithRelated += songs.reduce(
+			(a, b) => a + (b.related ? 1 : 0),
+			0
+		);
+
 		this.emit(Events.AddSongs, songs);
 
 		if (autoplay && !this._playing) {
@@ -406,6 +422,8 @@ export default class Connection extends EventEmitter {
 		});
 
 		this._queueLength++;
+		if (song.related) this._queueLengthWithRelated++;
+
 		this.emit(Events.AddSongs, [song]);
 
 		if (Math.abs(this._index - this._queueLength) < 3) {
@@ -440,7 +458,8 @@ export default class Connection extends EventEmitter {
 		++this._index;
 
 		// If the index would go out of bounds, wrap around to 0
-		if (this._index >= this._queueLength) {
+		// unless autoplay is enabled
+		if (this._index >= this._queueLength && !this.settings.autoplay) {
 			this._index = 0;
 		}
 
@@ -558,6 +577,7 @@ export default class Connection extends EventEmitter {
 		);
 
 		this._queueLength = 0;
+		this._queueLengthWithRelated = 0;
 		this.settings.seek = 0;
 		this.endCurrentSong();
 
@@ -568,14 +588,21 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async removeCurrentSong() {
+		if (!this.currentResource) return;
+
 		await queue.remove(
-			{ _id: this.currentResource?.metadata._id },
+			{ _id: this.currentResource.metadata._id },
 			{
 				multi: false,
 			}
 		);
 
 		this._queueLength--;
+
+		if (this.currentResource.metadata.related) {
+			this._queueLengthWithRelated--;
+		}
+
 		this.settings.seek = 0;
 		this.endCurrentSong();
 
@@ -588,10 +615,34 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async nextSong(): Promise<Option<WithId<Song>>> {
+		const index = this.nextIndex();
+
+		if (
+			index >= this._queueLength &&
+			this._queueLengthWithRelated > 0 &&
+			this.settings.autoplay
+		) {
+			console.log('search');
+			const [random] = await queue
+				.find({ guildId: this.manager.guildId, related: { $exists: true } })
+				.sort({ addedAt: 1 })
+				.skip(randomInteger(this._queueLengthWithRelated))
+				.limit(1)
+				.exec();
+
+			if (random?.related) {
+				const data = (await handleYouTubeVideo(random.related)).videos[0];
+
+				if (data) {
+					await this.addSong(data);
+				}
+			}
+		}
+
 		const [song] = await queue
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1 })
-			.skip(this.nextIndex())
+			.skip(index)
 			.limit(1)
 			.exec();
 
@@ -659,6 +710,12 @@ export default class Connection extends EventEmitter {
 	}
 
 	private async createStream(song: SongData) {
+		console.log(
+			song,
+			SongProvider.YouTube,
+			SongProvider.Spotify,
+			SongProvider.SoundCloud
+		);
 		if (
 			song.type === SongProvider.YouTube ||
 			song.type === SongProvider.Spotify

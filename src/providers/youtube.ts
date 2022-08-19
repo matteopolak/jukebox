@@ -25,9 +25,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 		format: info.isLiveContent
 			? ytdl.chooseFormat(data.formats, {})
 			: undefined,
-		related: relatedId
-			? `https://www.youtube.com/watch?v=${relatedId}`
-			: undefined,
+		related: relatedId,
 	};
 }
 
@@ -147,15 +145,19 @@ export async function handleYouTubePlaylist(
 					))!;
 
 					const id = link.slice(9, 20);
-
-					return {
-						url: `https://www.youtube.com${link}`,
+					const data: SongData = {
+						url: `https://www.youtube.com/watch?v=${id}`,
 						id,
-						title,
+						title: title!,
 						duration: time,
 						thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
 						live: false,
+						type: SongProvider.YouTube,
 					};
+
+					await songDataCache.insert(data).catch(() => {});
+
+					return data;
 				} catch {
 					return null;
 				}
@@ -171,9 +173,14 @@ export async function handleYouTubePlaylist(
 		await page.evaluate(() => {
 			window.scrollBy(0, 10500);
 		});
-		await page.waitForFunction(
-			`document.querySelectorAll('div[id=content]').length > ${number}`
-		);
+
+		try {
+			await page.waitForFunction(
+				`document.querySelectorAll('div[id=content]').length > ${number}`
+			);
+		} catch {
+			break;
+		}
 	}
 
 	await page.evaluate(() => {

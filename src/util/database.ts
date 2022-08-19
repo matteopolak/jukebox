@@ -19,3 +19,9 @@ export const starred: Datastore<WithId<SongData>> = Datastore.create({
 export const songDataCache: Datastore<WithId<SongData>> = Datastore.create({
 	filename: './data/song_cache.db',
 });
+
+songDataCache.ensureIndex({
+	fieldName: 'id',
+	unique: true,
+	sparse: true,
+});
