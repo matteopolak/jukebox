@@ -1,12 +1,14 @@
 import axios from 'axios';
 import { createHmac } from 'node:crypto';
+import { BAD_TITLE_CHARACTER_REGEX } from '../constants';
 import {
-	MacroSearchResponse,
 	MusixmatchResponse,
 	Track,
+	TrackGetResponse,
 	TrackLyricsResponse,
+	TrackSearchResponse,
 } from '../musixmatch';
-import { LyricsData, Option } from '../typings';
+import { LyricsData, Option, SongData } from '../typings';
 
 type ParamValueType = string | number | boolean | undefined;
 
@@ -28,9 +30,13 @@ function createSignedUrl(
 	hasher.update(`${fullUrl}${year}${month}${day}`);
 	const hash = hasher.digest('base64');
 
-	return `${fullUrl}&signature=${encodeURIComponent(
+	const signed = `${fullUrl}&signature=${encodeURIComponent(
 		hash
 	)}&signature_protocol=sha1`;
+
+	console.log(signed);
+
+	return signed;
 }
 
 function serializeParams(params: Record<string, ParamValueType>) {
@@ -47,37 +53,55 @@ function serializeParams(params: Record<string, ParamValueType>) {
 	return serialized.join('&');
 }
 
+export const enum QueryType {
+	Title = 'q_track',
+	Artist = 'q_artist',
+	Lyrics = 'q_lyrics',
+	TitleOrArtist = 'q_track_artist',
+}
+
+export async function getTrackById(trackId: number): Promise<Option<Track>> {
+	const url = createSignedUrl('https://www.musixmatch.com/ws/1.1/track.get', {
+		track_id: trackId,
+	});
+
+	const { data } = await axios.get<MusixmatchResponse<TrackGetResponse>>(url);
+
+	return data.message.header.status_code === 404
+		? null
+		: data.message.body?.track ?? null;
+}
+
 export async function getTrack(
-	query: string,
+	query: Partial<Record<QueryType, string>>,
 	lyrics = true
 ): Promise<Option<Track>> {
 	const url = createSignedUrl(
-		'https://www.musixmatch.com/ws/1.1/macro.search',
+		'https://www.musixmatch.com/ws/1.1/track.search',
 		{
-			q: query,
+			...query,
 			part: 'artist_image',
 			page_size: '1',
 			f_has_lyrics: lyrics ? '1' : undefined,
 		}
 	);
 
-	const { data } = await axios.get<MusixmatchResponse<MacroSearchResponse>>(
+	const { data } = await axios.get<MusixmatchResponse<TrackSearchResponse>>(
 		url
 	);
 
 	if (data.message.header.status_code === 404) return null;
 
-	return data.message.body!.macro_result_list.track_list[0].track;
+	return data.message.body?.track_list[0]?.track ?? null;
 }
 
-export async function getLyrics(query: string): Promise<Option<LyricsData>> {
-	const track = await getTrack(query, true);
-	if (track === null) return null;
-
+export async function getLyricsById(
+	trackId: number
+): Promise<Option<LyricsData>> {
 	const url = createSignedUrl(
 		'https://www.musixmatch.com/ws/1.1/track.lyrics.get',
 		{
-			track_id: track.track_id,
+			track_id: trackId,
 		}
 	);
 
@@ -88,8 +112,58 @@ export async function getLyrics(query: string): Promise<Option<LyricsData>> {
 	if (data.message.header.status_code === 404) return null;
 
 	return {
-		title: track.track_name,
-		artist: track.artist_name,
 		lyrics: data.message.body!.lyrics.lyrics_body,
+		copyright: data.message.body!.lyrics.lyrics_copyright.slice(0, -1),
 	};
+}
+
+export async function getTrackFromSongData(
+	data: SongData
+): Promise<Option<Track>> {
+	if (data.musixmatchId) return getTrackById(data.musixmatchId);
+	if (data.musixmatchId === null) return null;
+
+	const cleanTitle = data.title.replace(BAD_TITLE_CHARACTER_REGEX, '');
+
+	{
+		const track = await getTrack(
+			{ q_track: cleanTitle, q_artist: data.artist },
+			true
+		);
+
+		if (track) return track;
+	}
+
+	{
+		const track = await getTrack({ q_track_artist: cleanTitle }, true);
+
+		if (track) return track;
+	}
+
+	return null;
+}
+
+export async function getTrackIdFromSongData(
+	data: SongData
+): Promise<Option<number>> {
+	if (data.musixmatchId) return data.musixmatchId;
+
+	const cleanTitle = data.title.replace(BAD_TITLE_CHARACTER_REGEX, '');
+
+	{
+		const track = await getTrack(
+			{ q_track: cleanTitle, q_artist: data.artist },
+			true
+		);
+
+		if (track) return track.track_id;
+	}
+
+	{
+		const track = await getTrack({ q_track_artist: cleanTitle }, true);
+
+		if (track) return track.track_id;
+	}
+
+	return null;
 }

@@ -13,12 +13,14 @@ import {
 	ButtonBuilder,
 	ButtonStyle,
 	Guild,
-	TextBasedChannel,
 	VoiceBasedChannel,
 	escapeMarkdown,
 	ButtonInteraction,
 	Message,
 	GuildMember,
+	ThreadChannel,
+	NewsChannel,
+	TextChannel,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
@@ -47,10 +49,11 @@ import {
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { randomInteger } from '../util/random';
-import { createQuery } from '../util/search';
+import { createQuery, setMusixmatchid } from '../util/search';
 import scdl from 'soundcloud-downloader';
 import { handleYouTubeVideo } from '../providers/youtube';
 import { sendMessageAndDelete } from '../util/message';
+import { getLyricsById, getTrackIdFromSongData } from '../api/musixmatch';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -60,7 +63,8 @@ export const enum Events {
 
 export default class Connection extends EventEmitter {
 	public voiceChannel: Option<VoiceBasedChannel> = null;
-	public textChannel: TextBasedChannel;
+	public textChannel: TextChannel | NewsChannel;
+	public threadChannel: Option<ThreadChannel>;
 	public manager: RawManager;
 	public subscription: Option<PlayerSubscription> = null;
 	public currentResource: Option<AudioResource<WithId<Song>>> = null;
@@ -70,6 +74,7 @@ export default class Connection extends EventEmitter {
 		autoplay: false,
 		seek: 0,
 		shuffle: false,
+		lyrics: false,
 	};
 
 	private _index: number = 0;
@@ -80,112 +85,149 @@ export default class Connection extends EventEmitter {
 	private _queueLengthWithRelated: number = 0;
 	private _starred: Map<string, SongData> = new Map();
 	private _playing: boolean = false;
-	private _effectComponents = [
-		new ButtonBuilder({
-			customId: 'loud',
-			label: '🧨',
-			style: ButtonStyle.Danger,
-		}),
-		new ButtonBuilder({
-			customId: 'underwater',
-			label: '🌊',
-			style: ButtonStyle.Danger,
-		}),
-		new ButtonBuilder({
-			customId: 'bass',
-			label: '🥁',
-			style: ButtonStyle.Danger,
-		}),
-		new ButtonBuilder({
-			customId: 'echo',
-			label: '🧯',
-			style: ButtonStyle.Danger,
-		}),
-		new ButtonBuilder({
-			customId: 'high_pitch',
-			label: '🐿️',
-			style: ButtonStyle.Danger,
-		}),
-		new ButtonBuilder({
-			customId: 'reverse',
-			label: '⏪',
-			style: ButtonStyle.Danger,
-		}),
-	];
-	private _components = [
-		new ActionRowBuilder<ButtonBuilder>({
-			components: [
-				new ButtonBuilder({
-					customId: 'toggle',
-					label: '▶️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'previous',
-					label: '⏮️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'next',
-					label: '⏭️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'repeat',
-					label: '🔂',
-					style: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'shuffle',
-					label: '🔀',
-					style: ButtonStyle.Primary,
-				}),
-			],
-		}),
-		new ActionRowBuilder<ButtonBuilder>({
-			components: [
-				new ButtonBuilder({
-					customId: 'autoplay',
-					label: '♾️',
-					style: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'remove',
-					label: '🗑️',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'remove_all',
-					label: '💣',
-					style: ButtonStyle.Primary,
-				}),
-				new ButtonBuilder({
-					customId: 'star',
-					label: '⭐️',
-					style: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'play_starred',
-					label: '☀️',
-					style: ButtonStyle.Primary,
-				}),
-			],
-		}),
-		new ActionRowBuilder<ButtonBuilder>({
-			components: this._effectComponents.slice(0, 5),
-		}),
-		new ActionRowBuilder<ButtonBuilder>({
-			components: this._effectComponents.slice(5),
-		}),
-	];
+	private _threadChannelPromise: Option<Promise<ThreadChannel>> = null;
+	private _effectComponents;
+	private _components;
 
 	constructor(guild: Guild, manager: RawManager) {
 		super();
 
 		this.manager = manager;
-		this.textChannel = guild.channels.cache.get(
-			manager.channelId
-		) as TextBasedChannel;
+		this.settings = manager.settings;
+		this.textChannel = guild.channels.cache.get(manager.channelId) as
+			| TextChannel
+			| NewsChannel;
+		this.threadChannel = this.manager.threadId
+			? this.textChannel.threads.cache.get(this.manager.threadId) ?? null
+			: null;
+
+		if (this.threadChannel === null) {
+			this.manager.lyricsId = undefined;
+			this.manager.threadId = undefined;
+		}
+
+		this._effectComponents = [
+			new ButtonBuilder({
+				customId: 'loud',
+				label: '🧨',
+				style: ButtonStyle.Danger,
+			}),
+			new ButtonBuilder({
+				customId: 'underwater',
+				label: '🌊',
+				style: ButtonStyle.Danger,
+			}),
+			new ButtonBuilder({
+				customId: 'bass',
+				label: '🥁',
+				style: ButtonStyle.Danger,
+			}),
+			new ButtonBuilder({
+				customId: 'echo',
+				label: '🧯',
+				style: ButtonStyle.Danger,
+			}),
+			new ButtonBuilder({
+				customId: 'high_pitch',
+				label: '🐿️',
+				style: ButtonStyle.Danger,
+			}),
+			new ButtonBuilder({
+				customId: 'reverse',
+				label: '⏪',
+				style: ButtonStyle.Danger,
+			}),
+		];
+
+		this._components = [
+			new ActionRowBuilder<ButtonBuilder>({
+				components: [
+					new ButtonBuilder({
+						customId: 'toggle',
+						label: '▶️',
+						style: ButtonStyle.Primary,
+					}),
+					new ButtonBuilder({
+						customId: 'previous',
+						label: '⏮️',
+						style: ButtonStyle.Primary,
+					}),
+					new ButtonBuilder({
+						customId: 'next',
+						label: '⏭️',
+						style: ButtonStyle.Primary,
+					}),
+					new ButtonBuilder({
+						customId: 'repeat',
+						label: '🔂',
+						style: this.settings.repeat
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
+					}),
+					new ButtonBuilder({
+						customId: 'shuffle',
+						label: '🔀',
+						style: this.settings.shuffle
+							? ButtonStyle.Success
+							: ButtonStyle.Primary,
+					}),
+				],
+			}),
+			new ActionRowBuilder<ButtonBuilder>({
+				components: [
+					new ButtonBuilder({
+						customId: 'remove',
+						label: '🗑️',
+						style: ButtonStyle.Primary,
+					}),
+					new ButtonBuilder({
+						customId: 'remove_all',
+						label: '💣',
+						style: ButtonStyle.Primary,
+					}),
+					new ButtonBuilder({
+						customId: 'star',
+						label: '⭐️',
+						style: ButtonStyle.Danger,
+					}),
+					new ButtonBuilder({
+						customId: 'play_starred',
+						label: '☀️',
+						style: ButtonStyle.Primary,
+					}),
+				],
+			}),
+			new ActionRowBuilder<ButtonBuilder>({
+				components: [
+					new ButtonBuilder({
+						customId: 'autoplay',
+						label: '♾️',
+						style: this.settings.autoplay
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
+					}),
+					new ButtonBuilder({
+						customId: 'lyrics',
+						label: '📜',
+						style: this.settings.lyrics
+							? ButtonStyle.Success
+							: ButtonStyle.Danger,
+					}),
+				],
+			}),
+			new ActionRowBuilder<ButtonBuilder>({
+				components: this._effectComponents.slice(0, 5),
+			}),
+			new ActionRowBuilder<ButtonBuilder>({
+				components: this._effectComponents.slice(5),
+			}),
+		];
+
+		const [row, index] = EFFECT_TO_INDEX_LIST[this.settings.effect];
+
+		if (row !== -1) {
+			this._components[row].components[index].setStyle(ButtonStyle.Success);
+		}
 
 		connections.set(guild.id, this);
 	}
@@ -253,15 +295,18 @@ export default class Connection extends EventEmitter {
 		this.subscription?.connection.destroy();
 	}
 
-	public async setManager(manager: RawManager) {
-		this.manager = manager;
-
-		if (this._queueLength > 0) {
-			return Promise.all([
-				this.updateEmbedMessage(),
-				this.updateQueueMessage(),
-			]);
-		}
+	private updateManagerData(update: Record<string, string | number | boolean>) {
+		return managers.update(
+			{
+				_id: this.manager._id,
+			},
+			{
+				$set: update,
+			},
+			{
+				multi: false,
+			}
+		);
 	}
 
 	public async setVoiceChannel(voiceChannel: VoiceBasedChannel) {
@@ -301,6 +346,7 @@ export default class Connection extends EventEmitter {
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
+			this.updateManagerData({ 'settings.repeat': enabled });
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(
@@ -325,11 +371,45 @@ export default class Connection extends EventEmitter {
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
+			this.updateManagerData({ 'settings.autoplay': enabled });
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(
 					this.textChannel,
 					`🎙️ Autoplay has been **${enabled ? 'enabled' : 'disabled'}**.`
+				);
+			}
+		}
+	}
+
+	public async setLyrics(
+		enabled: boolean,
+		origin: CommandOrigin = CommandOrigin.Text
+	): Promise<void> {
+		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.lyrics;
+		const old = this.settings.lyrics;
+
+		this.settings.lyrics = enabled;
+		this._components[row].components[index].setStyle(
+			enabled ? ButtonStyle.Success : ButtonStyle.Danger
+		);
+
+		if (old !== enabled) {
+			if (!enabled && this.threadChannel) {
+				this.threadChannel.delete().catch(() => {});
+
+				this.threadChannel = null;
+				this.manager.threadId = undefined;
+				this.manager.lyricsId = undefined;
+			}
+
+			this.updateEmbedMessage();
+			this.updateManagerData({ 'settings.lyrics': enabled });
+
+			if (origin === CommandOrigin.Voice) {
+				await sendMessageAndDelete(
+					this.textChannel,
+					`🎙️ Lyrics have been **${enabled ? 'enabled' : 'disabled'}**.`
 				);
 			}
 		}
@@ -358,6 +438,7 @@ export default class Connection extends EventEmitter {
 		this.settings.effect = effect;
 
 		if (oldRow !== newRow || oldIndex !== newIndex) {
+			this.updateManagerData({ 'settings.effect': effect });
 			this.updateEmbedMessage();
 			this.applyEffectChanges();
 		}
@@ -377,6 +458,7 @@ export default class Connection extends EventEmitter {
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
+			this.updateManagerData({ 'settings.shuffle': enabled });
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(
@@ -509,10 +591,7 @@ export default class Connection extends EventEmitter {
 			this.subscription.player.state.status !== AudioPlayerStatus.Idle
 		) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
-			const button = this._components[row].components[index];
-
-			button.setLabel('Play');
-			button.setEmoji('▶️');
+			this._components[row].components[index].setLabel('▶️');
 
 			this.subscription.player.pause();
 			this.updateEmbedMessage();
@@ -527,16 +606,16 @@ export default class Connection extends EventEmitter {
 				this.subscription.player.state.status === AudioPlayerStatus.Idle)
 		) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
-			const button = this._components[row].components[index];
-
-			button.setLabel('Pause');
-			button.setEmoji('⏸️');
+			this._components[row].components[index].setLabel('⏸️');
 
 			this.subscription?.player.unpause();
-			this.updateEmbedMessage();
 
 			if (!this._playing) {
 				this.play();
+			} else if (
+				this.subscription.player.state.status !== AudioPlayerStatus.Idle
+			) {
+				this.updateEmbedMessage();
 			}
 		}
 	}
@@ -701,6 +780,67 @@ export default class Connection extends EventEmitter {
 		return song ?? null;
 	}
 
+	private async updateOrCreateLyricsMessage(content: string): Promise<void> {
+		if (this._threadChannelPromise) await this._threadChannelPromise;
+
+		if (this.threadChannel) {
+			if (this.manager.lyricsId) {
+				return void this.threadChannel.messages.edit(
+					this.manager.lyricsId,
+					content
+				);
+			}
+
+			const lyricsMessage = await this.threadChannel.send(content);
+			this.manager.lyricsId = lyricsMessage.id;
+
+			return void this.updateManagerData({ lyricsId: lyricsMessage.id });
+		}
+
+		this._threadChannelPromise = this.textChannel.threads.create({
+			startMessage: this.manager.queueId,
+			name: 'Lyrics',
+		});
+
+		this.threadChannel = await this._threadChannelPromise;
+
+		const lyricsMessage = await this.threadChannel.send(content);
+		this.manager.lyricsId = lyricsMessage.id;
+		this.manager.threadId = this.threadChannel.id;
+
+		await this.updateManagerData({
+			lyricsId: lyricsMessage.id,
+			threadId: this.threadChannel.id,
+		});
+	}
+
+	public async updateLyricsMessage() {
+		const song = this.currentResource?.metadata;
+		if (!song)
+			return this.updateOrCreateLyricsMessage('No song is currently playing.');
+
+		if (song.musixmatchId === null)
+			return this.updateOrCreateLyricsMessage('Track not found.');
+
+		const trackId = await getTrackIdFromSongData(song);
+		if (trackId === null) {
+			await setMusixmatchid(song.id, null);
+
+			return this.updateOrCreateLyricsMessage('Track not found.');
+		}
+
+		if (!song.musixmatchId) await setMusixmatchid(song.id, trackId);
+		song.musixmatchId = trackId;
+
+		const lyricsData = await getLyricsById(trackId);
+		if (lyricsData === null)
+			return this.updateOrCreateLyricsMessage('Track does not support lyrics.');
+
+		this.updateOrCreateLyricsMessage(
+			lyricsData.lyrics || 'Track lyrics not available.'
+		);
+	}
+
 	public async updateEmbedMessage() {
 		const song = this.currentResource?.metadata;
 
@@ -727,6 +867,10 @@ export default class Connection extends EventEmitter {
 			],
 			components: this._components,
 		});
+
+		if (this.settings.lyrics) {
+			this.updateLyricsMessage();
+		}
 	}
 
 	public async updateQueueMessage() {
@@ -818,10 +962,7 @@ export default class Connection extends EventEmitter {
 
 		if (previousResource?.metadata.id !== song.id) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
-			const button = this._components[row].components[index];
-
-			button.setLabel('Pause');
-			button.setEmoji('⏸️');
+			this._components[row].components[index].setLabel('⏸️');
 
 			if (song.type === SongProvider.SoundCloud) {
 				for (const button of this._effectComponents) {

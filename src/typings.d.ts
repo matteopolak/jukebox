@@ -12,6 +12,19 @@ export interface RawManager {
 	queueId: string;
 	channelId: string;
 	guildId: string;
+	threadId?: string;
+	lyricsId?: string;
+	settings: ConnectionSettings;
+	index: number;
+}
+
+export interface ConnectionSettings {
+	effect: Effect;
+	repeat: boolean;
+	autoplay: boolean;
+	seek: number;
+	shuffle: boolean;
+	lyrics: boolean;
 }
 
 export const enum SongProvider {
@@ -24,12 +37,14 @@ export interface SongData {
 	url: string;
 	id: string;
 	title: string;
+	artist: string;
 	duration: string;
 	thumbnail: string;
 	live: boolean;
 	type: SongProvider;
 	format?: videoFormat;
 	related?: string;
+	musixmatchId?: Option<number>;
 }
 
 export interface Song extends SongData {
@@ -83,14 +98,6 @@ export interface SearchResult {
 	title: Option<string>;
 }
 
-export interface ConnectionSettings {
-	effect: Effect;
-	repeat: boolean;
-	autoplay: boolean;
-	seek: number;
-	shuffle: boolean;
-}
-
 export type Option<T> = T | null;
 export type WithId<T> = T & { _id: string };
 
@@ -100,7 +107,6 @@ export const enum CommandOrigin {
 }
 
 export interface LyricsData {
-	title: string;
-	artist: string;
 	lyrics: string;
+	copyright: string;
 }

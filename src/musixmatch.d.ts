@@ -16,6 +16,7 @@ interface MusixmatchResponseSuccess<T> {
 	header: {
 		status_code: 200;
 		execute_time: number;
+		available?: number;
 	};
 	body: T extends null ? never : T;
 }
@@ -41,6 +42,14 @@ export interface MacroSearchResponse {
 		type: 'track';
 		id: number;
 	};
+}
+
+export interface TrackSearchResponse {
+	track_list: { track: Track }[];
+}
+
+export interface TrackGetResponse {
+	track: Track;
 }
 
 export interface TrackLyricsResponse {

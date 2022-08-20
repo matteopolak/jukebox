@@ -2,6 +2,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { Effect, SongProvider } from './typings';
 
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
+export const BAD_TITLE_CHARACTER_REGEX =
+	/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]|\([^()]+\)|\[[^\[\]]+\]/g;
 
 export const PROVIDER_TO_EMOJI: Record<SongProvider, string> = {
 	[SongProvider.SoundCloud]: '<:soundcloud:1009952387005431858>',
@@ -27,12 +29,12 @@ export const EFFECTS: Record<Effect, string[]> = {
 
 export const EFFECT_TO_INDEX_LIST = {
 	[Effect.None]: [-1, -1],
-	[Effect.Loud]: [2, 0],
-	[Effect.UnderWater]: [2, 1],
-	[Effect.Bass]: [2, 2],
-	[Effect.Echo]: [2, 3],
-	[Effect.HighPitch]: [2, 4],
-	[Effect.Reverse]: [3, 0],
+	[Effect.Loud]: [3, 0],
+	[Effect.UnderWater]: [3, 1],
+	[Effect.Bass]: [3, 2],
+	[Effect.Echo]: [3, 3],
+	[Effect.HighPitch]: [3, 4],
+	[Effect.Reverse]: [4, 0],
 } as const;
 
 export const CUSTOM_ID_TO_INDEX_LIST = {
@@ -41,11 +43,12 @@ export const CUSTOM_ID_TO_INDEX_LIST = {
 	next: [0, 2],
 	repeat: [0, 3],
 	shuffle: [0, 4],
-	autoplay: [1, 0],
-	remove: [1, 1],
-	remove_all: [1, 2],
-	star: [1, 3],
-	play_starred: [1, 4],
+	remove: [1, 0],
+	remove_all: [1, 1],
+	star: [1, 2],
+	play_starred: [1, 3],
+	autoplay: [2, 0],
+	lyrics: [2, 1],
 } as const;
 
 export const DEFAULT_COMPONENTS = [
@@ -81,11 +84,6 @@ export const DEFAULT_COMPONENTS = [
 	new ActionRowBuilder<ButtonBuilder>({
 		components: [
 			new ButtonBuilder({
-				customId: 'autoplay',
-				label: '♾️',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
 				customId: 'remove',
 				label: '🗑️',
 				style: ButtonStyle.Primary,
@@ -104,6 +102,20 @@ export const DEFAULT_COMPONENTS = [
 				customId: 'play_starred',
 				label: '☀️',
 				style: ButtonStyle.Primary,
+			}),
+		],
+	}),
+	new ActionRowBuilder<ButtonBuilder>({
+		components: [
+			new ButtonBuilder({
+				customId: 'autoplay',
+				label: '♾️',
+				style: ButtonStyle.Danger,
+			}),
+			new ButtonBuilder({
+				customId: 'lyrics',
+				label: '📜',
+				style: ButtonStyle.Danger,
 			}),
 		],
 	}),

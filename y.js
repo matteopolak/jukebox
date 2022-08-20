@@ -21,23 +21,14 @@ function sign(url) {
 	return url;
 }
 
-const url = new URL('https://www.musixmatch.com/ws/1.1/macro.search');
+const url = new URL('https://www.musixmatch.com/ws/1.1/track.search');
 
 url.searchParams.set('app_id', 'community-app-v1.0');
 url.searchParams.set('format', 'json');
-url.searchParams.set('q', 'save your tears for another day');
+url.searchParams.set('q_track', 'Laptop !!');
+url.searchParams.set('q_artist', 'Dreamcache');
 url.searchParams.set('page_size', '1');
 
 const signed = sign(url);
 
 console.log(signed.href.replace(/\+/g, '%20'));
-/*
-const lyrics = new URL('https://www.musixmatch.com/ws/1.1/track.lyrics.get');
-
-lyrics.searchParams.set('app_id', 'community-app-v1.0');
-lyrics.searchParams.set('format', 'json');
-lyrics.searchParams.set('track_id', '-1');
-
-const signedLyrics = sign(lyrics);
-
-console.log(signedLyrics.href.replace(/\+/g, '%20'));*/

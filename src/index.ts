@@ -4,11 +4,9 @@ import {
 	ApplicationCommandType,
 	ButtonInteraction,
 	Client,
-	ComponentType,
 	escapeMarkdown,
 	GuildMember,
 	IntentsBitField,
-	InteractionType,
 	Options,
 	Partials,
 } from 'discord.js';
@@ -20,7 +18,13 @@ import { createAudioManager } from './util/music';
 import { Effect } from './typings';
 import Connection, { connections } from './structures/Connection';
 import { randomElement } from './util/random';
-import { getLyrics } from './api/musixmatch';
+import {
+	getLyricsById,
+	getTrack,
+	getTrackFromSongData,
+	getTrackIdFromSongData,
+	QueryType,
+} from './api/musixmatch';
 
 dotenv.config({ override: true });
 
@@ -50,7 +54,7 @@ const client = new Client({
 		ReactionManager: 0,
 		ReactionUserManager: 0,
 		StageInstanceManager: 0,
-		ThreadManager: 0,
+		ThreadManager: Infinity,
 		ThreadMemberManager: 0,
 		UserManager: Infinity,
 		VoiceStateManager: Infinity,
@@ -84,8 +88,19 @@ client.once('ready', async () => {
 					options: [
 						{
 							name: 'title',
-							description:
-								'The title of the song (leave blank to use currently-playing song)',
+							description: 'The title of the track.',
+							type: ApplicationCommandOptionType.String,
+							required: false,
+						},
+						{
+							name: 'artist',
+							description: 'The name of the artist.',
+							type: ApplicationCommandOptionType.String,
+							required: false,
+						},
+						{
+							name: 'lyrics',
+							description: 'A portion of the lyrics.',
 							type: ApplicationCommandOptionType.String,
 							required: false,
 						},
@@ -173,6 +188,10 @@ async function handleButton(interaction: ButtonInteraction) {
 			connection.setAutoplay(!connection.settings.autoplay);
 
 			break;
+		case 'lyrics':
+			connection.setLyrics(!connection.settings.lyrics);
+
+			break;
 		case 'star':
 			connection.starCurrentSongToggle();
 
@@ -187,12 +206,9 @@ async function handleButton(interaction: ButtonInteraction) {
 }
 
 client.on('interactionCreate', async interaction => {
-	if (
-		interaction.type === InteractionType.MessageComponent &&
-		interaction.componentType === ComponentType.Button
-	) {
+	if (interaction.isButton()) {
 		return void handleButton(interaction);
-	} else if (interaction.type === InteractionType.ApplicationCommand) {
+	} else if (interaction.isChatInputCommand()) {
 		switch (interaction.commandName) {
 			case 'create':
 				await interaction.deferReply();
@@ -201,34 +217,35 @@ client.on('interactionCreate', async interaction => {
 
 				break;
 			case 'lyrics': {
-				const title =
-					(interaction.options.get('title', false)?.value as
-						| string
-						| undefined) ??
-					connections.get(interaction.guildId!)?.currentResource?.metadata
-						.title ??
-					null;
+				const query: Partial<Record<QueryType, string>> = {
+					q_track: interaction.options.getString('title') ?? undefined,
+					q_artist: interaction.options.getString('artist') ?? undefined,
+					q_lyrics: interaction.options.getString('lyrics') ?? undefined,
+				};
 
-				if (title === null) {
-					return void interaction.reply({
-						ephemeral: true,
-						content:
-							'You did not provide a title and no song is currently playing.',
-					});
-				}
+				const currentSong = connections.get(interaction.guildId!)
+					?.currentResource?.metadata;
 
-				const lyrics = await getLyrics(title);
-				if (lyrics === null) {
+				const track =
+					query.q_track || query.q_artist || query.q_lyrics
+						? await getTrack(query, true)
+						: currentSong
+						? await getTrackFromSongData(currentSong)
+						: null;
+
+				if (track === null) {
 					return void interaction.reply({
 						ephemeral: true,
 						content: 'A song could not be found with that query.',
 					});
 				}
 
+				const lyrics = (await getLyricsById(track.track_id))!;
+
 				return void interaction.reply(
-					`**${escapeMarkdown(lyrics.title)}** by **${escapeMarkdown(
-						lyrics.artist
-					)}**\n\n${lyrics.lyrics}`
+					`**${escapeMarkdown(track.track_name)}** by **${escapeMarkdown(
+						track.artist_name
+					)}**\n*${lyrics.copyright}*\n\n${lyrics.lyrics}`
 				);
 			}
 		}

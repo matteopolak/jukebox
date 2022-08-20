@@ -1,6 +1,7 @@
 import { CommandInteraction } from 'discord.js';
 import { managers } from './database';
 import { DEFAULT_COMPONENTS } from '../constants';
+import { Effect } from '../typings';
 
 export async function createAudioManager(interaction: CommandInteraction) {
 	const message = await interaction.channel!.send({
@@ -36,5 +37,13 @@ export async function createAudioManager(interaction: CommandInteraction) {
 		queueId: queue.id,
 		channelId: interaction.channelId,
 		guildId: interaction.guildId!,
+		settings: {
+			effect: Effect.None,
+			repeat: false,
+			autoplay: false,
+			seek: 0,
+			shuffle: false,
+			lyrics: false,
+		},
 	});
 }

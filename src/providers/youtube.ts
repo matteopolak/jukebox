@@ -1,5 +1,5 @@
 import axios from 'axios';
-import puppeteer, { Browser } from 'puppeteer';
+import puppeteer from 'puppeteer';
 import ytdl, { videoInfo } from 'ytdl-core';
 
 import { Option, SearchResult, Song, SongData, SongProvider } from '../typings';
@@ -7,6 +7,7 @@ import { songDataCache } from '../util/database';
 import { formatSeconds } from '../util/duration';
 import { randomElement, randomInteger } from '../util/random';
 import { getCachedSong } from '../util/search';
+import fs from 'fs';
 
 export const ID_REGEX = /^[\w-]{11}$/;
 
@@ -18,6 +19,12 @@ function videoInfoToSongData(data: videoInfo): SongData {
 		id: info.videoId,
 		url: info.video_url,
 		title: info.title,
+		artist:
+			// @ts-ignore
+			data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
+				(c: any) => c.videoSecondaryInfoRenderer
+			)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
+				?.text ?? data.videoDetails.author.name,
 		thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
 		duration: formatSeconds(parseInt(info.lengthSeconds)),
 		live: info.isLiveContent,
@@ -141,41 +148,53 @@ export async function handleYouTubePlaylist(
 	);
 	const scrolls = Math.ceil(videoCount / 100) - 1;
 
-	const count = async () => (await page.$$('div[id=content]')).length;
+	const count = async () =>
+		(await page.$$('.ytd-playlist-video-renderer#content')).length;
 	const scrape = async () => {
-		const videos = await page.$$('div[id=content]');
+		const videos = await page.$$('.ytd-playlist-video-renderer#content');
 
 		const times = await Promise.all(
 			videos.slice(1).map(async div => {
 				try {
-					const time = await page.evaluate(
-						e =>
-							e
-								.querySelector(
-									'span[class="style-scope ytd-thumbnail-overlay-time-status-renderer"]'
-								)!
-								.textContent!.trim(),
-						div
-					);
-					const title = await page.evaluate(
-						e => e.querySelector('a[id="video-title"]')!.getAttribute('title'),
-						div
-					);
-					const link = (await page.evaluate(
-						e =>
-							e
-								.querySelector(
-									'a[class="yt-simple-endpoint style-scope ytd-playlist-video-renderer"]'
-								)!
-								.getAttribute('href'),
-						div
-					))!;
+					const [time, title, link, artist] = await Promise.all([
+						page.evaluate(
+							e =>
+								e
+									.querySelector(
+										'span[class="style-scope ytd-thumbnail-overlay-time-status-renderer"]'
+									)!
+									.textContent!.trim(),
+							div
+						),
+						page.evaluate(
+							e =>
+								e.querySelector('a[id="video-title"]')!.getAttribute('title'),
+							div
+						),
+						page.evaluate(
+							e =>
+								e
+									.querySelector(
+										'a[class="yt-simple-endpoint style-scope ytd-playlist-video-renderer"]'
+									)!
+									.getAttribute('href'),
+							div
+						),
+						page.evaluate(
+							e =>
+								e.querySelector(
+									'a[class="yt-simple-endpoint style-scope yt-formatted-string"]'
+								)!.textContent,
+							div
+						),
+					]);
 
-					const id = link.slice(9, 20);
+					const id = link!.slice(9, 20);
 					const data: SongData = {
 						url: `https://www.youtube.com/watch?v=${id}`,
 						id,
 						title: title!,
+						artist: artist!,
 						duration: time,
 						thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
 						live: false,

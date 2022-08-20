@@ -10,6 +10,7 @@ function videoInfoToSongData(data: TrackInfo): SongData {
 		id: data.id.toString(),
 		url: data.uri!,
 		title: data.title!,
+		artist: data.user ? data.user.full_name : '???',
 		thumbnail: (
 			data.artwork_url ??
 			data.user?.avatar_url ??

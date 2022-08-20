@@ -11,9 +11,8 @@ import {
 	handleSoundCloudVideo,
 } from '../providers/soundcloud';
 import { Option, SearchResult, Song, SongData } from '../typings';
-import { songDataCache } from './database';
+import { queue, songDataCache } from './database';
 import { handleSpotifyAlbum, handleSpotifyVideo } from '../providers/spotify';
-import { Browser } from 'puppeteer';
 import { ALLOWED_PROTOCOLS } from '../constants';
 
 export function getCachedSong(id: string) {
@@ -28,11 +27,45 @@ function parseUrlWrapper(query: string) {
 	}
 }
 
+export async function setMusixmatchid(
+	songId: string,
+	musixmatchId: number | null
+) {
+	await songDataCache.update(
+		{
+			id: songId,
+		},
+		{
+			$set: {
+				musixmatchId,
+			},
+		},
+		{
+			multi: true,
+		}
+	);
+
+	await queue.update(
+		{
+			id: songId,
+		},
+		{
+			$set: {
+				musixmatchId,
+			},
+		},
+		{
+			multi: true,
+		}
+	);
+}
+
 export function songToData(song: Song): SongData {
 	return {
 		id: song.id,
 		url: song.url,
 		title: song.title,
+		artist: song.artist,
 		duration: song.duration,
 		thumbnail: song.thumbnail,
 		live: song.live,
