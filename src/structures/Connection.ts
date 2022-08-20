@@ -80,6 +80,38 @@ export default class Connection extends EventEmitter {
 	private _queueLengthWithRelated: number = 0;
 	private _starred: Map<string, SongData> = new Map();
 	private _playing: boolean = false;
+	private _effectComponents = [
+		new ButtonBuilder({
+			customId: 'loud',
+			label: '🧨',
+			style: ButtonStyle.Danger,
+		}),
+		new ButtonBuilder({
+			customId: 'underwater',
+			label: '🌊',
+			style: ButtonStyle.Danger,
+		}),
+		new ButtonBuilder({
+			customId: 'bass',
+			label: '🥁',
+			style: ButtonStyle.Danger,
+		}),
+		new ButtonBuilder({
+			customId: 'echo',
+			label: '🧯',
+			style: ButtonStyle.Danger,
+		}),
+		new ButtonBuilder({
+			customId: 'high_pitch',
+			label: '🐿️',
+			style: ButtonStyle.Danger,
+		}),
+		new ButtonBuilder({
+			customId: 'reverse',
+			label: '⏪',
+			style: ButtonStyle.Danger,
+		}),
+	];
 	private _components = [
 		new ActionRowBuilder<ButtonBuilder>({
 			components: [
@@ -140,42 +172,10 @@ export default class Connection extends EventEmitter {
 			],
 		}),
 		new ActionRowBuilder<ButtonBuilder>({
-			components: [
-				new ButtonBuilder({
-					customId: 'loud',
-					label: '🧨',
-					style: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'underwater',
-					label: '🌊',
-					style: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'bass',
-					label: '🥁',
-					style: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'echo',
-					label: '🧯',
-					style: ButtonStyle.Danger,
-				}),
-				new ButtonBuilder({
-					customId: 'high_pitch',
-					label: '🐿️',
-					style: ButtonStyle.Danger,
-				}),
-			],
+			components: this._effectComponents.slice(0, 5),
 		}),
 		new ActionRowBuilder<ButtonBuilder>({
-			components: [
-				new ButtonBuilder({
-					customId: 'reverse',
-					label: '⏪',
-					style: ButtonStyle.Danger,
-				}),
-			],
+			components: this._effectComponents.slice(5),
 		}),
 	];
 
@@ -509,10 +509,12 @@ export default class Connection extends EventEmitter {
 			this.subscription.player.state.status !== AudioPlayerStatus.Idle
 		) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
+			const button = this._components[row].components[index];
 
-			this._components[row].components[index].setLabel('▶️');
+			button.setLabel('Play');
+			button.setEmoji('▶️');
+
 			this.subscription.player.pause();
-
 			this.updateEmbedMessage();
 		}
 	}
@@ -520,12 +522,16 @@ export default class Connection extends EventEmitter {
 	public resume() {
 		if (
 			this.subscription !== null &&
+			this._queueLength > 0 &&
 			(this.subscription.player.state.status === AudioPlayerStatus.Paused ||
 				this.subscription.player.state.status === AudioPlayerStatus.Idle)
 		) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
+			const button = this._components[row].components[index];
 
-			this._components[row].components[index].setLabel('⏸️');
+			button.setLabel('Pause');
+			button.setEmoji('⏸️');
+
 			this.subscription?.player.unpause();
 			this.updateEmbedMessage();
 
@@ -770,6 +776,14 @@ export default class Connection extends EventEmitter {
 				quality: 'highestaudio',
 				opusEncoded: true,
 				encoderArgs: EFFECTS[this.settings.effect],
+				requestOptions: {
+					headers: {
+						Cookie:
+							'VISITOR_INFO1_LIVE=T_VAI0yBFOY; PREF=tz=America.Toronto&f6=40000000; SID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtFOPjd2kQUFCoClC5V40YuQ.; __Secure-1PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7Tjtyx-dRfxVWZQ00xP7mraFPQ.; __Secure-3PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtrZ5d1J7-CDiETHJ9cEqxuQ.; HSID=Aa-D4ML5NJt_-a8ox; SSID=A6YQW6xXjVrCFncOs; APISID=iWRw5OkxX9SQ8OMB/ACenrBIZYU15shrid; SAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-1PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-3PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; LOGIN_INFO=AFmmF2swRQIgVQc3KgCp0x_p2a4w0SivGG0psshLQ7okahYBjqgqZagCIQCda8bH46ayokGA7DqLmR17eY7XznSzcDwgtqOFyr9FKA:QUQ3MjNmeUpGWUpNa0hLekRqNElFUUtaeDRVSllWN1lmV1g5dHF2aEswTHc2OHVzbHF1MUlpT3Z0N19DaG1DWk01c2hmTEJWc3h4TTZUZHh4ZEg0c2ttV1Rqb0hDYWI1LWFhSjRmY1ZQZUtWWDZPSm9SYXptWlNpWXlKemRyV01qeldEVXdFLUVYT1NKeUJoWTJONmpHOWl0Q1AxcUplLUJ3; SIDCC=AEf-XMRcNWj0DqkN7BpSdp_vCiYIC-pSNxQ2Y1RnLOYPt66rVmqQ3j_Pj1wmtMdNpB4KkdHJwOM; __Secure-1PSIDCC=AEf-XMTbmr-oxNIxMFIMaWTmwIPmPc61qCvEjK-AM4xo4WZ67QsSV_71de2m7EHVTrrXi1GNnZ0; __Secure-3PSIDCC=AEf-XMTRFvNkaRctP5tYZKnF5ufwkWFgv88h3S1AVdT6sERVvfhLXYMj1Awqwh5BkkEV6N0SRg4; YSC=knS7AeFOZTI; wide=1',
+						'User-Agent':
+							'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
+					},
+				},
 			});
 		}
 
@@ -804,7 +818,27 @@ export default class Connection extends EventEmitter {
 
 		if (previousResource?.metadata.id !== song.id) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
-			this._components[row].components[index].setLabel('⏸️');
+			const button = this._components[row].components[index];
+
+			button.setLabel('Pause');
+			button.setEmoji('⏸️');
+
+			if (song.type === SongProvider.SoundCloud) {
+				for (const button of this._effectComponents) {
+					button.setDisabled(true);
+					button.setStyle(ButtonStyle.Danger);
+				}
+			} else if (this._effectComponents[0].data.disabled) {
+				for (const button of this._effectComponents) {
+					button.setDisabled(false);
+				}
+
+				if (this.settings.effect !== Effect.None) {
+					const [row, index] = EFFECT_TO_INDEX_LIST[this.settings.effect];
+
+					this._components[row].components[index].setStyle(ButtonStyle.Success);
+				}
+			}
 
 			// Different song
 			this.updateEmbedMessage();
