@@ -1,10 +1,6 @@
 import { CommandInteraction } from 'discord.js';
-import { Connection } from '../typings';
 import { managers } from './database';
 import { DEFAULT_COMPONENTS } from '../constants';
-
-export const connections: Map<string, Connection> = new Map();
-export const channelToConnection: Map<string, Connection> = new Map();
 
 export async function createAudioManager(interaction: CommandInteraction) {
 	const message = await interaction.channel!.send({

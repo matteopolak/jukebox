@@ -1,9 +1,11 @@
 import {
 	ActivityType,
+	ApplicationCommandOptionType,
 	ApplicationCommandType,
 	ButtonInteraction,
 	Client,
 	ComponentType,
+	escapeMarkdown,
 	GuildMember,
 	IntentsBitField,
 	InteractionType,
@@ -16,8 +18,9 @@ import dotenv from 'dotenv';
 
 import { createAudioManager } from './util/music';
 import { Effect } from './typings';
-import Connection from './structures/Connection';
+import Connection, { connections } from './structures/Connection';
 import { randomElement } from './util/random';
+import { getLyrics } from './api/musixmatch';
 
 dotenv.config({ override: true });
 
@@ -65,14 +68,31 @@ client.once('ready', async () => {
 	console.log(`Logged in as ${client.user!.username}`);
 
 	await client
-		.application!.commands.create(
-			{
-				name: 'create',
-				description: 'Creates a new audio player',
-				type: ApplicationCommandType.ChatInput,
-				options: [],
-			},
-			'929442094626525275'
+		.application!.commands.set(
+			[
+				{
+					name: 'create',
+					description: 'Creates a new audio player',
+					type: ApplicationCommandType.ChatInput,
+					options: [],
+				},
+				{
+					name: 'lyrics',
+					description:
+						'Displays the lyrics of a song (or the current song is none is provided)',
+					type: ApplicationCommandType.ChatInput,
+					options: [
+						{
+							name: 'title',
+							description:
+								'The title of the song (leave blank to use currently-playing song)',
+							type: ApplicationCommandOptionType.String,
+							required: false,
+						},
+					],
+				},
+			],
+			'968627637444558918'
 		)
 		.catch(() => {});
 
@@ -178,6 +198,39 @@ client.on('interactionCreate', async interaction => {
 				await interaction.deferReply();
 				await createAudioManager(interaction);
 				await interaction.deleteReply();
+
+				break;
+			case 'lyrics': {
+				const title =
+					(interaction.options.get('title', false)?.value as
+						| string
+						| undefined) ??
+					connections.get(interaction.guildId!)?.currentResource?.metadata
+						.title ??
+					null;
+
+				if (title === null) {
+					return void interaction.reply({
+						ephemeral: true,
+						content:
+							'You did not provide a title and no song is currently playing.',
+					});
+				}
+
+				const lyrics = await getLyrics(title);
+				if (lyrics === null) {
+					return void interaction.reply({
+						ephemeral: true,
+						content: 'A song could not be found with that query.',
+					});
+				}
+
+				return void interaction.reply(
+					`**${escapeMarkdown(lyrics.title)}** by **${escapeMarkdown(
+						lyrics.artist
+					)}**\n\n${lyrics.lyrics}`
+				);
+			}
 		}
 	}
 });

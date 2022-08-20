@@ -98,3 +98,9 @@ export const enum CommandOrigin {
 	Text,
 	Voice,
 }
+
+export interface LyricsData {
+	title: string;
+	artist: string;
+	lyrics: string;
+}
