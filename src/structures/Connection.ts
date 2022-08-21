@@ -49,11 +49,18 @@ import {
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { randomInteger } from '../util/random';
-import { createQuery, setMusixmatchid } from '../util/search';
+import { createQuery, setSongIds } from '../util/search';
 import scdl from 'soundcloud-downloader';
 import { handleYouTubeVideo } from '../providers/youtube';
 import { sendMessageAndDelete } from '../util/message';
-import { getLyricsById, getTrackIdFromSongData } from '../api/musixmatch';
+import {
+	getLyricsById as getMusixmatchLyricsById,
+	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
+} from '../api/musixmatch';
+import {
+	getLyricsById as getGeniusLyricsById,
+	getTrackIdFromSongData as getGeniusTrackIdFromSongData,
+} from '../api/genius';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -86,6 +93,7 @@ export default class Connection extends EventEmitter {
 	private _starred: Map<string, SongData> = new Map();
 	private _playing: boolean = false;
 	private _threadChannelPromise: Option<Promise<ThreadChannel>> = null;
+	private _currentLyrics: Option<string> = null;
 	private _effectComponents;
 	private _components;
 
@@ -781,7 +789,13 @@ export default class Connection extends EventEmitter {
 	}
 
 	private async updateOrCreateLyricsMessage(content: string): Promise<void> {
+		// If the lyrics are too long, truncate it
+		if (content.length > 2_000) content = `${content.slice(0, 1_999)}…`;
+
 		if (this._threadChannelPromise) await this._threadChannelPromise;
+		if (content === this._currentLyrics) return;
+
+		this._currentLyrics = content;
 
 		if (this.threadChannel) {
 			if (this.manager.lyricsId) {
@@ -814,30 +828,47 @@ export default class Connection extends EventEmitter {
 		});
 	}
 
-	public async updateLyricsMessage() {
+	public async updateLyricsMessage(): Promise<void> {
 		const song = this.currentResource?.metadata;
 		if (!song)
 			return this.updateOrCreateLyricsMessage('No song is currently playing.');
 
-		if (song.musixmatchId === null)
+		if (song.musixmatchId === null && song.geniusId === null)
 			return this.updateOrCreateLyricsMessage('Track not found.');
 
-		const trackId = await getTrackIdFromSongData(song);
-		if (trackId === null) {
-			await setMusixmatchid(song.id, null);
+		if (song.musixmatchId !== null)
+			song.musixmatchId = await getMusixmatchTrackIdFromSongData(song);
 
-			return this.updateOrCreateLyricsMessage('Track not found.');
+		if (song.musixmatchId === null) {
+			if (song.geniusId !== null)
+				song.geniusId = await getGeniusTrackIdFromSongData(song);
+
+			if (song.geniusId === null) {
+				await setSongIds(song.id, song.musixmatchId, song.geniusId);
+
+				return this.updateOrCreateLyricsMessage('Track not found.');
+			}
 		}
 
-		if (!song.musixmatchId) await setMusixmatchid(song.id, trackId);
-		song.musixmatchId = trackId;
+		const lyrics = song.musixmatchId
+			? await getMusixmatchLyricsById(song.musixmatchId)
+			: await getGeniusLyricsById(song.geniusId!);
 
-		const lyricsData = await getLyricsById(trackId);
-		if (lyricsData === null)
+		if (lyrics === '' && song.musixmatchId !== null) {
+			song.musixmatchId = null;
+
+			await setSongIds(song.id, song.musixmatchId, song.geniusId);
+
+			return this.updateLyricsMessage();
+		}
+
+		await setSongIds(song.id, song.musixmatchId, song.geniusId);
+
+		if (lyrics === null)
 			return this.updateOrCreateLyricsMessage('Track does not support lyrics.');
 
 		this.updateOrCreateLyricsMessage(
-			lyricsData.lyrics || 'Track lyrics not available.'
+			lyrics || 'Track lyrics not available due to copyright.'
 		);
 	}
 
@@ -923,7 +954,7 @@ export default class Connection extends EventEmitter {
 				requestOptions: {
 					headers: {
 						Cookie:
-							'VISITOR_INFO1_LIVE=T_VAI0yBFOY; PREF=tz=America.Toronto&f6=40000000; SID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtFOPjd2kQUFCoClC5V40YuQ.; __Secure-1PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7Tjtyx-dRfxVWZQ00xP7mraFPQ.; __Secure-3PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtrZ5d1J7-CDiETHJ9cEqxuQ.; HSID=Aa-D4ML5NJt_-a8ox; SSID=A6YQW6xXjVrCFncOs; APISID=iWRw5OkxX9SQ8OMB/ACenrBIZYU15shrid; SAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-1PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-3PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; LOGIN_INFO=AFmmF2swRQIgVQc3KgCp0x_p2a4w0SivGG0psshLQ7okahYBjqgqZagCIQCda8bH46ayokGA7DqLmR17eY7XznSzcDwgtqOFyr9FKA:QUQ3MjNmeUpGWUpNa0hLekRqNElFUUtaeDRVSllWN1lmV1g5dHF2aEswTHc2OHVzbHF1MUlpT3Z0N19DaG1DWk01c2hmTEJWc3h4TTZUZHh4ZEg0c2ttV1Rqb0hDYWI1LWFhSjRmY1ZQZUtWWDZPSm9SYXptWlNpWXlKemRyV01qeldEVXdFLUVYT1NKeUJoWTJONmpHOWl0Q1AxcUplLUJ3; SIDCC=AEf-XMRcNWj0DqkN7BpSdp_vCiYIC-pSNxQ2Y1RnLOYPt66rVmqQ3j_Pj1wmtMdNpB4KkdHJwOM; __Secure-1PSIDCC=AEf-XMTbmr-oxNIxMFIMaWTmwIPmPc61qCvEjK-AM4xo4WZ67QsSV_71de2m7EHVTrrXi1GNnZ0; __Secure-3PSIDCC=AEf-XMTRFvNkaRctP5tYZKnF5ufwkWFgv88h3S1AVdT6sERVvfhLXYMj1Awqwh5BkkEV6N0SRg4; YSC=knS7AeFOZTI; wide=1',
+							'VISITOR_INFO1_LIVE=T_VAI0yBFOY; PREF=tz=America.Toronto&f6=40000000; SID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtFOPjd2kQUFCoClC5V40YuQ.; __Secure-1PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7Tjtyx-dRfxVWZQ00xP7mraFPQ.; __Secure-3PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtrZ5d1J7-CDiETHJ9cEqxuQ.; HSID=Aa-D4ML5NJt_-a8ox; SSID=A6YQW6xXjVrCFncOs; APISID=iWRw5OkxX9SQ8OMB/ACenrBIZYU15shrid; SAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-1PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-3PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; LOGIN_INFO=AFmmF2swRQIgP9pMl-otPZiW2NAELUSEipK0Rt4ZkJWkcfvnSkkAI2UCIQCn8K2ab4izDUcLILL9604Rm5GJfRGF-4D-IYa8EEKmMw:QUQ3MjNmekhzNzJBV0VlZ2M0X0lGOU1oWkVqYzZJWW9YV3FkODhFZDcteXhMZ2MtUjR4WHNZWEFTVHJ4NndvSFRlUktnU2U0ZVBmN3BtbjdwNTh0TkhZNU4yZnNsV2pSb0p1QXNaby1VdWJvRTkyMlhoMzNBNHpnNWdQeHdyaXlBVWNlRG9zLVJtdnFSek51MkFYSVBvZTB1bnFfZTR5M0M2VlJvZ0VoRk5vc0NUM0h4cmdDLWxtYWJSUGYyZ1QyVTQ1SVFBTHRGTU1nR05QX0FCV1JHR1BzTmE3aFBWWVlGUQ==; SIDCC=AEf-XMSLwqkkjmDfquFh1ljbvoow6sf2w61VMa6mbaxCKr8ZJD_oangQsJSepTZyneU3qWXbAU0; __Secure-1PSIDCC=AEf-XMQQXXMvbDEGMyUdBbKZUtYjhbGvr4QLQD-LNANXdMbQ97vfO39bigtKkKPTyf1CtCq43bs; __Secure-3PSIDCC=AEf-XMQn1V1cTJ4-_RC0kLhXvk6aCUfvocmygBww1yaVcY3T5cVKL2x64zy5FqSYvFXsXf82tkc; YSC=9kBInpCgI7U; CONSISTENCY=AGXVzq9JPuaYi-KyiAYK4d1cvX_3MaSlmWTWn_Us6bbFD8z1mJ2WKkkc_BAplF4aF9qVmqBQfyleC-C30YcRfjPLGNeAaedy4rLEh_FIZe_QAEGds_PPaQUuzF62MoypePmzdBU7skfKgSIQw3hJ0j2G; ST-91les4=itct=CNkCENwwIhMI9J2uss_W-QIVy7mCCh1y0AR7MgpnLWhpZ2gtcmVjWg9GRXdoYXRfdG9fd2F0Y2iaAQYQjh4YngE%3D&csn=MC4wNTIxNDA4NDM3Mjg5NzE4NzU.&endpoint=%7B%22clickTrackingParams%22%3A%22CNkCENwwIhMI9J2uss_W-QIVy7mCCh1y0AR7MgpnLWhpZ2gtcmVjWg9GRXdoYXRfdG9fd2F0Y2iaAQYQjh4YngE%3D%22%2C%22commandMetadata%22%3A%7B%22webCommandMetadata%22%3A%7B%22url%22%3A%22%2Fwatch%3Fv%3DzE-a5eqvlv8%22%2C%22webPageType%22%3A%22WEB_PAGE_TYPE_WATCH%22%2C%22rootVe%22%3A3832%7D%7D%2C%22watchEndpoint%22%3A%7B%22videoId%22%3A%22zE-a5eqvlv8%22%2C%22watchEndpointSupportedOnesieConfig%22%3A%7B%22html5PlaybackOnesieConfig%22%3A%7B%22commonConfig%22%3A%7B%22url%22%3A%22https%3A%2F%2Frr4---sn-gvbxgn-tt1s.googlevideo.com%2Finitplayback%3Fsource%3Dyoutube%26orc%3D1%26oeis%3D1%26c%3DWEB%26oad%3D3200%26ovd%3D3200%26oaad%3D11000%26oavd%3D11000%26ocs%3D700%26oewis%3D1%26oputc%3D1%26ofpcc%3D1%26rbqsm%3Dfr%26msp%3D1%26odeak%3D1%26odepv%3D1%26osfc%3D1%26id%3Dcc4f9ae5eaaf96ff%26ip%3D167.100.66.131%26initcwndbps%3D1175000%26mt%3D1661039588%26oweuc%3D%26pxtags%3DCg4KAnR4EggyNDE5NzI3Ng%26rxtags%3DCg4KAnR4EggyNDE5NzI3NQ%252CCg4KAnR4EggyNDE5NzI3Ng%252CCg4KAnR4EggyNDE5NzI3Nw%22%7D%7D%7D%7D%7D',
 						'User-Agent':
 							'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
 					},

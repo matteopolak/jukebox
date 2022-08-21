@@ -27,9 +27,10 @@ function parseUrlWrapper(query: string) {
 	}
 }
 
-export async function setMusixmatchid(
+export async function setSongIds(
 	songId: string,
-	musixmatchId: number | null
+	musixmatchId?: number | null,
+	geniusId?: number | null
 ) {
 	await songDataCache.update(
 		{
@@ -38,6 +39,7 @@ export async function setMusixmatchid(
 		{
 			$set: {
 				musixmatchId,
+				geniusId,
 			},
 		},
 		{
@@ -52,6 +54,7 @@ export async function setMusixmatchid(
 		{
 			$set: {
 				musixmatchId,
+				geniusId,
 			},
 		},
 		{

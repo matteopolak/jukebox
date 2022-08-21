@@ -1,6 +1,6 @@
 import { CommandInteraction } from 'discord.js';
 import { managers } from './database';
-import { DEFAULT_COMPONENTS } from '../constants';
+import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '../constants';
 import { Effect } from '../typings';
 
 export async function createAudioManager(interaction: CommandInteraction) {
@@ -46,4 +46,8 @@ export async function createAudioManager(interaction: CommandInteraction) {
 			lyrics: false,
 		},
 	});
+}
+
+export function cleanTitle(title: string) {
+	return title.replace(BAD_TITLE_CHARACTER_REGEX, '');
 }

@@ -9,6 +9,7 @@ import {
 	TrackSearchResponse,
 } from '../musixmatch';
 import { LyricsData, Option, SongData } from '../typings';
+import { cleanTitle } from '../util/music';
 
 type ParamValueType = string | number | boolean | undefined;
 
@@ -46,7 +47,10 @@ function serializeParams(params: Record<string, ParamValueType>) {
 		if (params[key] === undefined) continue;
 
 		serialized.push(
-			`${encodeURIComponent(key)}=${encodeURIComponent(params[key]!)}`
+			`${encodeURIComponent(key)}=${encodeURIComponent(params[key]!).replace(
+				/'/g,
+				''
+			)}`
 		);
 	}
 
@@ -95,9 +99,7 @@ export async function getTrack(
 	return data.message.body?.track_list[0]?.track ?? null;
 }
 
-export async function getLyricsById(
-	trackId: number
-): Promise<Option<LyricsData>> {
+export async function getLyricsById(trackId: number): Promise<Option<string>> {
 	const url = createSignedUrl(
 		'https://www.musixmatch.com/ws/1.1/track.lyrics.get',
 		{
@@ -111,10 +113,7 @@ export async function getLyricsById(
 
 	if (data.message.header.status_code === 404) return null;
 
-	return {
-		lyrics: data.message.body!.lyrics.lyrics_body,
-		copyright: data.message.body!.lyrics.lyrics_copyright.slice(0, -1),
-	};
+	return data.message.body!.lyrics.lyrics_body;
 }
 
 export async function getTrackFromSongData(
@@ -123,11 +122,11 @@ export async function getTrackFromSongData(
 	if (data.musixmatchId) return getTrackById(data.musixmatchId);
 	if (data.musixmatchId === null) return null;
 
-	const cleanTitle = data.title.replace(BAD_TITLE_CHARACTER_REGEX, '');
+	const clean = cleanTitle(data.title);
 
 	{
 		const track = await getTrack(
-			{ q_track: cleanTitle, q_artist: data.artist },
+			{ q_track: clean, q_artist: data.artist },
 			true
 		);
 
@@ -135,7 +134,7 @@ export async function getTrackFromSongData(
 	}
 
 	{
-		const track = await getTrack({ q_track_artist: cleanTitle }, true);
+		const track = await getTrack({ q_track_artist: clean }, true);
 
 		if (track) return track;
 	}

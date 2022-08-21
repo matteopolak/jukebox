@@ -45,6 +45,7 @@ export interface SongData {
 	format?: videoFormat;
 	related?: string;
 	musixmatchId?: Option<number>;
+	geniusId?: Option<number>;
 }
 
 export interface Song extends SongData {

@@ -240,12 +240,23 @@ client.on('interactionCreate', async interaction => {
 					});
 				}
 
-				const lyrics = (await getLyricsById(track.track_id))!;
+				const lyrics = await getLyricsById(track.track_id);
+
+				if (lyrics === null) {
+					return void interaction.reply({
+						ephemeral: true,
+						content: `**${escapeMarkdown(
+							track.track_name
+						)}** by **${escapeMarkdown(
+							track.artist_name
+						)}** does not have any lyrics.`,
+					});
+				}
 
 				return void interaction.reply(
 					`**${escapeMarkdown(track.track_name)}** by **${escapeMarkdown(
 						track.artist_name
-					)}**\n*${lyrics.copyright}*\n\n${lyrics.lyrics}`
+					)}**\n\n${lyrics}`
 				);
 			}
 		}
