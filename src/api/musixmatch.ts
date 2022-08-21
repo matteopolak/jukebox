@@ -35,8 +35,6 @@ function createSignedUrl(
 		hash
 	)}&signature_protocol=sha1`;
 
-	console.log(signed);
-
 	return signed;
 }
 

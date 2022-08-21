@@ -26,7 +26,6 @@ export async function getTrack(query: string): Promise<Option<Song>> {
 }
 
 export async function getLyricsById(id: number): Promise<Option<string>> {
-	console.log(`https://genius.com/songs/${id}`);
 	const { data } = await axios.get(`https://genius.com/songs/${id}`, {
 		headers: {
 			'user-agent':

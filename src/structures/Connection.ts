@@ -836,15 +836,20 @@ export default class Connection extends EventEmitter {
 		if (song.musixmatchId === null && song.geniusId === null)
 			return this.updateOrCreateLyricsMessage('Track not found.');
 
-		if (song.musixmatchId !== null)
-			song.musixmatchId = await getMusixmatchTrackIdFromSongData(song);
+		const updated = {
+			musixmatchId: await getMusixmatchTrackIdFromSongData(song),
+			geniusId: undefined as Option<number> | undefined,
+		};
 
-		if (song.musixmatchId === null) {
-			if (song.geniusId !== null)
-				song.geniusId = await getGeniusTrackIdFromSongData(song);
+		if (updated.musixmatchId === null) {
+			updated.geniusId = await getGeniusTrackIdFromSongData(song);
 
-			if (song.geniusId === null) {
-				await setSongIds(song.id, song.musixmatchId, song.geniusId);
+			if (updated.geniusId === null) {
+				if (
+					updated.geniusId !== song.geniusId ||
+					updated.musixmatchId !== song.musixmatchId
+				)
+					await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
 
 				return this.updateOrCreateLyricsMessage('Track not found.');
 			}
@@ -857,12 +862,20 @@ export default class Connection extends EventEmitter {
 		if (lyrics === '' && song.musixmatchId !== null) {
 			song.musixmatchId = null;
 
-			await setSongIds(song.id, song.musixmatchId, song.geniusId);
+			if (
+				updated.geniusId !== song.geniusId ||
+				updated.musixmatchId !== song.musixmatchId
+			)
+				await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
 
 			return this.updateLyricsMessage();
 		}
 
-		await setSongIds(song.id, song.musixmatchId, song.geniusId);
+		if (
+			updated.geniusId !== song.geniusId ||
+			updated.musixmatchId !== song.musixmatchId
+		)
+			await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
 
 		if (lyrics === null)
 			return this.updateOrCreateLyricsMessage('Track does not support lyrics.');
