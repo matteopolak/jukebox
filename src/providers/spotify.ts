@@ -10,9 +10,11 @@ const META_TAGS = new Set(['og:title', 'og:description', 'og:image']);
 export async function handleSpotifyVideo(
 	id: string
 ): Promise<Option<SearchResult>> {
-	const { data: html } = await axios.get(
+	const { data: html, status } = await axios.get(
 		`https://open.spotify.com/track/${id}`
 	);
+
+	if (status !== 200 && status !== 304) return null;
 
 	const document = parseDocument(html);
 	const meta = new Map<string, string>();

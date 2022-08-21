@@ -7,7 +7,6 @@ import { songDataCache } from '../util/database';
 import { formatSeconds } from '../util/duration';
 import { randomElement, randomInteger } from '../util/random';
 import { getCachedSong } from '../util/search';
-import fs from 'fs';
 
 export const ID_REGEX = /^[\w-]{11}$/;
 
@@ -57,6 +56,8 @@ async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
 			sp: 'EgIQAQ==',
 		},
 	});
+
+	if (result.status !== 200 && result.status !== 304) return null;
 
 	return result.data.match(/\/watch\?v=([\w-]{11})/)?.[1] ?? null;
 }

@@ -789,6 +789,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	private async updateOrCreateLyricsMessage(content: string): Promise<void> {
+		console.log(content);
 		// If the lyrics are too long, truncate it
 		if (content.length > 2_000) content = `${content.slice(0, 1_999)}…`;
 
@@ -851,22 +852,28 @@ export default class Connection extends EventEmitter {
 				)
 					await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
 
+				song.geniusId = updated.geniusId;
+				song.musixmatchId = updated.musixmatchId;
+
 				return this.updateOrCreateLyricsMessage('Track not found.');
 			}
 		}
 
-		const lyrics = song.musixmatchId
-			? await getMusixmatchLyricsById(song.musixmatchId)
-			: await getGeniusLyricsById(song.geniusId!);
+		const lyrics = updated.musixmatchId
+			? await getMusixmatchLyricsById(updated.musixmatchId)
+			: await getGeniusLyricsById(updated.geniusId!);
 
-		if (lyrics === '' && song.musixmatchId !== null) {
-			song.musixmatchId = null;
+		if (lyrics === '' && updated.musixmatchId !== null) {
+			updated.musixmatchId = null;
 
 			if (
 				updated.geniusId !== song.geniusId ||
 				updated.musixmatchId !== song.musixmatchId
 			)
 				await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
+
+			song.geniusId = updated.geniusId;
+			song.musixmatchId = updated.musixmatchId;
 
 			return this.updateLyricsMessage();
 		}
@@ -876,6 +883,9 @@ export default class Connection extends EventEmitter {
 			updated.musixmatchId !== song.musixmatchId
 		)
 			await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
+
+		song.geniusId = updated.geniusId;
+		song.musixmatchId = updated.musixmatchId;
 
 		if (lyrics === null)
 			return this.updateOrCreateLyricsMessage('Track does not support lyrics.');
@@ -1106,7 +1116,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async play() {
-		for (;;) {
+		while (this._queueLength > 0) {
 			const error = await this.playNextResource();
 
 			if (error) break;

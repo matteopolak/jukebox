@@ -22,10 +22,12 @@ import {
 	getLyricsById,
 	getTrack,
 	getTrackFromSongData,
-	getTrackIdFromSongData,
 	QueryType,
 } from './api/musixmatch';
 
+import axios from 'axios';
+
+axios.defaults.validateStatus = () => true;
 dotenv.config({ override: true });
 
 const tweets = fs.readFileSync('./data/tweets.txt', 'utf8').split(/\r?\n/);

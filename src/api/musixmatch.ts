@@ -67,7 +67,9 @@ export async function getTrackById(trackId: number): Promise<Option<Track>> {
 		track_id: trackId,
 	});
 
-	const { data } = await axios.get<MusixmatchResponse<TrackGetResponse>>(url);
+	const { data, status } = await axios.get<
+		MusixmatchResponse<TrackGetResponse>
+	>(url);
 
 	return data.message.header.status_code === 404
 		? null
@@ -143,7 +145,7 @@ export async function getTrackFromSongData(
 export async function getTrackIdFromSongData(
 	data: SongData
 ): Promise<Option<number>> {
-	if (data.musixmatchId) return data.musixmatchId;
+	if (data.musixmatchId !== undefined) return data.musixmatchId;
 
 	const cleanTitle = data.title.replace(BAD_TITLE_CHARACTER_REGEX, '');
 

@@ -5,7 +5,7 @@ import { GeniusResponse, SearchResponse, Song } from '../genius';
 import { cleanTitle } from '../util/music';
 
 export async function getTrack(query: string): Promise<Option<Song>> {
-	const { data } = await axios.get<GeniusResponse<SearchResponse>>(
+	const { data, status } = await axios.get<GeniusResponse<SearchResponse>>(
 		'https://genius.com/api/search/multi',
 		{
 			params: {
@@ -13,6 +13,8 @@ export async function getTrack(query: string): Promise<Option<Song>> {
 			},
 		}
 	);
+
+	if (status !== 200 && status !== 304) return null;
 
 	for (const section of data.response.sections) {
 		for (const hit of section.hits) {
@@ -26,12 +28,14 @@ export async function getTrack(query: string): Promise<Option<Song>> {
 }
 
 export async function getLyricsById(id: number): Promise<Option<string>> {
-	const { data } = await axios.get(`https://genius.com/songs/${id}`, {
+	const { data, status } = await axios.get(`https://genius.com/songs/${id}`, {
 		headers: {
 			'user-agent':
 				'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
 		},
 	});
+
+	if (status !== 200 && status !== 304) return null;
 
 	const modified = data.replaceAll('<br>', '\n');
 	const document = parse(modified, {});
