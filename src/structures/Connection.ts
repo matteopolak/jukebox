@@ -789,7 +789,6 @@ export default class Connection extends EventEmitter {
 	}
 
 	private async updateOrCreateLyricsMessage(content: string): Promise<void> {
-		console.log(content);
 		// If the lyrics are too long, truncate it
 		if (content.length > 2_000) content = `${content.slice(0, 1_999)}…`;
 
