@@ -1,7 +1,8 @@
-import { CommandInteraction } from 'discord.js';
+import { CommandInteraction, NewsChannel, TextChannel } from 'discord.js';
 import { managers } from './database';
 import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '../constants';
 import { Effect } from '../typings';
+import { getChannel, queueClient } from './worker';
 
 export async function createAudioManager(interaction: CommandInteraction) {
 	const message = await interaction.channel!.send({
@@ -16,7 +17,11 @@ export async function createAudioManager(interaction: CommandInteraction) {
 		components: DEFAULT_COMPONENTS,
 	});
 
-	const queue = await interaction.channel!.send({
+	const queue = await getChannel(
+		queueClient,
+		interaction.guildId!,
+		interaction.channelId
+	).send({
 		content: '\u200b',
 	});
 

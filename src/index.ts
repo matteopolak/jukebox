@@ -3,16 +3,10 @@ import {
 	ApplicationCommandOptionType,
 	ApplicationCommandType,
 	ButtonInteraction,
-	Client,
 	escapeMarkdown,
 	GuildMember,
-	IntentsBitField,
-	Options,
-	Partials,
 } from 'discord.js';
 import fs from 'node:fs';
-
-import dotenv from 'dotenv';
 
 import { createAudioManager } from './util/music';
 import { Effect } from './typings';
@@ -24,11 +18,11 @@ import {
 	getTrackFromSongData,
 	QueryType,
 } from './api/musixmatch';
+import { loginPromise, mainClient as client } from './util/worker';
 
 import axios from 'axios';
 
 axios.defaults.validateStatus = () => true;
-dotenv.config({ override: true });
 
 const tweets = fs.readFileSync('./data/tweets.txt', 'utf8').split(/\r?\n/);
 
@@ -41,36 +35,8 @@ const NAME_TO_ENUM = {
 	reverse: Effect.Reverse,
 };
 
-const client = new Client({
-	partials: [Partials.GuildMember, Partials.User, Partials.Channel],
-	makeCache: Options.cacheWithLimits({
-		ApplicationCommandManager: 0,
-		BaseGuildEmojiManager: 0,
-		GuildBanManager: 0,
-		GuildInviteManager: 0,
-		GuildMemberManager: 100,
-		GuildStickerManager: 0,
-		GuildScheduledEventManager: 0,
-		MessageManager: 0,
-		PresenceManager: 0,
-		ReactionManager: 0,
-		ReactionUserManager: 0,
-		StageInstanceManager: 0,
-		ThreadManager: Infinity,
-		ThreadMemberManager: 0,
-		UserManager: Infinity,
-		VoiceStateManager: Infinity,
-	}),
-	intents: [
-		IntentsBitField.Flags.Guilds,
-		IntentsBitField.Flags.GuildMembers,
-		IntentsBitField.Flags.GuildMessages,
-		IntentsBitField.Flags.MessageContent,
-		IntentsBitField.Flags.GuildVoiceStates,
-	],
-});
-
 client.once('ready', async () => {
+	await loginPromise;
 	console.log(`Logged in as ${client.user!.username}`);
 
 	await client
@@ -275,5 +241,3 @@ client.on('messageCreate', async message => {
 
 	return connection.addSongByQuery(message.content);
 });
-
-client.login(process.env.TOKEN!);

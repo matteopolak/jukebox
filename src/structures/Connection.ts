@@ -61,6 +61,12 @@ import {
 	getLyricsById as getGeniusLyricsById,
 	getTrackIdFromSongData as getGeniusTrackIdFromSongData,
 } from '../api/genius';
+import {
+	getChannel,
+	lyricsClient,
+	mainClient,
+	queueClient,
+} from '../util/worker';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -71,6 +77,8 @@ export const enum Events {
 export default class Connection extends EventEmitter {
 	public voiceChannel: Option<VoiceBasedChannel> = null;
 	public textChannel: TextChannel | NewsChannel;
+	public queueChannel: TextChannel | NewsChannel;
+	public threadParentChannel: TextChannel | NewsChannel;
 	public threadChannel: Option<ThreadChannel>;
 	public manager: RawManager;
 	public subscription: Option<PlayerSubscription> = null;
@@ -97,16 +105,33 @@ export default class Connection extends EventEmitter {
 	private _effectComponents;
 	private _components;
 
-	constructor(guild: Guild, manager: RawManager) {
+	constructor(manager: RawManager) {
 		super();
 
 		this.manager = manager;
 		this.settings = manager.settings;
-		this.textChannel = guild.channels.cache.get(manager.channelId) as
-			| TextChannel
-			| NewsChannel;
+
+		this.textChannel = getChannel(
+			mainClient,
+			manager.guildId,
+			manager.channelId
+		);
+
+		this.queueChannel = getChannel(
+			queueClient,
+			manager.guildId,
+			manager.channelId
+		);
+
+		this.threadParentChannel = getChannel(
+			lyricsClient,
+			manager.guildId,
+			manager.channelId
+		);
+
 		this.threadChannel = this.manager.threadId
-			? this.textChannel.threads.cache.get(this.manager.threadId) ?? null
+			? this.threadParentChannel.threads.cache.get(this.manager.threadId) ??
+			  null
 			: null;
 
 		if (this.threadChannel === null) {
@@ -237,7 +262,7 @@ export default class Connection extends EventEmitter {
 			this._components[row].components[index].setStyle(ButtonStyle.Success);
 		}
 
-		connections.set(guild.id, this);
+		connections.set(manager.guildId, this);
 	}
 
 	public static async getOrCreate(
@@ -252,7 +277,7 @@ export default class Connection extends EventEmitter {
 			return cachedConnection;
 		}
 
-		const connection = new Connection(data.guild!, manager);
+		const connection = new Connection(manager);
 		const member = data.member as GuildMember;
 
 		await connection.init();
@@ -811,7 +836,7 @@ export default class Connection extends EventEmitter {
 			return void this.updateManagerData({ lyricsId: lyricsMessage.id });
 		}
 
-		this._threadChannelPromise = this.textChannel.threads.create({
+		this._threadChannelPromise = this.threadParentChannel.threads.create({
 			startMessage: this.manager.queueId,
 			name: 'Lyrics',
 		});
@@ -952,7 +977,7 @@ export default class Connection extends EventEmitter {
 				}${this._errored.has(s.id) ? ' 🚫' : ''}`
 		);
 
-		this.textChannel.messages.edit(
+		this.queueChannel.messages.edit(
 			this.manager.queueId,
 			content.join('\n') || '\u200b'
 		);
