@@ -1,10 +1,5 @@
-import { PlayerSubscription, AudioResource } from '@discordjs/voice';
-import {
-	ButtonInteraction,
-	Guild,
-	GuildMember,
-	TextBasedChannel,
-} from 'discord.js';
+import { Guild, GuildMember, TextBasedChannel } from 'discord.js';
+import { videoFormat } from 'ytdl-core';
 
 export interface RawManager {
 	_id: string;
@@ -66,25 +61,6 @@ export const enum Effect {
 	Echo,
 	HighPitch,
 	Reverse,
-}
-
-export interface Connection {
-	subscription: PlayerSubscription | null;
-	resource: AudioResource | null;
-	queue: Song[];
-	effect: Effect;
-	repeat: boolean;
-	autoplay: boolean;
-	index: number;
-	update: (
-		song?: Song | null,
-		force?: boolean,
-		forceQueue?: boolean,
-		interaction?: ButtonInteraction
-	) => Awaited<void>;
-	seek?: number;
-	manager: Manager;
-	voiceChannelId: string;
 }
 
 export interface RawData {
