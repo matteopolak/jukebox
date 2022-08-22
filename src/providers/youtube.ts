@@ -18,12 +18,15 @@ function videoInfoToSongData(data: videoInfo): SongData {
 		id: info.videoId,
 		url: info.video_url,
 		title: info.title,
-		artist:
-			// @ts-ignore
-			data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
+		artist: // prettier-ignore
+		// @ts-ignore
+		(data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
 				(c: any) => c.videoSecondaryInfoRenderer
 			)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
-				?.text ?? data.videoDetails.author.name,
+				?.text ?? data.videoDetails.author.name).replace(
+					' - Topic',
+					''
+				),
 		thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
 		duration: formatSeconds(parseInt(info.lengthSeconds)),
 		live: info.isLiveContent,
@@ -36,7 +39,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 }
 
 async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
-	if (query === '!random') {
+	if (query === '?random') {
 		const count = await songDataCache.count({});
 		if (count === 0) return null;
 

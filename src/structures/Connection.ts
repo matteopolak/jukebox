@@ -523,9 +523,13 @@ export default class Connection extends EventEmitter {
 		);
 	}
 
-	public async addSongs(songs: SongData[], autoplay: boolean = true) {
+	public async addSongs(
+		songs: SongData[],
+		autoplay: boolean = true,
+		playNext: boolean = false
+	) {
 		if (songs.length === 0) return;
-		if (songs.length === 1) return this.addSong(songs[0], autoplay);
+		if (songs.length === 1) return this.addSong(songs[0], autoplay, playNext);
 
 		const now = Date.now();
 
@@ -551,12 +555,20 @@ export default class Connection extends EventEmitter {
 
 		this.emit(Events.AddSongs, songs);
 
-		if (autoplay && !this._playing) {
-			this.play();
+		if (!this._playing) {
+			if (autoplay) this.play();
+		} else if (playNext) {
+			console.log('skip');
+			this._index = this._queueLength - songs.length - 1;
+			this.skip();
 		}
 	}
 
-	public async addSong(song: SongData, autoplay: boolean = true) {
+	public async addSong(
+		song: SongData,
+		autoplay: boolean = true,
+		playNext: boolean = false
+	) {
 		if (this._errored.has(song.id)) return;
 
 		await queue.insert({
@@ -574,8 +586,11 @@ export default class Connection extends EventEmitter {
 			this.updateQueueMessage();
 		}
 
-		if (autoplay && !this._playing) {
-			this.play();
+		if (!this._playing) {
+			if (autoplay) this.play();
+		} else if (playNext) {
+			this._index = this._queueLength - 2;
+			this.skip();
 		}
 	}
 
@@ -1151,10 +1166,13 @@ export default class Connection extends EventEmitter {
 		query: string,
 		origin: CommandOrigin = CommandOrigin.Text
 	) {
+		const skipToSong = query.startsWith('!');
+		if (skipToSong) query = query.slice(1);
+
 		const result = await createQuery(query);
 
 		if (result) {
-			this.addSongs(result.videos, true);
+			this.addSongs(result.videos, true, skipToSong);
 
 			await sendMessageAndDelete(
 				this.textChannel,

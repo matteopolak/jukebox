@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { createHmac } from 'node:crypto';
-import { BAD_TITLE_CHARACTER_REGEX } from '../constants';
 import {
 	MusixmatchResponse,
 	Track,
@@ -8,7 +7,7 @@ import {
 	TrackLyricsResponse,
 	TrackSearchResponse,
 } from '../musixmatch';
-import { LyricsData, Option, SongData } from '../typings';
+import { Option, SongData } from '../typings';
 import { cleanTitle } from '../util/music';
 
 type ParamValueType = string | number | boolean | undefined;
@@ -147,11 +146,17 @@ export async function getTrackIdFromSongData(
 ): Promise<Option<number>> {
 	if (data.musixmatchId !== undefined) return data.musixmatchId;
 
-	const cleanTitle = data.title.replace(BAD_TITLE_CHARACTER_REGEX, '');
+	const clean = cleanTitle(data.title).replace(
+		/[\u0000-\u001F\u007F-\u009F]/g,
+		''
+	);
 
 	{
 		const track = await getTrack(
-			{ q_track: cleanTitle, q_artist: data.artist },
+			{
+				q_track: clean,
+				q_artist: data.artist.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
+			},
 			true
 		);
 
@@ -159,7 +164,7 @@ export async function getTrackIdFromSongData(
 	}
 
 	{
-		const track = await getTrack({ q_track_artist: cleanTitle }, true);
+		const track = await getTrack({ q_track_artist: clean }, true);
 
 		if (track) return track.track_id;
 	}

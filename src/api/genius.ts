@@ -50,9 +50,15 @@ export async function getTrackIdFromSongData(
 	if (data.geniusId === null) return null;
 	if (data.geniusId) return data.geniusId;
 
-	const clean = cleanTitle(data.title);
+	const clean = cleanTitle(data.title).replace(
+		/[\u0000-\u001F\u007F-\u009F]/g,
+		''
+	);
+
+	const cleanArtist = data.artist.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+
 	const track = await getTrack(
-		clean.includes(data.artist) ? clean : `${clean} ${data.artist}`
+		clean.includes(cleanArtist) ? clean : `${cleanArtist} ${clean}`
 	);
 	if (track === null) return null;
 
