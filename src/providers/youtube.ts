@@ -1,6 +1,7 @@
 import axios from 'axios';
 import puppeteer from 'puppeteer';
 import ytdl, { videoInfo } from 'ytdl-core';
+import fs from 'fs/promises';
 
 import { Option, SearchResult, Song, SongData, SongProvider } from '../typings';
 import { songDataCache } from '../util/database';
@@ -14,7 +15,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 	const info = data.videoDetails;
 	const relatedId = randomElement(data.related_videos.filter(v => v?.id))?.id;
 
-	return {
+	const song = {
 		id: info.videoId,
 		url: info.video_url,
 		title: info.title,
@@ -36,6 +37,44 @@ function videoInfoToSongData(data: videoInfo): SongData {
 			: undefined,
 		related: relatedId,
 	};
+
+	const metadata =
+		// @ts-ignore
+		data.response?.engagementPanels
+			.find(
+				(i: any) =>
+					i.engagementPanelSectionListRenderer?.header
+						?.engagementPanelTitleHeaderRenderer?.title?.simpleText ===
+					'Description'
+			)
+			?.engagementPanelSectionListRenderer.content.structuredDescriptionContentRenderer.items.find(
+				(i: any) =>
+					i?.videoDescriptionMusicSectionRenderer?.sectionTitle?.simpleText ===
+					'Music'
+			);
+
+	if (metadata) {
+		for (const item of metadata.videoDescriptionMusicSectionRenderer
+			?.carouselLockups[0]?.carouselLockupRenderer?.infoRows ?? []) {
+			const content =
+				item.infoRowRenderer?.defaultMetadata?.simpleText ??
+				item.infoRowRenderer?.expandedMetadata?.simpleText ??
+				item.infoRowRenderer?.defaultMetadata?.runs[0]?.text;
+
+			switch (item.infoRowRenderer.title.simpleText) {
+				case 'SONG':
+					song.title = content;
+
+					break;
+				case 'ARTIST':
+					song.artist = content;
+
+					break;
+			}
+		}
+	}
+
+	return song;
 }
 
 async function getVideoIdFromQuery(query: string): Promise<Option<string>> {

@@ -14,7 +14,7 @@ type ParamValueType = string | number | boolean | undefined;
 
 const SIGNATURE_SECRET = '8d2899b2aebb97a69a4a85cc991c0b6713a1d9e2';
 
-function createSignedUrl(
+export function createSignedUrl(
 	url: string,
 	params: Record<string, ParamValueType> = {}
 ) {
@@ -37,7 +37,7 @@ function createSignedUrl(
 	return signed;
 }
 
-function serializeParams(params: Record<string, ParamValueType>) {
+export function serializeParams(params: Record<string, ParamValueType>) {
 	const serialized: string[] = ['app_id=community-app-v1.0', 'format=json'];
 
 	for (const key in params) {
