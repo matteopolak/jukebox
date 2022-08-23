@@ -74,10 +74,10 @@ export async function handleSpotifyAlbum(
 	// Remove the first entry
 	elements.shift();
 
-	const tracks: string[] = [];
+	const tracks: [string, string][] = [];
 
 	for (const element of elements) {
-		const [title, author] = await page.evaluate(e => {
+		const [title, artist] = await page.evaluate(e => {
 			const text = [];
 			const elements = e.querySelectorAll('.standalone-ellipsis-one-line');
 
@@ -88,16 +88,18 @@ export async function handleSpotifyAlbum(
 			return text;
 		}, element);
 
-		tracks.push(`${title} - ${author}`);
+		tracks.push([title!, artist!]);
 	}
 
 	const resolved = (
 		await Promise.all(
-			tracks.map(async title => {
-				const result = await handleYouTubeQuery(title, true);
+			tracks.map(async ([title, artist]) => {
+				const result = await handleYouTubeQuery(`${artist} - ${title}`, true);
 				if (result === null) return null;
 
 				result.videos[0].type = SongProvider.Spotify;
+				result.videos[0].title = title;
+				result.videos[0].artist = artist;
 
 				return result.videos[0];
 			})
