@@ -37,7 +37,7 @@ export interface SongData {
 	thumbnail: string;
 	live: boolean;
 	type: SongProvider;
-	format?: videoFormat;
+	format?: Option<videoFormat>;
 	related?: string;
 	musixmatchId?: Option<number>;
 	geniusId?: Option<number>;
@@ -45,11 +45,6 @@ export interface SongData {
 
 export interface Song extends SongData {
 	addedAt: number;
-	guildId: string;
-}
-
-export interface StarredData {
-	id: string;
 	guildId: string;
 }
 
@@ -76,7 +71,6 @@ export interface SearchResult {
 }
 
 export type Option<T> = T | null;
-export type WithId<T> = T & { _id: string };
 
 export const enum CommandOrigin {
 	Text,

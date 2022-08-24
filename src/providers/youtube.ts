@@ -4,7 +4,7 @@ import ytdl, { videoInfo } from 'ytdl-core';
 import fs from 'fs/promises';
 
 import { Option, SearchResult, Song, SongData, SongProvider } from '../typings';
-import { songDataCache } from '../util/database';
+import { Database } from '../util/database';
 import { formatSeconds } from '../util/duration';
 import { randomElement, randomInteger } from '../util/random';
 import { getCachedSong } from '../util/search';
@@ -79,15 +79,15 @@ function videoInfoToSongData(data: videoInfo): SongData {
 
 async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
 	if (query === '?random') {
-		const count = await songDataCache.count({});
+		const count = await Database.cache.countDocuments();
 		if (count === 0) return null;
 
-		const [song] = await songDataCache
+		const [song] = await Database.cache
 			.find({})
 			.sort({ _id: 1 })
 			.skip(randomInteger(count))
 			.limit(1)
-			.exec();
+			.toArray();
 
 		return song?.id ?? null;
 	}
@@ -159,7 +159,7 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 		})
 	);
 
-	await songDataCache.insert(data);
+	await Database.addSongToCache(data);
 
 	return {
 		videos: [data],
@@ -244,7 +244,7 @@ export async function handleYouTubePlaylist(
 						type: SongProvider.YouTube,
 					};
 
-					await songDataCache.insert(data).catch(() => {});
+					await Database.addSongToCache(data);
 
 					return data;
 				} catch {

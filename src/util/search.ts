@@ -11,12 +11,12 @@ import {
 	handleSoundCloudVideo,
 } from '../providers/soundcloud';
 import { Option, SearchResult, Song, SongData } from '../typings';
-import { queue, songDataCache } from './database';
+import { Database } from './database';
 import { handleSpotifyAlbum, handleSpotifyVideo } from '../providers/spotify';
 import { ALLOWED_PROTOCOLS } from '../constants';
 
 export function getCachedSong(id: string) {
-	return songDataCache.findOne({ id }).exec();
+	return Database.cache.findOne({ id });
 }
 
 function parseUrlWrapper(query: string) {
@@ -32,7 +32,7 @@ export async function setSongIds(
 	musixmatchId?: number | null,
 	geniusId?: number | null
 ) {
-	await songDataCache.update(
+	await Database.cache.updateMany(
 		{
 			id: songId,
 		},
@@ -41,13 +41,10 @@ export async function setSongIds(
 				musixmatchId,
 				geniusId,
 			},
-		},
-		{
-			multi: true,
 		}
 	);
 
-	await queue.update(
+	await Database.queue.updateMany(
 		{
 			id: songId,
 		},
@@ -56,9 +53,6 @@ export async function setSongIds(
 				musixmatchId,
 				geniusId,
 			},
-		},
-		{
-			multi: true,
 		}
 	);
 }

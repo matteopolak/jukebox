@@ -26,8 +26,9 @@ import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
+import { WithId } from 'mongodb';
 
-import { starred, queue, managers } from '../util/database';
+import { Database } from '../util/database';
 import {
 	EFFECTS,
 	EFFECT_TO_INDEX_LIST,
@@ -40,7 +41,6 @@ import {
 	RawManager,
 	Song,
 	Option,
-	WithId,
 	RawData,
 	SongData,
 	SongProvider,
@@ -49,7 +49,7 @@ import {
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { randomInteger } from '../util/random';
-import { createQuery, setSongIds } from '../util/search';
+import { createQuery, setSongIds, songToData } from '../util/search';
 import scdl from 'soundcloud-downloader';
 import { handleYouTubeVideo } from '../providers/youtube';
 import { sendMessageAndDelete } from '../util/message';
@@ -268,7 +268,9 @@ export default class Connection extends EventEmitter {
 	public static async getOrCreate(
 		data: ButtonInteraction | Message | RawData
 	): Promise<Option<Connection>> {
-		const manager = await managers.findOne({ channelId: data.channel!.id });
+		const manager = await Database.managers.findOne({
+			channelId: data.channel!.id,
+		});
 		if (!manager) return null;
 
 		const cachedConnection = connections.get(data.guild!.id);
@@ -295,14 +297,14 @@ export default class Connection extends EventEmitter {
 			queueLengthWithRelatedResult,
 			starredSongsResult,
 		] = await Promise.all([
-			queue.count({
+			Database.queue.count({
 				guildId: this.manager.guildId,
 			}),
-			queue.count({
+			Database.queue.count({
 				guildId: this.manager.guildId,
 				related: { $exists: true },
 			}),
-			starred.find({
+			Database.starred.find({
 				guildId: this.manager.guildId,
 			}),
 		]);
@@ -311,7 +313,7 @@ export default class Connection extends EventEmitter {
 		this._queueLengthWithRelated = queueLengthWithRelatedResult;
 		this._index = -1;
 
-		for (const data of starredSongsResult) {
+		for await (const data of starredSongsResult) {
 			// Remove the _id
 			// @ts-ignore
 			data._id = undefined;
@@ -329,15 +331,12 @@ export default class Connection extends EventEmitter {
 	}
 
 	private updateManagerData(update: Record<string, string | number | boolean>) {
-		return managers.update(
+		return Database.managers.updateMany(
 			{
 				_id: this.manager._id,
 			},
 			{
 				$set: update,
-			},
-			{
-				multi: false,
 			}
 		);
 	}
@@ -533,7 +532,7 @@ export default class Connection extends EventEmitter {
 
 		const now = Date.now();
 
-		await queue.insert(
+		await Database.queue.insertMany(
 			songs
 				.filter(s => !this._errored.has(s.id))
 				.map((song, i) => ({
@@ -558,7 +557,6 @@ export default class Connection extends EventEmitter {
 		if (!this._playing) {
 			if (autoplay) this.play();
 		} else if (playNext) {
-			console.log('skip');
 			this._index = this._queueLength - songs.length - 1;
 			this.skip();
 		}
@@ -571,7 +569,7 @@ export default class Connection extends EventEmitter {
 	) {
 		if (this._errored.has(song.id)) return;
 
-		await queue.insert({
+		await Database.queue.insertOne({
 			...song,
 			addedAt: Date.now(),
 			guildId: this.manager.guildId,
@@ -713,13 +711,10 @@ export default class Connection extends EventEmitter {
 		if (this._starred.has(song.id)) {
 			this._starred.delete(song.id);
 
-			await starred.remove(
-				{
-					guildId: this.manager.guildId,
-					id: song.id,
-				},
-				{ multi: false }
-			);
+			await Database.starred.deleteOne({
+				guildId: this.manager.guildId,
+				id: song.id,
+			});
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(
@@ -730,10 +725,7 @@ export default class Connection extends EventEmitter {
 		} else {
 			this._starred.set(song.id, song);
 
-			await starred.insert({
-				guildId: this.manager.guildId,
-				id: song.id,
-			});
+			await Database.starred.insertOne(songToData(song));
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(
@@ -747,12 +739,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async removeAllSongs() {
-		await queue.remove(
-			{ guildId: this.manager.guildId },
-			{
-				multi: true,
-			}
-		);
+		await Database.queue.deleteMany({ guildId: this.manager.guildId });
 
 		this._queueLength = 0;
 		this._queueLengthWithRelated = 0;
@@ -770,12 +757,7 @@ export default class Connection extends EventEmitter {
 	public async removeCurrentSong() {
 		if (!this.currentResource) return;
 
-		await queue.remove(
-			{ _id: this.currentResource.metadata._id },
-			{
-				multi: false,
-			}
-		);
+		await Database.queue.deleteOne({ _id: this.currentResource.metadata._id });
 
 		this._queueLength--;
 
@@ -802,12 +784,12 @@ export default class Connection extends EventEmitter {
 			this._queueLengthWithRelated > 0 &&
 			this.settings.autoplay
 		) {
-			const [random] = await queue
+			const [random] = await Database.queue
 				.find({ guildId: this.manager.guildId, related: { $exists: true } })
 				.sort({ addedAt: 1 })
 				.skip(randomInteger(this._queueLengthWithRelated))
 				.limit(1)
-				.exec();
+				.toArray();
 
 			if (random?.related) {
 				const data = (await handleYouTubeVideo(random.related)).videos[0];
@@ -818,12 +800,12 @@ export default class Connection extends EventEmitter {
 			}
 		}
 
-		const [song] = await queue
+		const [song] = await Database.queue
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1 })
 			.skip(index)
 			.limit(1)
-			.exec();
+			.toArray();
 
 		return song ?? null;
 	}
@@ -967,7 +949,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async updateQueueMessage() {
-		const cursor = queue
+		const cursor = Database.queue
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1 });
 
@@ -975,7 +957,7 @@ export default class Connection extends EventEmitter {
 			cursor.skip(this._index - 2);
 		}
 
-		const songs = await cursor.limit(5).exec();
+		const songs = await cursor.limit(5).toArray();
 
 		const lower = Math.max(0, this._index - 2);
 		const upper = Math.min(this._queueLength, this._index + 3);
@@ -1008,7 +990,7 @@ export default class Connection extends EventEmitter {
 			return createAudioStream(song.url, {
 				seek: this.settings.seek || undefined,
 				highWaterMark: 1 << 25,
-				format: song.format,
+				format: song.format ?? undefined,
 				filter: song.live ? undefined : 'audioonly',
 				quality: 'highestaudio',
 				opusEncoded: true,

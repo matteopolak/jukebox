@@ -21,6 +21,7 @@ import {
 import { loginPromise, mainClient as client } from './util/worker';
 
 import axios from 'axios';
+import { Database } from './util/database';
 
 axios.defaults.validateStatus = () => true;
 
@@ -36,7 +37,9 @@ const NAME_TO_ENUM = {
 };
 
 client.once('ready', async () => {
+	await Database.login();
 	await loginPromise;
+
 	console.log(`Logged in as ${client.user!.username}`);
 
 	await client

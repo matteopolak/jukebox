@@ -3,7 +3,7 @@ import scdl from 'soundcloud-downloader';
 import { TrackInfo } from 'soundcloud-downloader/src/info';
 import { formatSeconds } from '../util/duration';
 import { getCachedSong } from '../util/search';
-import { songDataCache } from '../util/database';
+import { Database } from '../util/database';
 
 function videoInfoToSongData(data: TrackInfo): SongData {
 	return {
@@ -43,7 +43,7 @@ export async function handleSoundCloudVideo(
 	if (!raw.streamable) return null;
 
 	const data = videoInfoToSongData(raw);
-	await songDataCache.insert(data);
+	await Database.addSongToCache(data);
 
 	return {
 		videos: [data],
