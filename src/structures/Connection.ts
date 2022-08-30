@@ -12,7 +12,6 @@ import {
 	ActionRowBuilder,
 	ButtonBuilder,
 	ButtonStyle,
-	Guild,
 	VoiceBasedChannel,
 	escapeMarkdown,
 	ButtonInteraction,
@@ -333,7 +332,7 @@ export default class Connection extends EventEmitter {
 
 		this._queueLength = queueLengthResult;
 		this._queueLengthWithRelated = queueLengthWithRelatedResult;
-		this.index = -1;
+		this.moveIndexBy(-1);
 
 		for await (const data of starredSongsResult) {
 			// Remove the _id
@@ -636,12 +635,14 @@ export default class Connection extends EventEmitter {
 			return (this.index = randomInteger(this._queueLength));
 
 		// Increase the index by 1
-		++this.index;
+		++this._index;
 
 		// If the index would go out of bounds, wrap around to 0
 		// unless autoplay is enabled
 		if (this.index >= this._queueLength && !this.settings.autoplay) {
 			this.index = 0;
+		} else {
+			this.index = this._index;
 		}
 
 		return this.index;
