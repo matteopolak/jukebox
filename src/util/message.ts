@@ -11,3 +11,7 @@ export async function sendMessageAndDelete(
 		message.delete().catch(() => {});
 	}, timeout);
 }
+
+export function enforceLength(text: string, maxLength: number) {
+	return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
+}

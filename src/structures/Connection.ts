@@ -52,7 +52,7 @@ import { randomInteger } from '../util/random';
 import { createQuery, setSongIds, songToData } from '../util/search';
 import scdl from 'soundcloud-downloader';
 import { handleYouTubeVideo } from '../providers/youtube';
-import { sendMessageAndDelete } from '../util/message';
+import { enforceLength, sendMessageAndDelete } from '../util/message';
 import {
 	getLyricsById as getMusixmatchLyricsById,
 	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
@@ -111,7 +111,8 @@ export default class Connection extends EventEmitter {
 		super();
 
 		this.manager = manager;
-		this.settings = manager.settings;
+		this.settings = this.manager.settings;
+		this.index = this.manager.index;
 
 		this.textChannel = getChannel(
 			mainClient,
@@ -267,6 +268,25 @@ export default class Connection extends EventEmitter {
 		connections.set(manager.guildId, this);
 	}
 
+	private set index(value: number) {
+		Database.managers.updateOne(
+			{
+				_id: this.manager._id,
+			},
+			{
+				$set: {
+					index: value,
+				},
+			}
+		);
+
+		this._index = value;
+	}
+
+	private get index() {
+		return this._index;
+	}
+
 	public static async getOrCreate(
 		data: ButtonInteraction | Message | RawData
 	): Promise<Option<Connection>> {
@@ -313,7 +333,7 @@ export default class Connection extends EventEmitter {
 
 		this._queueLength = queueLengthResult;
 		this._queueLengthWithRelated = queueLengthWithRelatedResult;
-		this._index = -1;
+		this.index = -1;
 
 		for await (const data of starredSongsResult) {
 			// Remove the _id
@@ -544,7 +564,7 @@ export default class Connection extends EventEmitter {
 				}))
 		);
 
-		if (Math.abs(this._index - this._queueLength) < 3) {
+		if (Math.abs(this.index - this._queueLength) < 3) {
 			this.updateQueueMessage();
 		}
 
@@ -556,10 +576,11 @@ export default class Connection extends EventEmitter {
 
 		this.emit(Events.AddSongs, songs);
 
+		if (playNext) this.index = this._queueLength - songs.length - 1;
+
 		if (!this._playing) {
 			if (autoplay) this.play();
 		} else if (playNext) {
-			this._index = this._queueLength - songs.length - 1;
 			this.skip();
 		}
 	}
@@ -582,14 +603,15 @@ export default class Connection extends EventEmitter {
 
 		this.emit(Events.AddSongs, [song]);
 
-		if (Math.abs(this._index - this._queueLength) < 3) {
+		if (Math.abs(this.index - this._queueLength) < 3) {
 			this.updateQueueMessage();
 		}
+
+		if (playNext) this.index = this._queueLength - 2;
 
 		if (!this._playing) {
 			if (autoplay) this.play();
 		} else if (playNext) {
-			this._index = this._queueLength - 2;
 			this.skip();
 		}
 	}
@@ -609,27 +631,27 @@ export default class Connection extends EventEmitter {
 	// Gets the index for the next song
 	public nextIndex(): number {
 		// If the current song should be repeated, don't modify the index
-		if (this.settings.repeat) return this._index;
+		if (this.settings.repeat) return this.index;
 		if (this.settings.shuffle)
-			return (this._index = randomInteger(this._queueLength));
+			return (this.index = randomInteger(this._queueLength));
 
 		// Increase the index by 1
-		++this._index;
+		++this.index;
 
 		// If the index would go out of bounds, wrap around to 0
 		// unless autoplay is enabled
-		if (this._index >= this._queueLength && !this.settings.autoplay) {
-			this._index = 0;
+		if (this.index >= this._queueLength && !this.settings.autoplay) {
+			this.index = 0;
 		}
 
-		return this._index;
+		return this.index;
 	}
 
 	public moveIndexBy(n: number): number {
-		this._index = (this._index + (n % this._queueLength)) % this._queueLength;
-		if (this._index < 0) this._index = this._queueLength + this._index;
+		this.index = (this.index + (n % this._queueLength)) % this._queueLength;
+		if (this.index < 0) this.index = this._queueLength + this.index;
 
-		return this._index;
+		return this.index;
 	}
 
 	public pause() {
@@ -747,7 +769,7 @@ export default class Connection extends EventEmitter {
 		this._queueLengthWithRelated = 0;
 		this.settings.seek = 0;
 
-		this._index = 0;
+		this.index = 0;
 		this.endCurrentSong();
 
 		// Forcefully remove the current resource
@@ -936,7 +958,9 @@ export default class Connection extends EventEmitter {
 		this.textChannel.messages.edit(this.manager.messageId, {
 			embeds: [
 				{
-					title: song?.title ? escapeMarkdown(song.title) : 'No music playing',
+					title: song?.title
+						? enforceLength(escapeMarkdown(song.title), 256)
+						: 'No music playing',
 					url: song?.url,
 					image: {
 						url:
@@ -958,23 +982,24 @@ export default class Connection extends EventEmitter {
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1 });
 
-		if (this._index > 2) {
-			cursor.skip(this._index - 2);
+		if (this.index > 2) {
+			cursor.skip(this.index - 2);
 		}
 
 		const songs = await cursor.limit(5).toArray();
 
-		const lower = Math.max(0, this._index - 2);
-		const upper = Math.min(this._queueLength, this._index + 3);
+		const lower = Math.max(0, this.index - 2);
+		const upper = Math.min(this._queueLength, this.index + 3);
 		const length = Math.ceil(Math.log10(upper));
 
 		const content = songs.map(
 			(s, i) =>
 				`\`${(lower + i + 1).toString().padStart(length, '0')}.\` ${
 					PROVIDER_TO_EMOJI[s.type]
-				} ${i + lower === this._index ? '**' : ''}${escapeMarkdown(
-					s.title
-				)} \`[${s.duration}]\`${i + lower === this._index ? '**' : ''}${
+				} ${i + lower === this.index ? '**' : ''}${enforceLength(
+					escapeMarkdown(s.title),
+					256
+				)} \`[${s.duration}]\`${i + lower === this.index ? '**' : ''}${
 					this._starred.has(s.id) ? ' ⭐' : ''
 				}${this._errored.has(s.id) ? ' 🚫' : ''}`
 		);
@@ -1020,7 +1045,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async nextResource(): Promise<Option<AudioResource<WithId<Song>>>> {
-		const previousIndex = this._index;
+		const previousIndex = this.index;
 		const previousResource = this.currentResource;
 
 		const song = await this.nextSong();
@@ -1070,7 +1095,7 @@ export default class Connection extends EventEmitter {
 			// Different song
 			this.updateEmbedMessage();
 			this.updateQueueMessage();
-		} else if (previousIndex !== this._index) {
+		} else if (previousIndex !== this.index) {
 			// Same song but different index
 			this.updateQueueMessage();
 		}
@@ -1184,9 +1209,11 @@ export default class Connection extends EventEmitter {
 		} else {
 			await sendMessageAndDelete(
 				this.textChannel,
-				`${
-					origin === CommandOrigin.Voice ? '🎙️ ' : ''
-				}Could not find a song from the query \`${query}\`.`
+				`${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Could not find a ${
+					query.startsWith('!book ')
+						? `book from the query \`${query.slice(6)}\``
+						: `song from the query \`${query}\``
+				}.`
 			);
 		}
 	}

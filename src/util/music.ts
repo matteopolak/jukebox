@@ -44,6 +44,7 @@ export async function createAudioManager(interaction: CommandInteraction) {
 					shuffle: false,
 					lyrics: false,
 				},
+				index: 0,
 			},
 		},
 		{ upsert: true }

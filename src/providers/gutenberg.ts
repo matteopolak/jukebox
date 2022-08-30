@@ -21,7 +21,9 @@ export async function search(query: string): Promise<Option<SearchResult>> {
 		title: null,
 		videos: [
 			{
-				url: book.formats['text/plain'],
+				url:
+					book.formats['text/plain'] ??
+					book.formats['text/plain; charset=utf-8'],
 				id: book.id.toString(),
 				title: book.title,
 				artist: book.authors?.[0].name ?? '?',
