@@ -33,7 +33,7 @@ export async function search(query: string): Promise<Option<SearchResult>> {
 				artist: book.authors?.[0].name ?? '?',
 				duration: 'N/A',
 				type: SongProvider.Gutenberg,
-				thumbnail: book.formats['image/jpeg'],
+				thumbnail: book.formats['image/jpeg'].replace('small', 'medium'),
 				live: false,
 			},
 		],
