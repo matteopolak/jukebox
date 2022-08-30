@@ -6,7 +6,6 @@ import {
 	VoiceConnection,
 } from '@discordjs/voice';
 
-
 import ffmpeg from 'fluent-ffmpeg';
 import prism from 'prism-media';
 
@@ -15,9 +14,12 @@ import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import Connection from '../structures/Connection';
 import { CommandOrigin } from '../typings';
 
-axios.defaults.headers.post.authorization =
-	'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK';
-axios.defaults.baseURL = 'https://api.wit.ai';
+const wit = axios.create({
+	baseURL: 'https://api.wit.ai',
+	headers: {
+		authorization: 'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK',
+	},
+});
 
 const activeConnections = new Map<string, VoiceConnection>();
 
@@ -54,7 +56,7 @@ export function joinVoiceChannelAndListen(
 			.inputOption('-f', 's16le', '-ar', '48000', '-ac', '2')
 			.outputFormat('mp3');
 
-		const response = await axios.post<string>('/speech?v=20220622', mp3Stream, {
+		const response = await wit.post<string>('/speech?v=20220622', mp3Stream, {
 			responseType: 'text',
 			maxContentLength: Infinity,
 			maxBodyLength: Infinity,
