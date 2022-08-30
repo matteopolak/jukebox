@@ -9,6 +9,7 @@ export const PROVIDER_TO_EMOJI: Record<SongProvider, string> = {
 	[SongProvider.SoundCloud]: '<:soundcloud:1009952387005431858>',
 	[SongProvider.Spotify]: '<:spotify:1009952127512223834>',
 	[SongProvider.YouTube]: '<:youtube:1009952565301096448>',
+	[SongProvider.Gutenberg]: '<:gutenberg:1014228032820621453>',
 };
 
 export const EFFECTS: Record<Effect, string[]> = {

@@ -13,6 +13,7 @@ import {
 import { Option, SearchResult, Song, SongData } from '../typings';
 import { Database } from './database';
 import { handleSpotifyAlbum, handleSpotifyVideo } from '../providers/spotify';
+import { search as searchGutenberg } from '../providers/gutenberg';
 import { ALLOWED_PROTOCOLS } from '../constants';
 
 export function getCachedSong(id: string) {
@@ -23,7 +24,15 @@ function parseUrlWrapper(query: string) {
 	try {
 		return new URL(query);
 	} catch {
-		return { hostname: '' as const, protocol: 'https:' as const };
+		const args = query.split(' ');
+
+		return {
+			hostname: args.shift(),
+			protocol: 'https:' as const,
+			searchParams: new Map(),
+			pathname: args.join(' '),
+			href: '',
+		};
 	}
 }
 
@@ -121,6 +130,8 @@ export async function createQuery(
 
 			break;
 		}
+		case '!book':
+			return searchGutenberg(parsed.pathname);
 	}
 
 	return handleYouTubeQuery(query);

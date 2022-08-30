@@ -93,7 +93,7 @@ export async function getTrack(
 		url
 	);
 
-	if (data.message.header.status_code === 404) return null;
+	if (data.message?.header?.status_code !== 200) return null;
 
 	return data.message.body?.track_list[0]?.track ?? null;
 }
@@ -110,7 +110,7 @@ export async function getLyricsById(trackId: number): Promise<Option<string>> {
 		url
 	);
 
-	if (data.message.header.status_code === 404) return null;
+	if (data.message?.header?.status_code !== 200) return null;
 
 	return data.message.body!.lyrics.lyrics_body;
 }
