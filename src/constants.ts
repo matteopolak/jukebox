@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { Effect, SongProvider } from './typings';
+import { Effect, SongProvider } from './typings/common';
 
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
 export const BAD_TITLE_CHARACTER_REGEX =

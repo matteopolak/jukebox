@@ -1,4 +1,9 @@
-import { SearchResult, SongProvider, Option, SongData } from '../typings';
+import {
+	SearchResult,
+	SongProvider,
+	Option,
+	SongData,
+} from '../typings/common.js';
 import scdl from 'soundcloud-downloader';
 import { TrackInfo } from 'soundcloud-downloader/src/info';
 import { formatSeconds } from '../util/duration';

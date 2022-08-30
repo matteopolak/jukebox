@@ -100,5 +100,5 @@
   },
 	"include": [
 		"src/**/*.ts"
-	]
+, "src/typings/common.d.mts"	]
 }

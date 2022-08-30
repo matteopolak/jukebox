@@ -3,7 +3,13 @@ import puppeteer from 'puppeteer';
 import ytdl, { videoInfo } from 'ytdl-core';
 import fs from 'fs/promises';
 
-import { Option, SearchResult, Song, SongData, SongProvider } from '../typings';
+import {
+	Option,
+	SearchResult,
+	Song,
+	SongData,
+	SongProvider,
+} from '../typings/common.js';
 import { Database } from '../util/database';
 import { formatSeconds } from '../util/duration';
 import { randomElement, randomInteger } from '../util/random';

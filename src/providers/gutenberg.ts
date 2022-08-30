@@ -1,11 +1,5 @@
-import {
-	GutenbergBook,
-	GutenbergResponse,
-	Option,
-	SearchResult,
-	SongData,
-	SongProvider,
-} from '../typings';
+import { Option, SearchResult, SongProvider } from '../typings/common.js';
+import { GutenbergBook, GutenbergResponse } from '../typings/gutenberg';
 import axios from 'axios';
 
 export async function search(query: string): Promise<Option<SearchResult>> {

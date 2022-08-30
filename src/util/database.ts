@@ -1,4 +1,4 @@
-import { RawManager, Song, SongData } from '../typings';
+import { RawManager, Song, SongData } from '../typings/common.js';
 import { MongoClient, Db, Collection } from 'mongodb';
 
 export class Database {

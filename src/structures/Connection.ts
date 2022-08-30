@@ -45,7 +45,7 @@ import {
 	SongData,
 	SongProvider,
 	CommandOrigin,
-} from '../typings';
+} from '../typings/common.js';
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { randomInteger } from '../util/random';

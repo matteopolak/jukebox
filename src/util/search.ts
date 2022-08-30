@@ -10,7 +10,7 @@ import {
 	handleSoundCloudAlbum,
 	handleSoundCloudVideo,
 } from '../providers/soundcloud';
-import { Option, SearchResult, Song, SongData } from '../typings';
+import { Option, SearchResult, Song, SongData } from '../typings/common.js';
 import { Database } from './database';
 import { handleSpotifyAlbum, handleSpotifyVideo } from '../providers/spotify';
 import { search as searchGutenberg } from '../providers/gutenberg';

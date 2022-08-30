@@ -1,7 +1,7 @@
 import { CommandInteraction } from 'discord.js';
 import { Database } from './database';
 import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '../constants';
-import { Effect } from '../typings';
+import { Effect } from '../typings/common.js';
 import { getChannel, queueClient } from './worker';
 
 export async function createAudioManager(interaction: CommandInteraction) {

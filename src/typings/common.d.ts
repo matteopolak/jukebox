@@ -83,17 +83,6 @@ export interface LyricsData {
 	copyright: string;
 }
 
-export interface GutenbergResponse<T> {
-	results: T[];
-}
-
-export interface GutenbergBook {
-	id: number;
-	title: string;
-	authors: { name: string }[];
-	formats: Record<string, string>;
-}
-
 export type Language =
 	| 'en'
 	| 'af-ZA'

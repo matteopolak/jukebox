@@ -1,4 +1,9 @@
-import { Option, SearchResult, SongData, SongProvider } from '../typings';
+import {
+	Option,
+	SearchResult,
+	SongData,
+	SongProvider,
+} from '../typings/common.js';
 import { parseDocument } from 'htmlparser2';
 import { Element } from 'domhandler';
 import axios from 'axios';

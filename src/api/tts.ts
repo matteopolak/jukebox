@@ -1,7 +1,7 @@
 import { getAllAudioUrls } from 'google-tts-api';
 import { Readable } from 'node:stream';
 import axios from 'axios';
-import { Language } from '../typings';
+import { Language } from '../typings/common.js';
 
 async function* textToAudioGenerator(text: string, language: Language = 'en') {
 	const results = getAllAudioUrls(text, {
