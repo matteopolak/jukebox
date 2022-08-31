@@ -9,7 +9,7 @@ function* splitText(text: string, language: Language) {
 
 	for (const [match] of matches) {
 		yield `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
-			text
+			match
 		)}&tl=${language}&total=1&idx=0&textlen=${
 			text.length
 		}&client=tw-ob&prev=input&ttsspeed=1`;
