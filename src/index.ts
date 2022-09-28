@@ -25,8 +25,6 @@ import { Database } from './util/database';
 
 axios.defaults.validateStatus = () => true;
 
-const tweets = fs.readFileSync('./data/tweets.txt', 'utf8').split(/\r?\n/);
-
 const NAME_TO_ENUM = {
 	loud: Effect.Loud,
 	underwater: Effect.UnderWater,
@@ -81,30 +79,6 @@ client.once('ready', async () => {
 			'637031306370220084'
 		)
 		.catch(() => {});
-
-	client.user!.setPresence({
-		status: 'dnd',
-		afk: false,
-		activities: [
-			{
-				type: ActivityType.Watching,
-				name: randomElement(tweets),
-			},
-		],
-	});
-
-	setInterval(() => {
-		client.user!.setPresence({
-			status: 'dnd',
-			afk: false,
-			activities: [
-				{
-					type: ActivityType.Watching,
-					name: randomElement(tweets),
-				},
-			],
-		});
-	}, 20_000);
 });
 
 async function handleButton(interaction: ButtonInteraction) {
