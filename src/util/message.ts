@@ -1,8 +1,12 @@
-import { MessageOptions, MessagePayload, TextBasedChannel } from 'discord.js';
+import {
+	MessageCreateOptions,
+	MessagePayload,
+	TextBasedChannel,
+} from 'discord.js';
 
 export async function sendMessageAndDelete(
 	channel: TextBasedChannel,
-	options: string | MessagePayload | MessageOptions,
+	options: string | MessagePayload | MessageCreateOptions,
 	timeout: number = 3_000
 ) {
 	const message = await channel.send(options);

@@ -1,17 +1,14 @@
 import {
-	ActivityType,
 	ApplicationCommandOptionType,
 	ApplicationCommandType,
 	ButtonInteraction,
 	escapeMarkdown,
 	GuildMember,
 } from 'discord.js';
-import fs from 'node:fs';
 
 import { createAudioManager } from './util/music';
 import { Effect } from './typings/common.js';
 import Connection, { connections } from './structures/Connection';
-import { randomElement } from './util/random';
 import {
 	getLyricsById,
 	getTrack,
