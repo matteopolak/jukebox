@@ -569,6 +569,10 @@ export default class Connection extends EventEmitter {
 			this.updateQueueMessage();
 		}
 
+		if (this._queueLength === 0) {
+			this._index = -1;
+		}
+
 		this._queueLength += songs.length;
 		this._queueLengthWithRelated += songs.reduce(
 			(a, b) => a + (b.related ? 1 : 0),
@@ -598,6 +602,11 @@ export default class Connection extends EventEmitter {
 			addedAt: Date.now(),
 			guildId: this.manager.guildId,
 		});
+
+
+		if (this._queueLength === 0) {
+			this._index = -1;
+		}
 
 		this._queueLength++;
 		if (song.related) this._queueLengthWithRelated++;
@@ -643,6 +652,7 @@ export default class Connection extends EventEmitter {
 		// unless autoplay is enabled
 		if (this.index >= this._queueLength && !this.settings.autoplay) {
 			this.index = 0;
+			this._index = 0;
 		} else {
 			this.index = this._index;
 		}
@@ -773,6 +783,7 @@ export default class Connection extends EventEmitter {
 		this.settings.seek = 0;
 
 		this.index = 0;
+		this._index = -1;
 		this.endCurrentSong();
 
 		// Forcefully remove the current resource
@@ -789,7 +800,8 @@ export default class Connection extends EventEmitter {
 		this._queueLength--;
 
 		if (this.currentResource.metadata.related) {
-			this._queueLengthWithRelated--;
+			this._queueLengthWithRelated -=
+				this.currentResource.metadata.related.length;
 		}
 
 		this.settings.seek = 0;
@@ -1199,9 +1211,8 @@ export default class Connection extends EventEmitter {
 				}
 			})
 			.once('error', (error: Error) => {
-				if (error.message !== 'Premature close') {
-					this._errored.add(resource.metadata.id);
-				}
+				// TODO: figure out a way to differentiate between closing the stream
+				// locally versus externally
 			});
 
 		await this._audioCompletionPromise;
