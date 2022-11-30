@@ -7,7 +7,7 @@ import {
 export async function sendMessageAndDelete(
 	channel: TextBasedChannel,
 	options: string | MessagePayload | MessageCreateOptions,
-	timeout: number = 3_000
+	timeout = 3_000
 ) {
 	const message = await channel.send(options);
 

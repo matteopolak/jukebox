@@ -94,14 +94,14 @@ export default class Connection extends EventEmitter {
 		lyrics: false,
 	};
 
-	private _index: number = 0;
+	private _index = 0;
 	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable> = null;
 	private _errored: Set<string> = new Set();
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
-	private _queueLength: number = 0;
-	private _queueLengthWithRelated: number = 0;
+	private _queueLength = 0;
+	private _queueLengthWithRelated = 0;
 	private _starred: Map<string, SongData> = new Map();
-	private _playing: boolean = false;
+	private _playing = false;
 	private _threadChannelPromise: Option<Promise<ThreadChannel>> = null;
 	private _currentLyrics: Option<string> = null;
 	private _effectComponents;
@@ -135,7 +135,7 @@ export default class Connection extends EventEmitter {
 
 		this.threadChannel = this.manager.threadId
 			? this.threadParentChannel.threads.cache.get(this.manager.threadId) ??
-			  null
+			null
 			: null;
 
 		if (this.threadChannel === null) {
@@ -338,7 +338,7 @@ export default class Connection extends EventEmitter {
 
 		for await (const data of starredSongsResult) {
 			// Remove the _id
-			// @ts-expect-error
+			// @ts-expect-error - _id is not a property of Song
 			data._id = undefined;
 
 			this._starred.set(data.id, data);
@@ -529,7 +529,7 @@ export default class Connection extends EventEmitter {
 
 		for (const song of this._starred.values()) {
 			// Remove _id
-			// @ts-expect-error
+			// @ts-expect-error - _id is not a valid property
 			song._id = undefined;
 
 			songs.push(song);
@@ -547,8 +547,8 @@ export default class Connection extends EventEmitter {
 
 	public async addSongs(
 		songs: SongData[],
-		autoplay: boolean = true,
-		playNext: boolean = false
+		autoplay = true,
+		playNext = false
 	) {
 		if (songs.length === 0) return;
 		if (songs.length === 1) return this.addSong(songs[0], autoplay, playNext);
@@ -575,7 +575,7 @@ export default class Connection extends EventEmitter {
 
 		this._queueLength += songs.length;
 		this._queueLengthWithRelated += songs.reduce(
-			(a, b) => a + (b.related ? 1 : 0),
+			(a, b) => a + (b.related ? b.related.length : 0),
 			0
 		);
 
@@ -592,8 +592,8 @@ export default class Connection extends EventEmitter {
 
 	public async addSong(
 		song: SongData,
-		autoplay: boolean = true,
-		playNext: boolean = false
+		autoplay = true,
+		playNext = false
 	) {
 		if (this._errored.has(song.id)) return;
 
@@ -609,7 +609,7 @@ export default class Connection extends EventEmitter {
 		}
 
 		this._queueLength++;
-		if (song.related) this._queueLengthWithRelated++;
+		if (song.related) this._queueLengthWithRelated += song.related.length;
 
 		this.emit(Events.AddSongs, [song]);
 
@@ -881,7 +881,7 @@ export default class Connection extends EventEmitter {
 					.toArray();
 
 				if (random) {
-					// @ts-expect-error
+					// @ts-expect-error - _id is not a property of Song
 					random._id = undefined;
 
 					await this.addSong(random);
@@ -1213,7 +1213,7 @@ export default class Connection extends EventEmitter {
 					resolve(false);
 				}
 			})
-			.once('error', (error: Error) => {
+			.once('error', (_error: Error) => {
 				// TODO: figure out a way to differentiate between closing the stream
 				// locally versus externally
 			});
@@ -1257,15 +1257,15 @@ export default class Connection extends EventEmitter {
 				this.textChannel,
 				result.videos.length === 1
 					? `${
-							origin === CommandOrigin.Voice ? '🎙️ ' : ''
-					  }Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
+						origin === CommandOrigin.Voice ? '🎙️ ' : ''
+					}Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
 					: `${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Added **${
-							result.videos.length
-					  }** songs from ${
-							result.title !== null
-								? `the playlist **${escapeMarkdown(result.title)}**`
-								: 'an anonymous playlist'
-					  } to the queue.`
+						result.videos.length
+					}** songs from ${
+						result.title !== null
+							? `the playlist **${escapeMarkdown(result.title)}**`
+							: 'an anonymous playlist'
+					} to the queue.`
 			);
 		} else {
 			await sendMessageAndDelete(

@@ -1,4 +1,4 @@
-export function randomInteger(max: number, min: number = 0) {
+export function randomInteger(max: number, min = 0) {
 	return Math.floor(Math.random() * (max - min));
 }
 

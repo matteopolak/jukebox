@@ -33,7 +33,7 @@ export async function handleSoundCloudVideo(
 	const cached = await getCachedSong(url);
 	if (cached) {
 		// Remove the unique id
-		// @ts-expect-error
+		// @ts-expect-error - _id is not a property of SongData
 		cached._id = undefined;
 
 		return {
@@ -64,7 +64,7 @@ export async function handleSoundCloudAlbum(
 
 	return {
 		// The property `title` exists
-		// @ts-expect-error
+		// @ts-expect-error - `title` exists
 		title: set.title,
 		videos: set.tracks.map(videoInfoToSongData),
 	};

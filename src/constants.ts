@@ -3,7 +3,7 @@ import { Effect, SongProvider } from './typings/common';
 
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
 export const BAD_TITLE_CHARACTER_REGEX =
-	/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]|\([^()]+\)|\[[^\[\]]+\]|fe?a?t\. .+/g;
+	/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]|\([^()]+\)|\[[^[\]]+\]|fe?a?t\. .+/g;
 
 export const PROVIDER_TO_EMOJI: Record<SongProvider, string> = {
 	[SongProvider.SoundCloud]: '<:soundcloud:1009952387005431858>',

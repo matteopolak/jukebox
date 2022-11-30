@@ -1,7 +1,6 @@
 import axios from 'axios';
 import puppeteer from 'puppeteer';
 import ytdl, { videoInfo } from 'ytdl-core';
-import fs from 'fs/promises';
 
 import {
 	Option,
@@ -12,7 +11,7 @@ import {
 } from '../typings/common.js';
 import { Database } from '../util/database';
 import { formatSeconds } from '../util/duration';
-import { randomElement, randomInteger } from '../util/random';
+import { randomInteger } from '../util/random';
 import { getCachedSong } from '../util/search';
 
 export const ID_REGEX = /^[\w-]{11}$/;
@@ -26,14 +25,15 @@ function videoInfoToSongData(data: videoInfo): SongData {
 		url: info.video_url,
 		title: info.title,
 		artist: // prettier-ignore
-		// @ts-expect-error
+		// @ts-expect-error - ytdl doesn't have a type for author but it exists
 		(data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
-				(c: any) => c.videoSecondaryInfoRenderer
-			)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
-				?.text ?? data.videoDetails.author.name).replace(
-					' - Topic',
-					''
-				),
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			(c: any) => c.videoSecondaryInfoRenderer
+		)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
+			?.text ?? data.videoDetails.author.name).replace(
+			' - Topic',
+			''
+		),
 		thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
 		duration: formatSeconds(parseInt(info.lengthSeconds)),
 		live: info.isLiveContent,
@@ -46,15 +46,17 @@ function videoInfoToSongData(data: videoInfo): SongData {
 	};
 
 	const metadata =
-		// @ts-expect-error
+		// @ts-expect-error - ytdl does not have a typescript definition for this
 		data.response?.engagementPanels
 			.find(
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				(i: any) =>
 					i.engagementPanelSectionListRenderer?.header
 						?.engagementPanelTitleHeaderRenderer?.title?.simpleText ===
 					'Description'
 			)
 			?.engagementPanelSectionListRenderer.content.structuredDescriptionContentRenderer.items.find(
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				(i: any) =>
 					i?.videoDescriptionMusicSectionRenderer?.sectionTitle?.simpleText ===
 					'Music'
@@ -144,7 +146,7 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 	const cached = await getCachedSong(id);
 	if (cached) {
 		// Remove the unique id
-		// @ts-expect-error
+		// @ts-expect-error - _id is not a property of SongData
 		cached._id = undefined;
 
 		return {

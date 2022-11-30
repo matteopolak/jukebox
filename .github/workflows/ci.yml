@@ -1,0 +1,23 @@
+name: ci
+
+on: [push]
+
+jobs:
+  eslint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set Node.js to 16.x
+        uses: actions/setup-node@v2.5.1
+        with:
+          node-version: 16.x
+
+      - name: Install modules
+        run: yarn
+
+      - name: Run ESLint
+        run: yarn run eslint src/**/*.ts
+
+      - name: Run TypeScript
+        run: yarn run tsc --project tsconfig.json --noEmit

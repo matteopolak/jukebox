@@ -14,6 +14,7 @@ type ParamValueType = string | number | boolean | undefined;
 
 const SIGNATURE_SECRET = '8d2899b2aebb97a69a4a85cc991c0b6713a1d9e2';
 
+// reverse-engineered from the Musixmatch webapp
 export function createSignedUrl(
 	url: string,
 	params: Record<string, ParamValueType> = {}
@@ -66,7 +67,7 @@ export async function getTrackById(trackId: number): Promise<Option<Track>> {
 		track_id: trackId,
 	});
 
-	const { data, status } = await axios.get<
+	const { data } = await axios.get<
 		MusixmatchResponse<TrackGetResponse>
 	>(url);
 

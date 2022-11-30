@@ -172,8 +172,8 @@ client.on('interactionCreate', async interaction => {
 					query.q_track || query.q_artist || query.q_lyrics
 						? await getTrack(query, true)
 						: currentSong
-						? await getTrackFromSongData(currentSong)
-						: null;
+							? await getTrackFromSongData(currentSong)
+							: null;
 
 				if (track === null) {
 					return void interaction.reply({

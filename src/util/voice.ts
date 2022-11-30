@@ -91,7 +91,7 @@ export function joinVoiceChannelAndListen(
 			if (connection === null) return;
 
 			switch (data.entities['order:order'][0].value) {
-				case 'play':
+				case 'play': {
 					const name =
 						data.entities['wit$message_body:message_body']?.[0]?.value;
 
@@ -100,6 +100,7 @@ export function joinVoiceChannelAndListen(
 					}
 
 					break;
+				}
 				case 'skip':
 					connection.skip();
 
