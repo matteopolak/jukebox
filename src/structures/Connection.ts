@@ -1036,13 +1036,9 @@ export default class Connection extends EventEmitter {
 				});
 			case SongProvider.SoundCloud:
 				return scdl.download(song.url) as Promise<Readable>;
-			case SongProvider.Gutenberg: {
+			case SongProvider.Gutenberg:
 				return textToAudioStream(await resolveText(song.url));
-			}
 		}
-
-		// Never going to be reached
-		return null!;
 	}
 
 	public async nextResource(): Promise<Option<AudioResource<WithId<Song>>>> {

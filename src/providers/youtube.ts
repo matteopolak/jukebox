@@ -176,7 +176,10 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 export async function handleYouTubePlaylist(
 	id: string
 ): Promise<Option<SearchResult>> {
-	const browser = await puppeteer.launch();
+	const browser = await puppeteer.launch({
+		args: ['--no-sandbox', '--disable-setuid-sandbox'],
+	});
+
 	const page = await browser.newPage();
 
 	await page.goto(`https://www.youtube.com/playlist?list=${id}`, {
@@ -188,7 +191,7 @@ export async function handleYouTubePlaylist(
 			await page.evaluate(
 				element => element!.textContent!,
 				await page.$(
-					'div[id=stats] yt-formatted-string[class="style-scope ytd-playlist-sidebar-primary-info-renderer"]'
+					'yt-formatted-string[class="byline-item style-scope ytd-playlist-byline-renderer'
 				)
 			)
 		)
@@ -287,9 +290,7 @@ export async function handleYouTubePlaylist(
 		videos: (await scrape()) as Song[],
 		title: await page.evaluate(
 			e => e!.textContent!,
-			await page.$(
-				'a[class="yt-simple-endpoint style-scope yt-formatted-string"]'
-			)
+			await page.$('.yt-sans-28')
 		),
 	};
 
