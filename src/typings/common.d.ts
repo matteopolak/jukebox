@@ -39,7 +39,7 @@ export interface SongData {
 	live: boolean;
 	type: SongProvider;
 	format?: Option<videoFormat>;
-	related?: string;
+	related?: string[];
 	musixmatchId?: Option<number>;
 	geniusId?: Option<number>;
 }

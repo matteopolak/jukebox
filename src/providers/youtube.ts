@@ -19,7 +19,7 @@ export const ID_REGEX = /^[\w-]{11}$/;
 
 function videoInfoToSongData(data: videoInfo): SongData {
 	const info = data.videoDetails;
-	const relatedId = randomElement(data.related_videos.filter(v => v?.id))?.id;
+	const related = data.related_videos.filter(v => v?.id);
 
 	const song = {
 		id: info.videoId,
@@ -41,7 +41,8 @@ function videoInfoToSongData(data: videoInfo): SongData {
 		format: info.isLiveContent
 			? ytdl.chooseFormat(data.formats, {})
 			: undefined,
-		related: relatedId,
+		// only provide an array of related videos if there is at least one
+		related: related.length > 0 ? related.map(v => v.id!) : undefined,
 	};
 
 	const metadata =

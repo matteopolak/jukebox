@@ -47,7 +47,7 @@ import {
 } from '../typings/common.js';
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
-import { randomInteger } from '../util/random';
+import { randomElement, randomInteger } from '../util/random';
 import { createQuery, setSongIds, songToData } from '../util/search';
 import scdl from 'soundcloud-downloader';
 import { handleYouTubeVideo } from '../providers/youtube';
@@ -68,6 +68,7 @@ import {
 } from '../util/worker';
 import { resolveText } from '../api/gutenberg';
 import { textToAudioStream } from '../api/tts';
+import { CircularBuffer } from '../util/buffer';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -105,6 +106,7 @@ export default class Connection extends EventEmitter {
 	private _currentLyrics: Option<string> = null;
 	private _effectComponents;
 	private _components;
+	private _recentlyPlayed: CircularBuffer<string> = new CircularBuffer(10);
 
 	constructor(manager: RawManager) {
 		super();
@@ -804,23 +806,70 @@ export default class Connection extends EventEmitter {
 	public async nextSong(): Promise<Option<WithId<Song>>> {
 		const index = this.nextIndex();
 
-		if (
-			index >= this._queueLength &&
-			this._queueLengthWithRelated > 0 &&
-			this.settings.autoplay
-		) {
-			const [random] = await Database.queue
-				.find({ guildId: this.manager.guildId, related: { $exists: true } })
-				.sort({ addedAt: 1 })
-				.skip(randomInteger(this._queueLengthWithRelated))
-				.limit(1)
-				.toArray();
+		if (index >= this._queueLength && this.settings.autoplay) {
+			if (this._queueLengthWithRelated > 0) {
+				const recent = this._recentlyPlayed.toArray();
+				const [random] = await Database.queue
+					.aggregate<{ related: string[] }>([
+						{
+							$match: {
+								guildId: this.manager.guildId,
+								related: { $exists: true },
+							},
+						},
+						{
+							$project: {
+								heuristic: {
+									// avoid playing recent songs
+									$size: {
+										$setIntersection: ['$related', recent],
+									},
+								},
+								related: 1,
+							},
+						},
+						{
+							$sort: {
+								heuristic: 1,
+							},
+						},
+						{
+							$limit: 1,
+						},
+					])
+					.toArray();
 
-			if (random?.related) {
-				const data = (await handleYouTubeVideo(random.related)).videos[0];
+				if (random?.related?.length) {
+					const set = new Set(recent);
+					const related = random.related.filter(id => !set.has(id));
 
-				if (data) {
-					await this.addSong(data);
+					const data = (await handleYouTubeVideo(
+						randomElement(related.length > 0 ? related : random.related)
+					))!.videos[0];
+
+					if (data) {
+						await this.addSong(data);
+					}
+				}
+			} else {
+				// if there are no related songs, play a random song
+				const [random] = await Database.queue
+					.aggregate<Song>([
+						{
+							$match: {
+								guildId: this.manager.guildId,
+							},
+						},
+						{
+							$sample: {
+								size: 1,
+							},
+						},
+					])
+					.toArray();
+
+				if (random) {
+					await this.addSong(random);
 				}
 			}
 		}
@@ -1130,6 +1179,7 @@ export default class Connection extends EventEmitter {
 
 		const resolve = this.createAudioCompletionPromise();
 
+		this._recentlyPlayed.push(resource.metadata.id);
 		this.subscription.player.play(resource);
 
 		this.subscription.player
