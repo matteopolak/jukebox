@@ -26,7 +26,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 		url: info.video_url,
 		title: info.title,
 		artist: // prettier-ignore
-		// @ts-ignore
+		// @ts-expect-error
 		(data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
 				(c: any) => c.videoSecondaryInfoRenderer
 			)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
@@ -46,7 +46,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 	};
 
 	const metadata =
-		// @ts-ignore
+		// @ts-expect-error
 		data.response?.engagementPanels
 			.find(
 				(i: any) =>
@@ -144,7 +144,7 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 	const cached = await getCachedSong(id);
 	if (cached) {
 		// Remove the unique id
-		// @ts-ignore
+		// @ts-expect-error
 		cached._id = undefined;
 
 		return {

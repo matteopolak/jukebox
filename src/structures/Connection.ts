@@ -338,7 +338,7 @@ export default class Connection extends EventEmitter {
 
 		for await (const data of starredSongsResult) {
 			// Remove the _id
-			// @ts-ignore
+			// @ts-expect-error
 			data._id = undefined;
 
 			this._starred.set(data.id, data);
@@ -529,7 +529,7 @@ export default class Connection extends EventEmitter {
 
 		for (const song of this._starred.values()) {
 			// Remove _id
-			// @ts-ignore
+			// @ts-expect-error
 			song._id = undefined;
 
 			songs.push(song);
@@ -881,6 +881,9 @@ export default class Connection extends EventEmitter {
 					.toArray();
 
 				if (random) {
+					// @ts-expect-error
+					random._id = undefined;
+
 					await this.addSong(random);
 				}
 			}
