@@ -49,7 +49,7 @@ import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { randomElement, randomInteger } from '../util/random';
 import { createQuery, setSongIds, songToData } from '../util/search';
-import scdl from 'soundcloud-downloader';
+import scdl from 'soundcloud-downloader/dist/index';
 import { handleYouTubeVideo } from '../providers/youtube';
 import { enforceLength, sendMessageAndDelete } from '../util/message';
 import {

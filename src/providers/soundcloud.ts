@@ -4,8 +4,8 @@ import {
 	Option,
 	SongData,
 } from '../typings/common.js';
-import scdl from 'soundcloud-downloader';
-import { TrackInfo } from 'soundcloud-downloader/src/info';
+import scdl from 'soundcloud-downloader/dist/index';
+import { TrackInfo } from 'soundcloud-downloader/dist/index';
 import { formatSeconds } from '../util/duration';
 import { getCachedSong } from '../util/search';
 import { Database } from '../util/database';
@@ -64,7 +64,6 @@ export async function handleSoundCloudAlbum(
 
 	return {
 		// The property `title` exists
-		// @ts-expect-error - `title` exists
 		title: set.title,
 		videos: set.tracks.map(videoInfoToSongData),
 	};
