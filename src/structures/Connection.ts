@@ -449,7 +449,7 @@ export default class Connection extends EventEmitter {
 		this.settings.seek = 0;
 		this.endCurrentSong();
 
-		if (!this._playing) {
+		if (this.queue.length === 0) {
 			await this.updateEmbedMessage();
 		}
 	}
