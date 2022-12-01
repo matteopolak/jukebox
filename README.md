@@ -1,11 +1,5 @@
-<style>
-  .round {
-    border-radius: 50%;
-  }
-</style>
-
 <p align="center">
-  <img width="256" height="256" class="round" src="https://github.com/matteopolak/jukebox/blob/main/readme_assets/logo.png">
+  <img width="256" height="256" border-radius="50%" src="https://github.com/matteopolak/jukebox/blob/main/readme_assets/logo.png">
 </p>
 
 # Jukebox 🎵
