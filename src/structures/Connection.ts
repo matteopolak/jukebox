@@ -111,8 +111,6 @@ export default class Connection extends EventEmitter {
 			manager.channelId
 		);
 
-		
-
 		this.threadParentChannel = getChannel(
 			LYRICS_CLIENT,
 			manager.guildId,
@@ -581,9 +579,9 @@ export default class Connection extends EventEmitter {
 
 		this.textChannel.messages.edit(this.manager.messageId, {
 			content: song && `**${escapeMarkdown(song.title)}** by **${escapeMarkdown(song?.artist)}**`,
-			files: song && [
+			files: [
 				{
-					attachment: song.thumbnail,
+					attachment: song ? song.thumbnail : 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
 					name: 'thumbnail.png',
 				}
 			],
