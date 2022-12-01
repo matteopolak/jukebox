@@ -46,7 +46,7 @@ import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { createQuery, setSongIds } from '../util/search';
 import scdl from 'soundcloud-downloader/dist/index';
-import { enforceLength, sendMessageAndDelete } from '../util/message';
+import { sendMessageAndDelete } from '../util/message';
 import {
 	getLyricsById as getMusixmatchLyricsById,
 	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
@@ -65,7 +65,6 @@ import { textToAudioStream } from '../api/tts';
 import { CircularBuffer } from '../util/buffer';
 import { Queue } from './Queue';
 import { getDefaultComponents } from '../util/components';
-import config from '../config';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -581,19 +580,12 @@ export default class Connection extends EventEmitter {
 		const song = this.currentResource?.metadata;
 
 		this.textChannel.messages.edit(this.manager.messageId, {
-			embeds: [
+			content: song && `**${escapeMarkdown(song.title)}** by **${escapeMarkdown(song?.artist)}**`,
+			files: song && [
 				{
-					author: song ? {
-						name: enforceLength(`${song.title} by ${song.artist}`, 256),
-						url: song.url,
-					} : undefined,
-					color: config.color,
-					image: {
-						url:
-							song?.thumbnail ??
-							'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
-					},
-				},
+					attachment: song.thumbnail,
+					name: 'thumbnail.png',
+				}
 			],
 			components: this._components,
 		});

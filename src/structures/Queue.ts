@@ -128,7 +128,7 @@ export class Queue {
 
 		this.channel.messages.edit(
 			this.manager.queueId,
-			content.join('\n') || '\u200b'
+			content.join('\n') || 'There are no songs in the queue.'
 		);
 	}
 
