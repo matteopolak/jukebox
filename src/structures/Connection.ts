@@ -46,7 +46,7 @@ import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
 import { createQuery, setSongIds } from '../util/search';
 import scdl from 'soundcloud-downloader/dist/index';
-import { sendMessageAndDelete } from '../util/message';
+import { enforceLength, sendMessageAndDelete } from '../util/message';
 import {
 	getLyricsById as getMusixmatchLyricsById,
 	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
@@ -578,7 +578,7 @@ export default class Connection extends EventEmitter {
 		const song = this.currentResource?.metadata;
 
 		this.textChannel.messages.edit(this.manager.messageId, {
-			content: song && `**${escapeMarkdown(song.title)}** by **${escapeMarkdown(song?.artist)}**`,
+			content: song && `**${enforceLength(escapeMarkdown(song.title), 32)}** by **${escapeMarkdown(song?.artist)}**`,
 			files: [
 				{
 					attachment: song ? song.thumbnail : 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',

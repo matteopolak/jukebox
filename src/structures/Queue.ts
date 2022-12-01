@@ -122,7 +122,7 @@ export class Queue {
 					PROVIDER_TO_EMOJI[s.type]
 				} ${i + lower === this.index ? '**' : ''}${enforceLength(
 					escapeMarkdown(s.title),
-					256
+					32
 				)} \`[${s.duration}]\`${i + lower === this.index ? '**' : ''}`
 		);
 
