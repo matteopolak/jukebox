@@ -29,13 +29,13 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					type: ComponentType.Button,
 					customId: 'remove',
 					label: '🗑️',
-					style: ButtonStyle.Secondary,
+					style: ButtonStyle.Danger,
 				},
 				{
 					type: ComponentType.Button,
 					customId: 'remove_all',
 					label: '💣',
-					style: ButtonStyle.Secondary,
+					style: ButtonStyle.Danger,
 				},
 			],
 		},
@@ -48,7 +48,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					label: '🔂',
 					style: settings.repeat
 						? ButtonStyle.Success
-						: ButtonStyle.Danger,
+						: ButtonStyle.Secondary,
 				},
 				{
 					type: ComponentType.Button,
@@ -56,7 +56,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					label: '🔀',
 					style: settings.shuffle
 						? ButtonStyle.Success
-						: ButtonStyle.Danger,
+						: ButtonStyle.Secondary,
 				},
 				{
 					type: ComponentType.Button,
@@ -64,7 +64,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					label: '♾️',
 					style: settings.autoplay
 						? ButtonStyle.Success
-						: ButtonStyle.Danger,
+						: ButtonStyle.Secondary,
 				},
 				{
 					type: ComponentType.Button,
@@ -72,7 +72,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					label: '📜',
 					style: settings.lyrics
 						? ButtonStyle.Success
-						: ButtonStyle.Danger,
+						: ButtonStyle.Secondary,
 				},
 			],
 		},
@@ -80,7 +80,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 			type: ComponentType.ActionRow,
 			components: [
 				{
-					type: ComponentType.SelectMenu,
+					type: ComponentType.StringSelect,
 					customId: 'effect',
 					placeholder: 'Select an effect...',
 					options: [

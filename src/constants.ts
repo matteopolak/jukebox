@@ -70,13 +70,13 @@ export const DEFAULT_COMPONENTS = [
 				type: ComponentType.Button,
 				customId: 'remove',
 				label: '🗑️',
-				style: ButtonStyle.Secondary,
+				style: ButtonStyle.Danger,
 			},
 			{
 				type: ComponentType.Button,
 				customId: 'remove_all',
 				label: '💣',
-				style: ButtonStyle.Secondary,
+				style: ButtonStyle.Danger,
 			},
 		],
 	},
@@ -87,25 +87,25 @@ export const DEFAULT_COMPONENTS = [
 				type: ComponentType.Button,
 				customId: 'repeat',
 				label: '🔂',
-				style: ButtonStyle.Danger
+				style: ButtonStyle.Secondary
 			},
 			{
 				type: ComponentType.Button,
 				customId: 'shuffle',
 				label: '🔀',
-				style: ButtonStyle.Danger
+				style: ButtonStyle.Secondary
 			},
 			{
 				type: ComponentType.Button,
 				customId: 'autoplay',
 				label: '♾️',
-				style: ButtonStyle.Danger
+				style: ButtonStyle.Secondary
 			},
 			{
 				type: ComponentType.Button,
 				customId: 'lyrics',
 				label: '📜',
-				style: ButtonStyle.Danger
+				style: ButtonStyle.Secondary
 			},
 		],
 	},
