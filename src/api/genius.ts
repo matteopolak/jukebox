@@ -14,7 +14,7 @@ export async function getTrack(query: string): Promise<Option<Song>> {
 		}
 	);
 
-	if (status !== 200 && status !== 304) return null;
+	if (status !== 200 && status !== 304) return;
 
 	for (const section of data.response.sections) {
 		for (const hit of section.hits) {
@@ -23,8 +23,6 @@ export async function getTrack(query: string): Promise<Option<Song>> {
 				return hit;
 		}
 	}
-
-	return null;
 }
 
 export async function getLyricsById(id: number): Promise<Option<string>> {
@@ -35,19 +33,19 @@ export async function getLyricsById(id: number): Promise<Option<string>> {
 		},
 	});
 
-	if (status !== 200 && status !== 304) return null;
+	if (status !== 200 && status !== 304) return;
 
 	const modified = data.replaceAll('<br>', '\n');
 	const document = parse(modified, {});
 	const raw = document.querySelector('div[data-lyrics-container="true"]');
 
-	return raw?.structuredText.replace(/^\[/gm, '\n[') ?? null;
+	return raw?.structuredText.replace(/^\[/gm, '\n[');
 }
 
 export async function getTrackIdFromSongData(
 	data: SongData
 ): Promise<Option<number>> {
-	if (data.geniusId === null) return null;
+	if (data.geniusId === undefined) return;
 	if (data.geniusId) return data.geniusId;
 
 	const clean = cleanTitle(data.title).replace(
@@ -60,7 +58,7 @@ export async function getTrackIdFromSongData(
 	const track = await getTrack(
 		clean.includes(cleanArtist) ? clean : `${cleanArtist} ${clean}`
 	);
-	if (track === null) return null;
+	if (track === undefined) return;
 
 	return track.result.id;
 }

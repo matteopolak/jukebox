@@ -15,10 +15,10 @@ export async function search(query: string): Promise<Option<SearchResult>> {
 	);
 
 	const book = data.results[0];
-	if (!book) return null;
+	if (!book) return;
 
 	return {
-		title: null,
+		title: undefined,
 		videos: [
 			{
 				url:

@@ -38,21 +38,21 @@ export async function handleSoundCloudVideo(
 
 		return {
 			videos: [cached],
-			title: null,
+			title: undefined,
 		};
 	}
 
 	const raw = await scdl.getInfo(url);
 
 	// Only return song if it can be streamed
-	if (!raw.streamable) return null;
+	if (!raw.streamable) return;
 
 	const data = videoInfoToSongData(raw);
 	await Database.addSongToCache(data);
 
 	return {
 		videos: [data],
-		title: null,
+		title: undefined,
 	};
 }
 

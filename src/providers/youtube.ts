@@ -89,7 +89,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
 	if (query === '?random') {
 		const count = await Database.cache.countDocuments();
-		if (count === 0) return null;
+		if (count === 0) return;
 
 		const [song] = await Database.cache
 			.find({})
@@ -108,9 +108,9 @@ async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
 		},
 	});
 
-	if (result.status !== 200 && result.status !== 304) return null;
+	if (result.status !== 200 && result.status !== 304) return;
 
-	return result.data.match(/\/watch\?v=([\w-]{11})/)?.[1] ?? null;
+	return result.data.match(/\/watch\?v=([\w-]{11})/)?.[1];
 }
 
 export async function handleYouTubeQuery(
@@ -119,7 +119,7 @@ export async function handleYouTubeQuery(
 ): Promise<Option<SearchResult>> {
 	if (single) {
 		const videoId = await getVideoIdFromQuery(query);
-		if (videoId === null) return null;
+		if (videoId === undefined) return;
 
 		return handleYouTubeVideo(videoId);
 	}
@@ -132,13 +132,13 @@ export async function handleYouTubeQuery(
 			await Promise.all(
 				names.map(async title => {
 					const result = await handleYouTubeQuery(title, true);
-					if (result === null) return null;
+					if (result === undefined) return null;
 
 					return result.videos[0];
 				})
 			)
 		).filter(s => s !== null) as SongData[],
-		title: null,
+		title: undefined,
 	};
 }
 
@@ -151,7 +151,7 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 
 		return {
 			videos: [cached],
-			title: null,
+			title: undefined,
 		};
 	}
 
@@ -172,7 +172,7 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 
 	return {
 		videos: [data],
-		title: null,
+		title: undefined,
 	};
 }
 

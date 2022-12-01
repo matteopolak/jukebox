@@ -3,23 +3,21 @@ import {
 	AudioResource,
 	createAudioPlayer,
 	createAudioResource,
+	DiscordGatewayAdapterCreator,
 	entersState,
 	PlayerSubscription,
 	StreamType,
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
 import {
-	ActionRowBuilder,
-	ButtonBuilder,
-	ButtonStyle,
 	VoiceBasedChannel,
 	escapeMarkdown,
-	ButtonInteraction,
 	Message,
 	GuildMember,
 	ThreadChannel,
 	NewsChannel,
 	TextChannel,
+	Interaction,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
@@ -30,14 +28,12 @@ import { WithId } from 'mongodb';
 import { Database } from '../util/database';
 import {
 	EFFECTS,
-	EFFECT_TO_INDEX_LIST,
 	CUSTOM_ID_TO_INDEX_LIST,
-	PROVIDER_TO_EMOJI,
 } from '../constants';
 import {
 	ConnectionSettings,
 	Effect,
-	RawManager,
+	Manager,
 	Song,
 	Option,
 	RawData,
@@ -47,10 +43,8 @@ import {
 } from '../typings/common.js';
 import { parseDurationString } from '../util/duration';
 import { joinVoiceChannelAndListen } from '../util/voice';
-import { randomElement, randomInteger } from '../util/random';
-import { createQuery, setSongIds, songToData } from '../util/search';
+import { createQuery, setSongIds } from '../util/search';
 import scdl from 'soundcloud-downloader/dist/index';
-import { handleYouTubeVideo } from '../providers/youtube';
 import { enforceLength, sendMessageAndDelete } from '../util/message';
 import {
 	getLyricsById as getMusixmatchLyricsById,
@@ -62,13 +56,14 @@ import {
 } from '../api/genius';
 import {
 	getChannel,
-	lyricsClient,
-	mainClient,
-	queueClient,
+	LYRICS_CLIENT,
+	MAIN_CLIENT,
 } from '../util/worker';
 import { resolveText } from '../api/gutenberg';
 import { textToAudioStream } from '../api/tts';
 import { CircularBuffer } from '../util/buffer';
+import { Queue } from './Queue';
+import { getDefaultComponents } from '../util/components';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -77,14 +72,14 @@ export const enum Events {
 }
 
 export default class Connection extends EventEmitter {
-	public voiceChannel: Option<VoiceBasedChannel> = null;
+	public voiceChannel: Option<VoiceBasedChannel>;
 	public textChannel: TextChannel | NewsChannel;
-	public queueChannel: TextChannel | NewsChannel;
 	public threadParentChannel: TextChannel | NewsChannel;
 	public threadChannel: Option<ThreadChannel>;
-	public manager: RawManager;
-	public subscription: Option<PlayerSubscription> = null;
-	public currentResource: Option<AudioResource<WithId<Song>>> = null;
+	public manager: Manager;
+	public subscription: Option<PlayerSubscription>;
+	public currentResource: Option<AudioResource<WithId<Song>>>;
+	public recent: CircularBuffer<string> = new CircularBuffer(10);
 	public settings: ConnectionSettings = {
 		effect: Effect.None,
 		repeat: false,
@@ -94,207 +89,58 @@ export default class Connection extends EventEmitter {
 		lyrics: false,
 	};
 
-	private _index = 0;
-	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable> = null;
-	private _errored: Set<string> = new Set();
+	protected queue: Queue;
+	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable>;
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
-	private _queueLength = 0;
-	private _queueLengthWithRelated = 0;
-	private _starred: Map<string, SongData> = new Map();
 	private _playing = false;
-	private _threadChannelPromise: Option<Promise<ThreadChannel>> = null;
-	private _currentLyrics: Option<string> = null;
-	private _effectComponents;
+	private _threadChannelPromise: Option<Promise<ThreadChannel>>;
+	private _currentLyrics: Option<string>;
 	private _components;
-	private _recentlyPlayed: CircularBuffer<string> = new CircularBuffer(10);
 
-	constructor(manager: RawManager) {
+	constructor(manager: Manager) {
 		super();
 
 		this.manager = manager;
 		this.settings = this.manager.settings;
-		this.index = this.manager.index;
+		this.queue = new Queue(this);
 
 		this.textChannel = getChannel(
-			mainClient,
+			MAIN_CLIENT,
 			manager.guildId,
 			manager.channelId
 		);
 
-		this.queueChannel = getChannel(
-			queueClient,
-			manager.guildId,
-			manager.channelId
-		);
+		
 
 		this.threadParentChannel = getChannel(
-			lyricsClient,
+			LYRICS_CLIENT,
 			manager.guildId,
 			manager.channelId
 		);
 
 		this.threadChannel = this.manager.threadId
-			? this.threadParentChannel.threads.cache.get(this.manager.threadId) ??
-			null
-			: null;
+			? this.threadParentChannel.threads.cache.get(this.manager.threadId)
+			: undefined;
 
-		if (this.threadChannel === null) {
+		if (this.threadChannel === undefined) {
 			this.manager.lyricsId = undefined;
 			this.manager.threadId = undefined;
 		}
 
-		this._effectComponents = [
-			new ButtonBuilder({
-				customId: 'loud',
-				label: '🧨',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'underwater',
-				label: '🌊',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'bass',
-				label: '🥁',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'echo',
-				label: '🧯',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'high_pitch',
-				label: '🐿️',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'reverse',
-				label: '⏪',
-				style: ButtonStyle.Danger,
-			}),
-		];
-
-		this._components = [
-			new ActionRowBuilder<ButtonBuilder>({
-				components: [
-					new ButtonBuilder({
-						customId: 'toggle',
-						label: '▶️',
-						style: ButtonStyle.Primary,
-					}),
-					new ButtonBuilder({
-						customId: 'previous',
-						label: '⏮️',
-						style: ButtonStyle.Primary,
-					}),
-					new ButtonBuilder({
-						customId: 'next',
-						label: '⏭️',
-						style: ButtonStyle.Primary,
-					}),
-					new ButtonBuilder({
-						customId: 'repeat',
-						label: '🔂',
-						style: this.settings.repeat
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-					}),
-					new ButtonBuilder({
-						customId: 'shuffle',
-						label: '🔀',
-						style: this.settings.shuffle
-							? ButtonStyle.Success
-							: ButtonStyle.Primary,
-					}),
-				],
-			}),
-			new ActionRowBuilder<ButtonBuilder>({
-				components: [
-					new ButtonBuilder({
-						customId: 'remove',
-						label: '🗑️',
-						style: ButtonStyle.Primary,
-					}),
-					new ButtonBuilder({
-						customId: 'remove_all',
-						label: '💣',
-						style: ButtonStyle.Primary,
-					}),
-					new ButtonBuilder({
-						customId: 'star',
-						label: '⭐️',
-						style: ButtonStyle.Danger,
-					}),
-					new ButtonBuilder({
-						customId: 'play_starred',
-						label: '☀️',
-						style: ButtonStyle.Primary,
-					}),
-				],
-			}),
-			new ActionRowBuilder<ButtonBuilder>({
-				components: [
-					new ButtonBuilder({
-						customId: 'autoplay',
-						label: '♾️',
-						style: this.settings.autoplay
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-					}),
-					new ButtonBuilder({
-						customId: 'lyrics',
-						label: '📜',
-						style: this.settings.lyrics
-							? ButtonStyle.Success
-							: ButtonStyle.Danger,
-					}),
-				],
-			}),
-			new ActionRowBuilder<ButtonBuilder>({
-				components: this._effectComponents.slice(0, 5),
-			}),
-			new ActionRowBuilder<ButtonBuilder>({
-				components: this._effectComponents.slice(5),
-			}),
-		];
-
-		const [row, index] = EFFECT_TO_INDEX_LIST[this.settings.effect];
-
-		if (row !== -1) {
-			this._components[row].components[index].setStyle(ButtonStyle.Success);
-		}
+		this._components = getDefaultComponents(this.settings);
 
 		connections.set(manager.guildId, this);
 	}
 
-	private set index(value: number) {
-		Database.managers.updateOne(
-			{
-				_id: this.manager._id,
-			},
-			{
-				$set: {
-					index: value,
-				},
-			}
-		);
-
-		this._index = value;
-	}
-
-	private get index() {
-		return this._index;
-	}
+	
 
 	public static async getOrCreate(
-		data: ButtonInteraction | Message | RawData
+		data: Interaction | Message | RawData
 	): Promise<Option<Connection>> {
 		const manager = await Database.managers.findOne({
 			channelId: data.channel!.id,
 		});
-		if (!manager) return null;
+		if (!manager) return;
 
 		const cachedConnection = connections.get(data.guild!.id);
 
@@ -315,34 +161,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async init() {
-		const [
-			queueLengthResult,
-			queueLengthWithRelatedResult,
-			starredSongsResult,
-		] = await Promise.all([
-			Database.queue.count({
-				guildId: this.manager.guildId,
-			}),
-			Database.queue.count({
-				guildId: this.manager.guildId,
-				related: { $exists: true },
-			}),
-			Database.starred.find({
-				guildId: this.manager.guildId,
-			}),
-		]);
-
-		this._queueLength = queueLengthResult;
-		this._queueLengthWithRelated = queueLengthWithRelatedResult;
-		this.moveIndexBy(-1);
-
-		for await (const data of starredSongsResult) {
-			// Remove the _id
-			// @ts-expect-error - _id is not a property of Song
-			data._id = undefined;
-
-			this._starred.set(data.id, data);
-		}
+		await this.queue.init();
 	}
 
 	public destroy(): void {
@@ -375,7 +194,7 @@ export default class Connection extends EventEmitter {
 				selfDeaf: false,
 				channelId: this.voiceChannel.id,
 				guildId: this.manager.guildId,
-				adapterCreator: this.voiceChannel.guild.voiceAdapterCreator,
+				adapterCreator: this.voiceChannel.guild.voiceAdapterCreator as DiscordGatewayAdapterCreator,
 			},
 			this.voiceChannel,
 			this.textChannel
@@ -391,13 +210,8 @@ export default class Connection extends EventEmitter {
 		enabled: boolean,
 		origin: CommandOrigin = CommandOrigin.Text
 	): Promise<void> {
-		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.repeat;
 		const old = this.settings.repeat;
-
 		this.settings.repeat = enabled;
-		this._components[row].components[index].setStyle(
-			enabled ? ButtonStyle.Success : ButtonStyle.Danger
-		);
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
@@ -416,13 +230,9 @@ export default class Connection extends EventEmitter {
 		enabled: boolean,
 		origin: CommandOrigin = CommandOrigin.Text
 	): Promise<void> {
-		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.autoplay;
 		const old = this.settings.autoplay;
-
 		this.settings.autoplay = enabled;
-		this._components[row].components[index].setStyle(
-			enabled ? ButtonStyle.Success : ButtonStyle.Danger
-		);
+
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
@@ -441,19 +251,14 @@ export default class Connection extends EventEmitter {
 		enabled: boolean,
 		origin: CommandOrigin = CommandOrigin.Text
 	): Promise<void> {
-		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.lyrics;
 		const old = this.settings.lyrics;
-
 		this.settings.lyrics = enabled;
-		this._components[row].components[index].setStyle(
-			enabled ? ButtonStyle.Success : ButtonStyle.Danger
-		);
 
 		if (old !== enabled) {
 			if (!enabled && this.threadChannel) {
 				this.threadChannel.delete().catch(() => {});
 
-				this.threadChannel = null;
+				this.threadChannel = undefined;
 				this.manager.threadId = undefined;
 				this.manager.lyricsId = undefined;
 			}
@@ -475,24 +280,14 @@ export default class Connection extends EventEmitter {
 			effect = Effect.None;
 		}
 
-		const [oldRow, oldIndex] = EFFECT_TO_INDEX_LIST[this.settings.effect];
-		const [newRow, newIndex] = EFFECT_TO_INDEX_LIST[effect];
-
-		if (oldRow !== -1) {
-			this._components[oldRow].components[oldIndex].setStyle(
-				ButtonStyle.Danger
-			);
-		}
-
-		if (newRow !== -1) {
-			this._components[newRow].components[newIndex].setStyle(
-				ButtonStyle.Success
-			);
-		}
-
+		const old = this.settings.effect;
 		this.settings.effect = effect;
 
-		if (oldRow !== newRow || oldIndex !== newIndex) {
+		if (old !== effect) {
+			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.effect;
+			this._components[row].components[index].options![old].default = false;
+			this._components[row].components[index].options![effect].default = true;
+
 			this.updateManagerData({ 'settings.effect': effect });
 			this.updateEmbedMessage();
 			this.applyEffectChanges();
@@ -503,13 +298,8 @@ export default class Connection extends EventEmitter {
 		enabled: boolean,
 		origin: CommandOrigin = CommandOrigin.Text
 	): Promise<void> {
-		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.shuffle;
 		const old = this.settings.shuffle;
-
 		this.settings.shuffle = enabled;
-		this._components[row].components[index].setStyle(
-			enabled ? ButtonStyle.Success : ButtonStyle.Danger
-		);
 
 		if (old !== enabled) {
 			this.updateEmbedMessage();
@@ -524,64 +314,16 @@ export default class Connection extends EventEmitter {
 		}
 	}
 
-	public async addAllStarredSongs() {
-		const songs: SongData[] = [];
-
-		for (const song of this._starred.values()) {
-			// Remove _id
-			// @ts-expect-error - _id is not a valid property
-			song._id = undefined;
-
-			songs.push(song);
-		}
-
-		this.addSongs(songs);
-
-		await sendMessageAndDelete(
-			this.textChannel,
-			`Added **${this._starred.size} song${
-				this._starred.size === 1 ? '' : 's'
-			}** from the starred list.`
-		);
-	}
-
 	public async addSongs(
 		songs: SongData[],
 		autoplay = true,
 		playNext = false
 	) {
 		if (songs.length === 0) return;
-		if (songs.length === 1) return this.addSong(songs[0], autoplay, playNext);
 
-		const now = Date.now();
-
-		await Database.queue.insertMany(
-			songs
-				.filter(s => !this._errored.has(s.id))
-				.map((song, i) => ({
-					...song,
-					addedAt: now + i,
-					guildId: this.manager.guildId,
-				}))
-		);
-
-		if (Math.abs(this.index - this._queueLength) < 3) {
-			this.updateQueueMessage();
-		}
-
-		if (this._queueLength === 0) {
-			this._index = -1;
-		}
-
-		this._queueLength += songs.length;
-		this._queueLengthWithRelated += songs.reduce(
-			(a, b) => a + (b.related ? b.related.length : 0),
-			0
-		);
+		await this.queue.insertMany(songs, { playNext });
 
 		this.emit(Events.AddSongs, songs);
-
-		if (playNext) this.index = this._queueLength - songs.length - 1;
 
 		if (!this._playing) {
 			if (autoplay) this.play();
@@ -595,29 +337,9 @@ export default class Connection extends EventEmitter {
 		autoplay = true,
 		playNext = false
 	) {
-		if (this._errored.has(song.id)) return;
-
-		await Database.queue.insertOne({
-			...song,
-			addedAt: Date.now(),
-			guildId: this.manager.guildId,
-		});
-
-
-		if (this._queueLength === 0) {
-			this._index = -1;
-		}
-
-		this._queueLength++;
-		if (song.related) this._queueLengthWithRelated += song.related.length;
+		await this.queue.insertOne(song, { playNext });
 
 		this.emit(Events.AddSongs, [song]);
-
-		if (Math.abs(this.index - this._queueLength) < 3) {
-			this.updateQueueMessage();
-		}
-
-		if (playNext) this.index = this._queueLength - 2;
 
 		if (!this._playing) {
 			if (autoplay) this.play();
@@ -638,43 +360,14 @@ export default class Connection extends EventEmitter {
 		this.restartCurrentSong();
 	}
 
-	// Gets the index for the next song
-	public nextIndex(): number {
-		// If the current song should be repeated, don't modify the index
-		if (this.settings.repeat) return this.index;
-		if (this.settings.shuffle)
-			return (this.index = randomInteger(this._queueLength));
-
-		// Increase the index by 1
-		++this._index;
-
-		// If the index would go out of bounds, wrap around to 0
-		// unless autoplay is enabled
-		if (this.index >= this._queueLength && !this.settings.autoplay) {
-			this.index = 0;
-			this._index = 0;
-		} else {
-			this.index = this._index;
-		}
-
-		return this.index;
-	}
-
-	public moveIndexBy(n: number): number {
-		this.index = (this.index + (n % this._queueLength)) % this._queueLength;
-		if (this.index < 0) this.index = this._queueLength + this.index;
-
-		return this.index;
-	}
-
 	public pause() {
 		if (
-			this.subscription !== null &&
+			this.subscription !== undefined &&
 			this.subscription.player.state.status !== AudioPlayerStatus.Paused &&
 			this.subscription.player.state.status !== AudioPlayerStatus.Idle
 		) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
-			this._components[row].components[index].setLabel('▶️');
+			this._components[row].components[index].label = '▶️';
 
 			this.subscription.player.pause();
 			this.updateEmbedMessage();
@@ -683,13 +376,13 @@ export default class Connection extends EventEmitter {
 
 	public resume() {
 		if (
-			this.subscription !== null &&
-			this._queueLength > 0 &&
+			this.subscription !== undefined &&
+			this.queue.length > 0 &&
 			(this.subscription.player.state.status === AudioPlayerStatus.Paused ||
 				this.subscription.player.state.status === AudioPlayerStatus.Idle)
 		) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
-			this._components[row].components[index].setLabel('⏸️');
+			this._components[row].components[index].label = '⏸️';
 
 			this.subscription?.player.unpause();
 
@@ -728,175 +421,37 @@ export default class Connection extends EventEmitter {
 	}
 
 	public restartCurrentSong() {
-		this.moveIndexBy(-1);
+		this.queue.index -= 1;
 		this.endCurrentSong();
 	}
 
 	public previous() {
 		this.settings.seek = 0;
-		this.moveIndexBy(-2);
+		this.queue.index -= 2;
 		this.endCurrentSong();
-	}
-
-	public async starCurrentSongToggle(
-		origin: CommandOrigin = CommandOrigin.Text
-	) {
-		if (!this.currentResource) return;
-
-		const song = this.currentResource.metadata;
-
-		if (this._starred.has(song.id)) {
-			this._starred.delete(song.id);
-
-			await Database.starred.deleteOne({
-				guildId: this.manager.guildId,
-				id: song.id,
-			});
-
-			if (origin === CommandOrigin.Voice) {
-				await sendMessageAndDelete(
-					this.textChannel,
-					`🎙️ The track **${escapeMarkdown(song.title)}** has been unstarred.`
-				);
-			}
-		} else {
-			this._starred.set(song.id, song);
-
-			await Database.starred.insertOne(songToData(song));
-
-			if (origin === CommandOrigin.Voice) {
-				await sendMessageAndDelete(
-					this.textChannel,
-					`🎙️ The track **${escapeMarkdown(song.title)}** has been starred.`
-				);
-			}
-		}
-
-		return Promise.all([this.updateEmbedMessage(), this.updateQueueMessage()]);
 	}
 
 	public async removeAllSongs() {
-		await Database.queue.deleteMany({ guildId: this.manager.guildId });
+		await this.queue.clear();
+		await Promise.all([this.updateEmbedMessage()]);
 
-		this._queueLength = 0;
-		this._queueLengthWithRelated = 0;
-		this.settings.seek = 0;
-
-		this.index = 0;
-		this._index = -1;
 		this.endCurrentSong();
 
 		// Forcefully remove the current resource
-		this.currentResource = null;
-
-		return Promise.all([this.updateEmbedMessage(), this.updateQueueMessage()]);
+		this.currentResource = undefined;
 	}
 
 	public async removeCurrentSong() {
 		if (!this.currentResource) return;
 
-		await Database.queue.deleteOne({ _id: this.currentResource.metadata._id });
-
-		this._queueLength--;
-
-		if (this.currentResource.metadata.related) {
-			this._queueLengthWithRelated -=
-				this.currentResource.metadata.related.length;
-		}
+		await this.queue.removeCurrent();
 
 		this.settings.seek = 0;
 		this.endCurrentSong();
 
 		if (!this._playing) {
-			return Promise.all([
-				this.updateEmbedMessage(),
-				this.updateQueueMessage(),
-			]);
+			await this.updateEmbedMessage();
 		}
-	}
-
-	public async nextSong(): Promise<Option<WithId<Song>>> {
-		const index = this.nextIndex();
-
-		if (index >= this._queueLength && this.settings.autoplay) {
-			if (this._queueLengthWithRelated > 0) {
-				const recent = this._recentlyPlayed.toArray();
-				const [random] = await Database.queue
-					.aggregate<{ related: string[] }>([
-						{
-							$match: {
-								guildId: this.manager.guildId,
-								related: { $exists: true },
-							},
-						},
-						{
-							$project: {
-								heuristic: {
-									// avoid playing recent songs
-									$size: {
-										$setIntersection: ['$related', recent],
-									},
-								},
-								related: 1,
-							},
-						},
-						{
-							$sort: {
-								heuristic: 1,
-							},
-						},
-						{
-							$limit: 1,
-						},
-					])
-					.toArray();
-
-				if (random?.related?.length) {
-					const set = new Set(recent);
-					const related = random.related.filter(id => !set.has(id));
-
-					const data = (await handleYouTubeVideo(
-						randomElement(related.length > 0 ? related : random.related)
-					))!.videos[0];
-
-					if (data) {
-						await this.addSong(data);
-					}
-				}
-			} else {
-				// if there are no related songs, play a random song
-				const [random] = await Database.queue
-					.aggregate<Song>([
-						{
-							$match: {
-								guildId: this.manager.guildId,
-							},
-						},
-						{
-							$sample: {
-								size: 1,
-							},
-						},
-					])
-					.toArray();
-
-				if (random) {
-					// @ts-expect-error - _id is not a property of Song
-					random._id = undefined;
-
-					await this.addSong(random);
-				}
-			}
-		}
-
-		const [song] = await Database.queue
-			.find({ guildId: this.manager.guildId })
-			.sort({ addedAt: 1 })
-			.skip(index)
-			.limit(1)
-			.toArray();
-
-		return song ?? null;
 	}
 
 	private async updateOrCreateLyricsMessage(content: string): Promise<void> {
@@ -946,7 +501,7 @@ export default class Connection extends EventEmitter {
 
 		if (
 			song.type === SongProvider.Gutenberg ||
-			(song.musixmatchId === null && song.geniusId === null)
+			(song.musixmatchId === undefined && song.geniusId === undefined)
 		)
 			return this.updateOrCreateLyricsMessage('Track not found.');
 
@@ -955,10 +510,10 @@ export default class Connection extends EventEmitter {
 			geniusId: undefined as Option<number> | undefined,
 		};
 
-		if (updated.musixmatchId === null) {
+		if (updated.musixmatchId === undefined) {
 			updated.geniusId = await getGeniusTrackIdFromSongData(song);
 
-			if (updated.geniusId === null) {
+			if (updated.geniusId === undefined) {
 				if (
 					updated.geniusId !== song.geniusId ||
 					updated.musixmatchId !== song.musixmatchId
@@ -976,8 +531,8 @@ export default class Connection extends EventEmitter {
 			? await getMusixmatchLyricsById(updated.musixmatchId)
 			: await getGeniusLyricsById(updated.geniusId!);
 
-		if (lyrics === '' && updated.musixmatchId !== null) {
-			updated.musixmatchId = null;
+		if (lyrics === '' && updated.musixmatchId !== undefined) {
+			updated.musixmatchId = undefined;
 
 			if (
 				updated.geniusId !== song.geniusId ||
@@ -1000,7 +555,7 @@ export default class Connection extends EventEmitter {
 		song.geniusId = updated.geniusId;
 		song.musixmatchId = updated.musixmatchId;
 
-		if (lyrics === null)
+		if (lyrics === undefined)
 			return this.updateOrCreateLyricsMessage('Track does not support lyrics.');
 
 		this.updateOrCreateLyricsMessage(
@@ -1010,15 +565,6 @@ export default class Connection extends EventEmitter {
 
 	public async updateEmbedMessage() {
 		const song = this.currentResource?.metadata;
-
-		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.star;
-		const button = this._components[row].components[index];
-
-		if (song && this._starred.has(song.id)) {
-			button.setStyle(ButtonStyle.Success);
-		} else {
-			button.setStyle(ButtonStyle.Danger);
-		}
 
 		this.textChannel.messages.edit(this.manager.messageId, {
 			embeds: [
@@ -1042,39 +588,6 @@ export default class Connection extends EventEmitter {
 		}
 	}
 
-	public async updateQueueMessage() {
-		const cursor = Database.queue
-			.find({ guildId: this.manager.guildId })
-			.sort({ addedAt: 1 });
-
-		if (this.index > 2) {
-			cursor.skip(this.index - 2);
-		}
-
-		const songs = await cursor.limit(5).toArray();
-
-		const lower = Math.max(0, this.index - 2);
-		const upper = Math.min(this._queueLength, this.index + 3);
-		const length = Math.ceil(Math.log10(upper));
-
-		const content = songs.map(
-			(s, i) =>
-				`\`${(lower + i + 1).toString().padStart(length, '0')}.\` ${
-					PROVIDER_TO_EMOJI[s.type]
-				} ${i + lower === this.index ? '**' : ''}${enforceLength(
-					escapeMarkdown(s.title),
-					256
-				)} \`[${s.duration}]\`${i + lower === this.index ? '**' : ''}${
-					this._starred.has(s.id) ? ' ⭐' : ''
-				}${this._errored.has(s.id) ? ' 🚫' : ''}`
-		);
-
-		this.queueChannel.messages.edit(
-			this.manager.queueId,
-			content.join('\n') || '\u200b'
-		);
-	}
-
 	private async createStream(
 		song: SongData
 	): Promise<Readable | Opus.Encoder | FFmpeg> {
@@ -1091,10 +604,8 @@ export default class Connection extends EventEmitter {
 					encoderArgs: EFFECTS[this.settings.effect],
 					requestOptions: {
 						headers: {
-							Cookie:
-								'VISITOR_INFO1_LIVE=T_VAI0yBFOY; PREF=tz=America.Toronto&f6=40000000; SID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtFOPjd2kQUFCoClC5V40YuQ.; __Secure-1PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7Tjtyx-dRfxVWZQ00xP7mraFPQ.; __Secure-3PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtrZ5d1J7-CDiETHJ9cEqxuQ.; HSID=Aa-D4ML5NJt_-a8ox; SSID=A6YQW6xXjVrCFncOs; APISID=iWRw5OkxX9SQ8OMB/ACenrBIZYU15shrid; SAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-1PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-3PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; LOGIN_INFO=AFmmF2swRQIgP9pMl-otPZiW2NAELUSEipK0Rt4ZkJWkcfvnSkkAI2UCIQCn8K2ab4izDUcLILL9604Rm5GJfRGF-4D-IYa8EEKmMw:QUQ3MjNmekhzNzJBV0VlZ2M0X0lGOU1oWkVqYzZJWW9YV3FkODhFZDcteXhMZ2MtUjR4WHNZWEFTVHJ4NndvSFRlUktnU2U0ZVBmN3BtbjdwNTh0TkhZNU4yZnNsV2pSb0p1QXNaby1VdWJvRTkyMlhoMzNBNHpnNWdQeHdyaXlBVWNlRG9zLVJtdnFSek51MkFYSVBvZTB1bnFfZTR5M0M2VlJvZ0VoRk5vc0NUM0h4cmdDLWxtYWJSUGYyZ1QyVTQ1SVFBTHRGTU1nR05QX0FCV1JHR1BzTmE3aFBWWVlGUQ==; SIDCC=AEf-XMSLwqkkjmDfquFh1ljbvoow6sf2w61VMa6mbaxCKr8ZJD_oangQsJSepTZyneU3qWXbAU0; __Secure-1PSIDCC=AEf-XMQQXXMvbDEGMyUdBbKZUtYjhbGvr4QLQD-LNANXdMbQ97vfO39bigtKkKPTyf1CtCq43bs; __Secure-3PSIDCC=AEf-XMQn1V1cTJ4-_RC0kLhXvk6aCUfvocmygBww1yaVcY3T5cVKL2x64zy5FqSYvFXsXf82tkc; YSC=9kBInpCgI7U; CONSISTENCY=AGXVzq9JPuaYi-KyiAYK4d1cvX_3MaSlmWTWn_Us6bbFD8z1mJ2WKkkc_BAplF4aF9qVmqBQfyleC-C30YcRfjPLGNeAaedy4rLEh_FIZe_QAEGds_PPaQUuzF62MoypePmzdBU7skfKgSIQw3hJ0j2G; ST-91les4=itct=CNkCENwwIhMI9J2uss_W-QIVy7mCCh1y0AR7MgpnLWhpZ2gtcmVjWg9GRXdoYXRfdG9fd2F0Y2iaAQYQjh4YngE%3D&csn=MC4wNTIxNDA4NDM3Mjg5NzE4NzU.&endpoint=%7B%22clickTrackingParams%22%3A%22CNkCENwwIhMI9J2uss_W-QIVy7mCCh1y0AR7MgpnLWhpZ2gtcmVjWg9GRXdoYXRfdG9fd2F0Y2iaAQYQjh4YngE%3D%22%2C%22commandMetadata%22%3A%7B%22webCommandMetadata%22%3A%7B%22url%22%3A%22%2Fwatch%3Fv%3DzE-a5eqvlv8%22%2C%22webPageType%22%3A%22WEB_PAGE_TYPE_WATCH%22%2C%22rootVe%22%3A3832%7D%7D%2C%22watchEndpoint%22%3A%7B%22videoId%22%3A%22zE-a5eqvlv8%22%2C%22watchEndpointSupportedOnesieConfig%22%3A%7B%22html5PlaybackOnesieConfig%22%3A%7B%22commonConfig%22%3A%7B%22url%22%3A%22https%3A%2F%2Frr4---sn-gvbxgn-tt1s.googlevideo.com%2Finitplayback%3Fsource%3Dyoutube%26orc%3D1%26oeis%3D1%26c%3DWEB%26oad%3D3200%26ovd%3D3200%26oaad%3D11000%26oavd%3D11000%26ocs%3D700%26oewis%3D1%26oputc%3D1%26ofpcc%3D1%26rbqsm%3Dfr%26msp%3D1%26odeak%3D1%26odepv%3D1%26osfc%3D1%26id%3Dcc4f9ae5eaaf96ff%26ip%3D167.100.66.131%26initcwndbps%3D1175000%26mt%3D1661039588%26oweuc%3D%26pxtags%3DCg4KAnR4EggyNDE5NzI3Ng%26rxtags%3DCg4KAnR4EggyNDE5NzI3NQ%252CCg4KAnR4EggyNDE5NzI3Ng%252CCg4KAnR4EggyNDE5NzI3Nw%22%7D%7D%7D%7D%7D',
-							'User-Agent':
-								'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
+							Cookie: process.env.COOKIE,
+							'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
 						},
 					},
 				});
@@ -1106,11 +617,10 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async nextResource(): Promise<Option<AudioResource<WithId<Song>>>> {
-		const previousIndex = this.index;
 		const previousResource = this.currentResource;
 
-		const song = await this.nextSong();
-		if (song === null) return null;
+		const song = await this.queue.next();
+		if (song === undefined) return;
 
 		// Create the audio stream
 		const stream = await this.createStream(song);
@@ -1134,31 +644,15 @@ export default class Connection extends EventEmitter {
 
 		if (previousResource?.metadata.id !== song.id) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
-			this._components[row].components[index].setLabel('⏸️');
+			this._components[row].components[index].label = '⏸️';
 
-			if (song.type === SongProvider.SoundCloud) {
-				for (const button of this._effectComponents) {
-					button.setDisabled(true);
-					button.setStyle(ButtonStyle.Danger);
-				}
-			} else if (this._effectComponents[0].data.disabled) {
-				for (const button of this._effectComponents) {
-					button.setDisabled(false);
-				}
+			const [effectRow, effectIndex] = CUSTOM_ID_TO_INDEX_LIST.effect;
+			const effects = this._components[effectRow].components[effectIndex];
 
-				if (this.settings.effect !== Effect.None) {
-					const [row, index] = EFFECT_TO_INDEX_LIST[this.settings.effect];
-
-					this._components[row].components[index].setStyle(ButtonStyle.Success);
-				}
-			}
+			effects.disabled = song.type === SongProvider.SoundCloud;
 
 			// Different song
 			this.updateEmbedMessage();
-			this.updateQueueMessage();
-		} else if (previousIndex !== this.index) {
-			// Same song but different index
-			this.updateQueueMessage();
 		}
 
 		// If the effect is `Loud`, turn up the volume
@@ -1170,7 +664,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	private createAudioCompletionPromise(): (value: boolean) => void {
-		let resolveFn: Option<(value: boolean) => void> = null;
+		let resolveFn: Option<(value: boolean) => void>;
 
 		this._audioCompletionPromise = new Promise<boolean>(
 			resolve => (resolveFn = resolve)
@@ -1194,7 +688,7 @@ export default class Connection extends EventEmitter {
 
 		const resolve = this.createAudioCompletionPromise();
 
-		this._recentlyPlayed.push(resource.metadata.id);
+		this.recent.push(resource.metadata.id);
 		this.subscription.player.play(resource);
 
 		this.subscription.player
@@ -1228,13 +722,11 @@ export default class Connection extends EventEmitter {
 
 		// Set the _playing flag to false
 		this._playing = false;
-		this.currentResource = null;
-
-		return null;
+		this.currentResource = undefined;
 	}
 
 	public async play() {
-		while (this._queueLength > 0) {
+		while (this.queue.length > 0) {
 			const error = await this.playNextResource();
 
 			if (error) break;
@@ -1262,7 +754,7 @@ export default class Connection extends EventEmitter {
 					: `${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Added **${
 						result.videos.length
 					}** songs from ${
-						result.title !== null
+						result.title !== undefined
 							? `the playlist **${escapeMarkdown(result.title)}**`
 							: 'an anonymous playlist'
 					} to the queue.`

@@ -1,8 +1,8 @@
-import { CommandInteraction } from 'discord.js';
+import { APIActionRowComponent, APIMessageActionRowComponent, CommandInteraction } from 'discord.js';
 import { Database } from './database';
 import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '../constants';
 import { Effect } from '../typings/common.js';
-import { getChannel, queueClient } from './worker';
+import { getChannel, QUEUE_CLIENT } from './worker';
 
 export async function createAudioManager(interaction: CommandInteraction) {
 	const message = await interaction.channel!.send({
@@ -14,11 +14,11 @@ export async function createAudioManager(interaction: CommandInteraction) {
 				},
 			},
 		],
-		components: DEFAULT_COMPONENTS,
+		components: DEFAULT_COMPONENTS as unknown as APIActionRowComponent<APIMessageActionRowComponent>[],
 	});
 
 	const queue = await getChannel(
-		queueClient,
+		QUEUE_CLIENT,
 		interaction.guildId!,
 		interaction.channelId
 	).send({

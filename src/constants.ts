@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { ButtonStyle, ComponentType } from 'discord.js';
 import { Effect, SongProvider } from './typings/common';
 
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
@@ -16,27 +16,15 @@ export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.None]: ['-af', 'loudnorm=I=-16:LRA=11:TP=-1.5'],
 	[Effect.Loud]: [
 		'-filter_complex',
-		'acontrast, acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
+		'acontrast,acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
 	],
-	[Effect.UnderWater]: ['-af', 'lowpass=f=450, volume=2.0'],
-	[Effect.Bass]: ['-af', 'bass=g=30, volume=0.7, asubboost'],
-	[Effect.Echo]: [
-		'-af',
-		'aecho=1.0:1.0:1000|1400:1.0|0.25, aphaser=0.4:0.4:2.0:0.6:0.5:s, asubboost, volume=4.0',
-	],
-	[Effect.HighPitch]: ['-af', 'atempo=2/4, asetrate=44100*4/2'],
+	[Effect.Underwater]: ['-af', 'lowpass=f=450,volume=2.0'],
+	[Effect.Bass]: ['-af', 'bass=g=30,volume=0.7,asubboost'],
+	[Effect.Nightcore]: ['-af', 'asetrate=44100*1.25,aresample=44100,atempo=1.25'],
+	[Effect.Vaporwave]: ['-af', 'aresample=async=1,atempo=0.8'],
 	[Effect.Reverse]: ['-filter_complex', 'areverse'],
+	[Effect.EightDimensional]: ['-af', 'apulsator=hz=0.125'],
 };
-
-export const EFFECT_TO_INDEX_LIST = {
-	[Effect.None]: [-1, -1],
-	[Effect.Loud]: [3, 0],
-	[Effect.UnderWater]: [3, 1],
-	[Effect.Bass]: [3, 2],
-	[Effect.Echo]: [3, 3],
-	[Effect.HighPitch]: [3, 4],
-	[Effect.Reverse]: [4, 0],
-} as const;
 
 export const CUSTOM_ID_TO_INDEX_LIST = {
 	toggle: [0, 0],
@@ -46,116 +34,125 @@ export const CUSTOM_ID_TO_INDEX_LIST = {
 	shuffle: [0, 4],
 	remove: [1, 0],
 	remove_all: [1, 1],
-	star: [1, 2],
-	play_starred: [1, 3],
-	autoplay: [2, 0],
-	lyrics: [2, 1],
+	autoplay: [1, 2],
+	lyrics: [1, 3],
+	effect: [2, 0],
 } as const;
 
 export const DEFAULT_COMPONENTS = [
-	new ActionRowBuilder<ButtonBuilder>({
+	{
+		type: ComponentType.ActionRow,
 		components: [
-			new ButtonBuilder({
+			{
+				type: ComponentType.Button,
 				customId: 'toggle',
 				label: '▶️',
 				style: ButtonStyle.Primary,
-			}),
-			new ButtonBuilder({
+			},
+			{
+				type: ComponentType.Button,
 				customId: 'previous',
 				label: '⏮️',
 				style: ButtonStyle.Primary,
-			}),
-			new ButtonBuilder({
+			},
+			{
+				type: ComponentType.Button,
 				customId: 'next',
 				label: '⏭️',
 				style: ButtonStyle.Primary,
-			}),
-			new ButtonBuilder({
+			},
+			{
+				type: ComponentType.Button,
 				customId: 'repeat',
 				label: '🔂',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
+				style: ButtonStyle.Danger
+			},
+			{
+				type: ComponentType.Button,
 				customId: 'shuffle',
 				label: '🔀',
-				style: ButtonStyle.Primary,
-			}),
+				style: ButtonStyle.Danger
+			},
 		],
-	}),
-	new ActionRowBuilder<ButtonBuilder>({
+	},
+	{
+		type: ComponentType.ActionRow,
 		components: [
-			new ButtonBuilder({
+			{
+				type: ComponentType.Button,
 				customId: 'remove',
 				label: '🗑️',
 				style: ButtonStyle.Primary,
-			}),
-			new ButtonBuilder({
+			},
+			{
+				type: ComponentType.Button,
 				customId: 'remove_all',
 				label: '💣',
 				style: ButtonStyle.Primary,
-			}),
-			new ButtonBuilder({
-				customId: 'star',
-				label: '⭐️',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'play_starred',
-				label: '☀️',
-				style: ButtonStyle.Primary,
-			}),
-		],
-	}),
-	new ActionRowBuilder<ButtonBuilder>({
-		components: [
-			new ButtonBuilder({
+			},
+			{
+				type: ComponentType.Button,
 				customId: 'autoplay',
 				label: '♾️',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
+				style: ButtonStyle.Danger
+			},
+			{
+				type: ComponentType.Button,
 				customId: 'lyrics',
 				label: '📜',
-				style: ButtonStyle.Danger,
-			}),
+				style: ButtonStyle.Danger
+			},
 		],
-	}),
-	new ActionRowBuilder<ButtonBuilder>({
+	},
+	{
+		type: ComponentType.ActionRow,
 		components: [
-			new ButtonBuilder({
-				customId: 'loud',
-				label: '🧨',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'underwater',
-				label: '🌊',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'bass',
-				label: '🥁',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'echo',
-				label: '🧯',
-				style: ButtonStyle.Danger,
-			}),
-			new ButtonBuilder({
-				customId: 'high_pitch',
-				label: '🐿️',
-				style: ButtonStyle.Danger,
-			}),
+			{
+				type: ComponentType.StringSelect,
+				customId: 'effect',
+				placeholder: 'Select an effect...',
+				options: [
+					{
+						label: 'None',
+						value: Effect.None.toString(),
+					},
+					{
+						label: 'Loud',
+						emoji: '🧨',
+						value: Effect.Loud.toString(),
+					},
+					{
+						label: 'Underwater',
+						emoji: '🐠',
+						value: Effect.Underwater.toString(),
+					},
+					{
+						label: 'Bass',
+						emoji: '🎸',
+						value: Effect.Bass.toString(),
+					},
+					{
+						label: 'Nightcore',
+						emoji: '🌙',
+						value: Effect.Nightcore.toString(),
+					},
+					{
+						label: 'Vaporwave',
+						emoji: '🌊',
+						value: Effect.Vaporwave.toString(),
+					},
+					{
+						label: 'Reverse',
+						emoji: '⏪',
+						value: Effect.Reverse.toString(),
+					},
+					{
+						label: '8D',
+						emoji: '🎧',
+						value: Effect.EightDimensional.toString(),
+					},
+				]
+			}
 		],
-	}),
-	new ActionRowBuilder<ButtonBuilder>({
-		components: [
-			new ButtonBuilder({
-				customId: 'reverse',
-				label: '⏪',
-				style: ButtonStyle.Danger,
-			}),
-		],
-	}),
+	}
 ];

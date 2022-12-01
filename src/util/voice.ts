@@ -88,7 +88,7 @@ export function joinVoiceChannelAndListen(
 				channel,
 			});
 
-			if (connection === null) return;
+			if (connection === undefined) return;
 
 			switch (data.entities['order:order'][0].value) {
 				case 'play': {
@@ -136,10 +136,6 @@ export function joinVoiceChannelAndListen(
 						!connection.settings.autoplay,
 						CommandOrigin.Voice
 					);
-
-					break;
-				case 'star':
-					connection.starCurrentSongToggle(CommandOrigin.Voice);
 
 					break;
 			}

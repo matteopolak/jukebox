@@ -7,7 +7,6 @@ import {
 } from 'discord.js';
 
 import { createAudioManager } from './util/music';
-import { Effect } from './typings/common.js';
 import Connection, { connections } from './structures/Connection';
 import {
 	getLyricsById,
@@ -15,21 +14,13 @@ import {
 	getTrackFromSongData,
 	QueryType,
 } from './api/musixmatch';
-import { loginPromise, mainClient as client } from './util/worker';
+import { loginPromise, MAIN_CLIENT as client } from './util/worker';
 
 import axios from 'axios';
 import { Database } from './util/database';
+import { Effect } from './typings/common';
 
 axios.defaults.validateStatus = () => true;
-
-const NAME_TO_ENUM = {
-	loud: Effect.Loud,
-	underwater: Effect.UnderWater,
-	bass: Effect.Bass,
-	echo: Effect.Echo,
-	high_pitch: Effect.HighPitch,
-	reverse: Effect.Reverse,
-};
 
 client.once('ready', async () => {
 	await Database.login();
@@ -109,15 +100,6 @@ async function handleButton(interaction: ButtonInteraction) {
 			connection.setShuffle(!connection.settings.shuffle);
 
 			break;
-		case 'loud':
-		case 'underwater':
-		case 'bass':
-		case 'echo':
-		case 'high_pitch':
-		case 'reverse':
-			connection.setEffect(NAME_TO_ENUM[interaction.customId]);
-
-			break;
 		case 'remove_all':
 			connection.removeAllSongs();
 
@@ -132,14 +114,6 @@ async function handleButton(interaction: ButtonInteraction) {
 			break;
 		case 'lyrics':
 			connection.setLyrics(!connection.settings.lyrics);
-
-			break;
-		case 'star':
-			connection.starCurrentSongToggle();
-
-			break;
-		case 'play_starred':
-			connection.addAllStarredSongs();
 
 			break;
 	}
@@ -173,9 +147,9 @@ client.on('interactionCreate', async interaction => {
 						? await getTrack(query, true)
 						: currentSong
 							? await getTrackFromSongData(currentSong)
-							: null;
+							: undefined;
 
-				if (track === null) {
+				if (track === undefined) {
 					return void interaction.reply({
 						ephemeral: true,
 						content: 'A song could not be found with that query.',
@@ -184,7 +158,7 @@ client.on('interactionCreate', async interaction => {
 
 				const lyrics = await getLyricsById(track.track_id);
 
-				if (lyrics === null) {
+				if (lyrics === undefined) {
 					return void interaction.reply({
 						ephemeral: true,
 						content: `**${escapeMarkdown(
@@ -202,6 +176,22 @@ client.on('interactionCreate', async interaction => {
 				);
 			}
 		}
+	} else if (interaction.isStringSelectMenu()) {
+		const voiceChannelId = (interaction.member! as GuildMember).voice.channelId;
+		if (!voiceChannelId) return void interaction.deferUpdate({ fetchReply: false });
+
+		const connection = await Connection.getOrCreate(interaction);
+
+		if (!connection) {
+			return void interaction.deferUpdate({ fetchReply: false });
+		}
+
+		switch (interaction.customId) {
+			case 'effect':
+				connection.setEffect(parseInt(interaction.values[0]) as Effect);
+		}
+
+		return void interaction.deferUpdate({ fetchReply: false });
 	}
 });
 

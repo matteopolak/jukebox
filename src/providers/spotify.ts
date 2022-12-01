@@ -19,7 +19,7 @@ export async function handleSpotifyVideo(
 		`https://open.spotify.com/track/${id}`
 	);
 
-	if (status !== 200 && status !== 304) return null;
+	if (status !== 200 && status !== 304) return;
 
 	const document = parseDocument(html);
 	const meta = new Map<string, string>();
@@ -35,7 +35,7 @@ export async function handleSpotifyVideo(
 		meta.set(child.attribs.property, child.attribs.content);
 	}
 
-	if (meta.size !== META_TAGS.size) return null;
+	if (meta.size !== META_TAGS.size) return;
 
 	const data = await handleYouTubeQuery(
 		`${meta.get('og:title')} - ${meta.get('og:description')}`
@@ -100,7 +100,7 @@ export async function handleSpotifyAlbum(
 		await Promise.all(
 			tracks.map(async ([title, artist]) => {
 				const result = await handleYouTubeQuery(`${artist} - ${title}`, true);
-				if (result === null) return null;
+				if (result === undefined) return null;
 
 				result.videos[0].type = SongProvider.Spotify;
 				result.videos[0].title = title;
@@ -112,7 +112,7 @@ export async function handleSpotifyAlbum(
 	).filter(s => s !== null) as SongData[];
 
 	return {
-		title,
+		title: title ?? undefined,
 		videos: resolved,
 	};
 }

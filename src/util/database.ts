@@ -1,4 +1,4 @@
-import { RawManager, Song, SongData } from '../typings/common.js';
+import { Manager, Song, SongData } from '../typings/common.js';
 import { MongoClient, Db, Collection } from 'mongodb';
 
 export class Database {
@@ -21,12 +21,8 @@ export class Database {
 		return this.database.collection('queue');
 	}
 
-	public static get managers(): Collection<RawManager> {
+	public static get managers(): Collection<Manager> {
 		return this.database.collection('managers');
-	}
-
-	public static get starred(): Collection<SongData> {
-		return this.database.collection('starred');
 	}
 
 	public static get cache(): Collection<SongData> {

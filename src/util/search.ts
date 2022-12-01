@@ -38,8 +38,8 @@ function parseUrlWrapper(query: string) {
 
 export async function setSongIds(
 	songId: string,
-	musixmatchId?: number | null,
-	geniusId?: number | null
+	musixmatchId?: number,
+	geniusId?: number
 ) {
 	await Database.cache.updateMany(
 		{
@@ -84,7 +84,7 @@ export async function createQuery(
 ): Promise<Option<SearchResult>> {
 	const parsed = parseUrlWrapper(query);
 
-	if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return null;
+	if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return;
 
 	switch (parsed.hostname) {
 		// Handle direct YouTube video queries

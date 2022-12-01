@@ -72,8 +72,8 @@ export async function getTrackById(trackId: number): Promise<Option<Track>> {
 	>(url);
 
 	return data.message.header.status_code === 404
-		? null
-		: data.message.body?.track ?? null;
+		? undefined
+		: data.message.body?.track;
 }
 
 export async function getTrack(
@@ -94,9 +94,8 @@ export async function getTrack(
 		url
 	);
 
-	if (data.message?.header?.status_code !== 200) return null;
-
-	return data.message.body?.track_list[0]?.track ?? null;
+	if (data.message?.header?.status_code !== 200) return;
+	return data.message.body?.track_list[0]?.track;
 }
 
 export async function getLyricsById(trackId: number): Promise<Option<string>> {
@@ -111,7 +110,7 @@ export async function getLyricsById(trackId: number): Promise<Option<string>> {
 		url
 	);
 
-	if (data.message?.header?.status_code !== 200) return null;
+	if (data.message?.header?.status_code !== 200) return;
 
 	return data.message.body!.lyrics.lyrics_body;
 }
@@ -120,7 +119,7 @@ export async function getTrackFromSongData(
 	data: SongData
 ): Promise<Option<Track>> {
 	if (data.musixmatchId) return getTrackById(data.musixmatchId);
-	if (data.musixmatchId === null) return null;
+	if (data.musixmatchId === null) return;
 
 	const clean = cleanTitle(data.title);
 
@@ -138,8 +137,6 @@ export async function getTrackFromSongData(
 
 		if (track) return track;
 	}
-
-	return null;
 }
 
 export async function getTrackIdFromSongData(
@@ -169,6 +166,4 @@ export async function getTrackIdFromSongData(
 
 		if (track) return track.track_id;
 	}
-
-	return null;
 }

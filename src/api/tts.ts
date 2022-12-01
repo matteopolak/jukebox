@@ -20,10 +20,10 @@ function* splitText(text: string, language: Language) {
 
 async function* textToAudioGenerator(text: string, language: Language = 'en') {
 	const urls = splitText(text, language);
-	let next: Option<Promise<AxiosResponse<Readable, unknown>>> = null;
+	let next: Option<Promise<AxiosResponse<Readable, unknown>>>;
 
 	for (const url of urls) {
-		if (next === null) {
+		if (next === undefined) {
 			const url = urls.next().value;
 
 			if (url) {

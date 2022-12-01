@@ -1,7 +1,7 @@
 import { Guild, GuildMember, TextBasedChannel } from 'discord.js';
 import { videoFormat } from 'ytdl-core';
 
-export interface RawManager {
+export interface Manager {
 	_id: string;
 	messageId: string;
 	queueId: string;
@@ -52,11 +52,12 @@ export interface Song extends SongData {
 export const enum Effect {
 	None,
 	Loud,
-	UnderWater,
+	Underwater,
 	Bass,
-	Echo,
-	HighPitch,
+	Nightcore,
+	Vaporwave,
 	Reverse,
+	EightDimensional,
 }
 
 export interface RawData {
@@ -71,7 +72,7 @@ export interface SearchResult {
 	title: Option<string>;
 }
 
-export type Option<T> = T | null;
+export type Option<T> = T | undefined;
 
 export const enum CommandOrigin {
 	Text,

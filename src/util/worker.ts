@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 
 dotenv.config({ override: true });
 
-export const mainClient = new Client({
+export const MAIN_CLIENT = new Client({
 	partials: [Partials.GuildMember, Partials.User, Partials.Channel],
 	makeCache: Options.cacheWithLimits({
 		ApplicationCommandManager: 0,
@@ -39,7 +39,7 @@ export const mainClient = new Client({
 	],
 });
 
-export const lyricsClient = new Client({
+export const LYRICS_CLIENT = new Client({
 	partials: [Partials.GuildMember, Partials.User, Partials.Channel],
 	makeCache: Options.cacheWithLimits({
 		ApplicationCommandManager: 0,
@@ -62,7 +62,7 @@ export const lyricsClient = new Client({
 	intents: [IntentsBitField.Flags.Guilds],
 });
 
-export const queueClient = new Client({
+export const QUEUE_CLIENT = new Client({
 	partials: [Partials.GuildMember, Partials.User, Partials.Channel],
 	makeCache: Options.cacheWithLimits({
 		ApplicationCommandManager: 0,
@@ -92,9 +92,9 @@ function loginAndWait(client: Client, token: string) {
 }
 
 export const loginPromise = Promise.all([
-	loginAndWait(mainClient, process.env.MAIN_TOKEN!),
-	loginAndWait(lyricsClient, process.env.LYRICS_TOKEN!),
-	loginAndWait(queueClient, process.env.QUEUE_TOKEN!),
+	loginAndWait(MAIN_CLIENT, process.env.MAIN_TOKEN!),
+	loginAndWait(LYRICS_CLIENT, process.env.LYRICS_TOKEN!),
+	loginAndWait(QUEUE_CLIENT, process.env.QUEUE_TOKEN!),
 ]);
 
 export function getChannel(
