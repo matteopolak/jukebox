@@ -18,6 +18,7 @@ import {
 	NewsChannel,
 	TextChannel,
 	Interaction,
+	ButtonStyle,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
@@ -214,6 +215,9 @@ export default class Connection extends EventEmitter {
 		this.settings.repeat = enabled;
 
 		if (old !== enabled) {
+			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.repeat;
+			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+
 			this.updateEmbedMessage();
 			this.updateManagerData({ 'settings.repeat': enabled });
 
@@ -233,8 +237,10 @@ export default class Connection extends EventEmitter {
 		const old = this.settings.autoplay;
 		this.settings.autoplay = enabled;
 
-
 		if (old !== enabled) {
+			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.autoplay;
+			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+
 			this.updateEmbedMessage();
 			this.updateManagerData({ 'settings.autoplay': enabled });
 
@@ -255,6 +261,9 @@ export default class Connection extends EventEmitter {
 		this.settings.lyrics = enabled;
 
 		if (old !== enabled) {
+			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.lyrics;
+			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+
 			if (!enabled && this.threadChannel) {
 				this.threadChannel.delete().catch(() => {});
 
@@ -302,6 +311,9 @@ export default class Connection extends EventEmitter {
 		this.settings.shuffle = enabled;
 
 		if (old !== enabled) {
+			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.shuffle;
+			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+
 			this.updateEmbedMessage();
 			this.updateManagerData({ 'settings.shuffle': enabled });
 
