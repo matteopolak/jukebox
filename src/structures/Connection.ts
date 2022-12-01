@@ -65,6 +65,7 @@ import { textToAudioStream } from '../api/tts';
 import { CircularBuffer } from '../util/buffer';
 import { Queue } from './Queue';
 import { getDefaultComponents } from '../util/components';
+import config from '../config';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -582,10 +583,11 @@ export default class Connection extends EventEmitter {
 		this.textChannel.messages.edit(this.manager.messageId, {
 			embeds: [
 				{
-					title: song?.title
-						? enforceLength(escapeMarkdown(song.title), 256)
-						: 'No music playing',
-					url: song?.url,
+					author: song ? {
+						name: enforceLength(`${song.title} by ${song.artist}`, 256),
+						url: song.url,
+					} : undefined,
+					color: config.color,
 					image: {
 						url:
 							song?.thumbnail ??

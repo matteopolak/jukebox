@@ -1,5 +1,5 @@
 <p align="center">
-  <img height="256" width="768" src="https://github.com/matteopolak/jukebox/blob/main/readme_assets/logo.png">
+  <img height="128" width="384" src="https://github.com/matteopolak/jukebox/blob/main/readme_assets/logo.png">
 </p>
 
 ![Build Status](https://github.com/matteopolak/jukebox/actions/workflows/ci.yml/badge.svg)
