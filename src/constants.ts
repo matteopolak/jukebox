@@ -28,7 +28,7 @@ export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.Phaser]: ['-af', 'aphaser=in_gain=0.4'],
 	[Effect.Tremolo]: ['-af', 'tremolo'],
 	[Effect.Vibrato]: ['-af', 'vibrato=f=6.5'],
-	[Effect.Normalizer]: ['-af', 'dynaudnorm=f=200'],
+	[Effect.Normalizer]: ['-af', 'dynaudnorm=f=150:g=15'],
 };
 
 export const CUSTOM_ID_TO_INDEX_LIST = {
