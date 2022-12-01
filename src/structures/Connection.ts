@@ -450,6 +450,7 @@ export default class Connection extends EventEmitter {
 		this.endCurrentSong();
 
 		if (this.queue.length === 0) {
+			this.currentResource = undefined;
 			await this.updateEmbedMessage();
 		}
 	}
