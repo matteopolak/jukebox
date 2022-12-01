@@ -35,10 +35,10 @@ export const CUSTOM_ID_TO_INDEX_LIST = {
 	toggle: [0, 0],
 	previous: [0, 1],
 	next: [0, 2],
-	repeat: [0, 3],
-	shuffle: [0, 4],
-	remove: [1, 0],
-	remove_all: [1, 1],
+	remove: [0, 3],
+	remove_all: [0, 4],
+	repeat: [1, 0],
+	shuffle: [1, 1],
 	autoplay: [1, 2],
 	lyrics: [1, 3],
 	effect: [2, 0],
@@ -68,6 +68,23 @@ export const DEFAULT_COMPONENTS = [
 			},
 			{
 				type: ComponentType.Button,
+				customId: 'remove',
+				label: '🗑️',
+				style: ButtonStyle.Secondary,
+			},
+			{
+				type: ComponentType.Button,
+				customId: 'remove_all',
+				label: '💣',
+				style: ButtonStyle.Secondary,
+			},
+		],
+	},
+	{
+		type: ComponentType.ActionRow,
+		components: [
+			{
+				type: ComponentType.Button,
 				customId: 'repeat',
 				label: '🔂',
 				style: ButtonStyle.Danger
@@ -77,23 +94,6 @@ export const DEFAULT_COMPONENTS = [
 				customId: 'shuffle',
 				label: '🔀',
 				style: ButtonStyle.Danger
-			},
-		],
-	},
-	{
-		type: ComponentType.ActionRow,
-		components: [
-			{
-				type: ComponentType.Button,
-				customId: 'remove',
-				label: '🗑️',
-				style: ButtonStyle.Primary,
-			},
-			{
-				type: ComponentType.Button,
-				customId: 'remove_all',
-				label: '💣',
-				style: ButtonStyle.Primary,
 			},
 			{
 				type: ComponentType.Button,

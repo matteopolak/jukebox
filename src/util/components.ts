@@ -24,6 +24,24 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					label: '⏭️',
 					style: ButtonStyle.Primary,
 				},
+				
+				{
+					type: ComponentType.Button,
+					customId: 'remove',
+					label: '🗑️',
+					style: ButtonStyle.Secondary,
+				},
+				{
+					type: ComponentType.Button,
+					customId: 'remove_all',
+					label: '💣',
+					style: ButtonStyle.Secondary,
+				},
+			],
+		},
+		{
+			type: ComponentType.ActionRow,
+			components: [
 				{
 					type: ComponentType.Button,
 					customId: 'repeat',
@@ -38,24 +56,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					label: '🔀',
 					style: settings.shuffle
 						? ButtonStyle.Success
-						: ButtonStyle.Primary,
-				},
-			],
-		},
-		{
-			type: ComponentType.ActionRow,
-			components: [
-				{
-					type: ComponentType.Button,
-					customId: 'remove',
-					label: '🗑️',
-					style: ButtonStyle.Primary,
-				},
-				{
-					type: ComponentType.Button,
-					customId: 'remove_all',
-					label: '💣',
-					style: ButtonStyle.Primary,
+						: ButtonStyle.Danger,
 				},
 				{
 					type: ComponentType.Button,
