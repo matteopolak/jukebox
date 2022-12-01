@@ -132,31 +132,35 @@ export class Queue {
 		);
 	}
 
-	private nextIndex(): number {
+	private _nextIndex(): number {
 		// If the current song should be repeated, don't modify the index
-		if (this.settings.repeat) return this.index;
+		if (this.settings.repeat) return this._index;
 		if (this.settings.shuffle)
-			return (this.index = randomInteger(this._queueLength));
+			return this._index = randomInteger(this._queueLength);
 
 		// Increase the index by 1
 		++this._index;
 
 		// If the index would go out of bounds, wrap around to 0
 		// unless autoplay is enabled
-		if (this.index >= this._queueLength && !this.settings.autoplay) {
-			this.index = 0;
+		if (this._index >= this._queueLength && !this.settings.autoplay) {
 			this._index = 0;
-		} else {
-			this.index = this._index;
 		}
 
-		return this.index;
+		return this._index;
+	}
+
+	private nextIndex(): number {
+		const index = this._nextIndex();
+
+		return this.index = index;
 	}
 
 	public async next(): Promise<Option<WithId<Song>>> {
 		const previousIndex = this.index;
+		const index = this._nextIndex();
 
-		if (previousIndex + 1 >= this._queueLength && this.settings.autoplay) {
+		if (index >= this._queueLength && this.settings.autoplay) {
 			if (this._queueLengthWithRelated > 0) {
 				const recent = this.connection.recent.toArray();
 				const [random] = await Database.queue
@@ -227,7 +231,8 @@ export class Queue {
 			}
 		}
 
-		const index = this.nextIndex();
+		this.index = index;
+
 		const [song] = await Database.queue
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1 })
