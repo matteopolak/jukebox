@@ -231,7 +231,8 @@ export class Queue {
 			}
 		}
 
-		this.index = index;
+		if (index !== previousIndex)
+			this.index = index;
 
 		const [song] = await Database.queue
 			.find({ guildId: this.manager.guildId })
