@@ -432,13 +432,13 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async removeAllSongs() {
+		// Forcefully remove the current resource
+		this.currentResource = undefined;
+
 		await this.queue.clear();
 		await Promise.all([this.updateEmbedMessage()]);
 
 		this.endCurrentSong();
-
-		// Forcefully remove the current resource
-		this.currentResource = undefined;
 	}
 
 	public async removeCurrentSong() {
