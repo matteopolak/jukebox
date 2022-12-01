@@ -14,7 +14,7 @@ export interface InsertSongOptions {
 }
 
 export class Queue {
-	private _index = 0;
+	public _index = 0;
 	private _queueLength = 0;
 	private _queueLengthWithRelated = 0;
 	private _current: Option<WithId<Song>>;
@@ -145,6 +145,12 @@ export class Queue {
 		// unless autoplay is enabled
 		if (this._index >= this._queueLength && !this.settings.autoplay) {
 			this._index = 0;
+		} else if (this._index < 0) {
+			if (this.settings.autoplay) {
+				this._index = this._queueLength;
+			} else {
+				this._index = this._queueLength - 1;
+			}
 		}
 
 		return this._index;

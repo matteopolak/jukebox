@@ -156,6 +156,8 @@ export default class Connection extends EventEmitter {
 			await connection.setVoiceChannel(member.voice.channel);
 		}
 
+		connection.queue._index -= 1;
+
 		return connection;
 	}
 
@@ -431,13 +433,13 @@ export default class Connection extends EventEmitter {
 	}
 
 	public restartCurrentSong() {
-		this.queue.index -= 1;
+		this.queue._index -= 1;
 		this.endCurrentSong();
 	}
 
 	public previous() {
 		this.settings.seek = 0;
-		this.queue.index -= 2;
+		this.queue._index -= 2;
 		this.endCurrentSong();
 	}
 
