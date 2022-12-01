@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="256" height="256" style="border-radius: 50%" src="https://github.com/matteopolak/jukebox/blob/main/readme_assets/logo.png">
+  <img width="256" height="256" style="border-radius: 50%" src="https://raw.githubusercontent.com/matteopolak/jukebox/main/readme_assets/logo.png">
 </p>
 
 # Jukebox 🎵
