@@ -578,7 +578,7 @@ export default class Connection extends EventEmitter {
 		const song = this.currentResource?.metadata;
 
 		this.textChannel.messages.edit(this.manager.messageId, {
-			content: song && `**${enforceLength(escapeMarkdown(song.title), 32)}** by **${escapeMarkdown(song?.artist)}**`,
+			content: song ? `**${enforceLength(escapeMarkdown(song.title), 32)}** by **${escapeMarkdown(song?.artist)}**` : '',
 			files: [
 				{
 					attachment: song ? song.thumbnail : 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',

@@ -6,6 +6,7 @@ import { getChannel, QUEUE_CLIENT } from './worker';
 
 export async function createAudioManager(interaction: CommandInteraction) {
 	const message = await interaction.channel!.send({
+		content: '',
 		files: [
 			{
 				attachment: 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
