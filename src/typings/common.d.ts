@@ -58,6 +58,11 @@ export const enum Effect {
 	Vaporwave,
 	Reverse,
 	EightDimensional,
+	Denoise,
+	Phaser,
+	Tremolo,
+	Vibrato,
+	Normalizer,
 }
 
 export interface RawData {

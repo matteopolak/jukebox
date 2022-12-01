@@ -24,6 +24,11 @@ export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.Vaporwave]: ['-af', 'aresample=async=1,atempo=0.8'],
 	[Effect.Reverse]: ['-filter_complex', 'areverse'],
 	[Effect.EightDimensional]: ['-af', 'apulsator=hz=0.125'],
+	[Effect.Denoise]: ['-af', 'asplit[a][b],[a]adelay=32S|32S[a],[b][a]anlms=order=128:leakage=0.0005:mu=.5:out_mode=o'],
+	[Effect.Phaser]: ['-af', 'aphaser=in_gain=0.4'],
+	[Effect.Tremolo]: ['-af', 'tremolo'],
+	[Effect.Vibrato]: ['-af', 'vibrato=f=6.5'],
+	[Effect.Normalizer]: ['-af', 'dynaudnorm=f=200'],
 };
 
 export const CUSTOM_ID_TO_INDEX_LIST = {
@@ -147,9 +152,34 @@ export const DEFAULT_COMPONENTS = [
 						value: Effect.Reverse.toString(),
 					},
 					{
-						label: '8D',
+						label: '8-Dimensional',
 						emoji: '🎧',
 						value: Effect.EightDimensional.toString(),
+					},
+					{
+						label: 'De-noise',
+						emoji: '🔇',
+						value: Effect.Denoise.toString(),
+					},
+					{
+						label: 'Phaser',
+						emoji: '🎧',
+						value: Effect.Phaser.toString(),
+					},
+					{
+						label: 'Tremolo',
+						emoji: '🎹',
+						value: Effect.Tremolo.toString(),
+					},
+					{
+						label: 'Vibrato',
+						emoji: '🎻',
+						value: Effect.Vibrato.toString(),
+					},
+					{
+						label: 'Normalizer',
+						emoji: '🔊',
+						value: Effect.Normalizer.toString(),
 					},
 				]
 			}

@@ -126,9 +126,39 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 						},
 						{
 							label: '8-Dimensional',
-							emoji: '🎧',
+							emoji: '🛰️',
 							value: Effect.EightDimensional.toString(),
 							default: settings.effect === Effect.EightDimensional,
+						},
+						{
+							label: 'De-noise',
+							emoji: '🔇',
+							value: Effect.Denoise.toString(),
+							default: settings.effect === Effect.Denoise,
+						},
+						{
+							label: 'Phaser',
+							emoji: '🎧',
+							value: Effect.Phaser.toString(),
+							default: settings.effect === Effect.Phaser,
+						},
+						{
+							label: 'Tremolo',
+							emoji: '🎹',
+							value: Effect.Tremolo.toString(),
+							default: settings.effect === Effect.Tremolo,
+						},
+						{
+							label: 'Vibrato',
+							emoji: '🎻',
+							value: Effect.Vibrato.toString(),
+							default: settings.effect === Effect.Vibrato,
+						},
+						{
+							label: 'Normalizer',
+							emoji: '🔊',
+							value: Effect.Normalizer.toString(),
+							default: settings.effect === Effect.Normalizer,
 						},
 					]
 				}
