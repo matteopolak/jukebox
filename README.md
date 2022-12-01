@@ -1,3 +1,7 @@
+<p align="center">
+  <img width="256" height="256" src="https://github.com/matteopolak/jukebox/blob/main/readme_assets/logo.png">
+</p>
+
 # Jukebox 🎵
 
 ![Build Status](https://github.com/matteopolak/jukebox/actions/workflows/ci.yml/badge.svg)
