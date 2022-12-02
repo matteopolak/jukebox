@@ -187,8 +187,6 @@ client.on('interactionCreate', async interaction => {
 			case 'effect':
 				connection.setEffect(parseInt(interaction.values[0]) as Effect, interaction);
 		}
-
-		return void interaction.deferUpdate({ fetchReply: false });
 	}
 });
 
