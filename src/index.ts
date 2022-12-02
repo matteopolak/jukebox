@@ -81,14 +81,17 @@ async function handleButton(interaction: ButtonInteraction) {
 	switch (interaction.customId) {
 		case 'toggle':
 			connection.togglePlayback();
+			interaction.deferUpdate({ fetchReply: false });
 
 			break;
 		case 'previous':
 			connection.previous();
+			interaction.deferUpdate({ fetchReply: false });
 
 			break;
 		case 'next':
 			connection.skip();
+			interaction.deferUpdate({ fetchReply: false });
 
 			break;
 		case 'remove':
