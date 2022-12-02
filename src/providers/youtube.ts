@@ -130,7 +130,7 @@ export interface Metadata {
 		description: string;
 	};
 }
-import fs from 'fs/promises';
+
 export class YouTubeProvider extends Provider {
 	private cookie?: string;
 	private http: AxiosInstance;
@@ -286,8 +286,6 @@ export class YouTubeProvider extends Provider {
 		});
 
 		if (response.status !== 200) return undefined;
-
-		await fs.writeFile('./search-1.json', JSON.stringify(response.data));
 
 		const items = response.data.contents
 			?.twoColumnSearchResultsRenderer?.primaryContents
