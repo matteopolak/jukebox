@@ -1,7 +1,6 @@
 import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
 import { WithId } from 'mongodb';
 import { PROVIDER_TO_EMOJI } from '@/constants';
-import { handleYouTubeVideo } from '@/providers/youtube';
 import { ConnectionSettings, Manager, Option, Song, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
 import { enforceLength } from '@/util/message';
@@ -9,6 +8,7 @@ import { randomElement, randomInteger } from '@/util/random';
 import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 import Connection from '@/structures/Connection';
 import { formatMilliseconds } from '@/util/duration';
+import { youtube } from '@/util/search';
 
 export interface InsertSongOptions {
 	playNext?: boolean;
@@ -204,7 +204,7 @@ export class Queue {
 					const set = new Set(recent);
 					const related = random.related.filter(id => !set.has(id));
 
-					const raw = await handleYouTubeVideo(randomElement(related.length > 0 ? related : random.related));
+					const raw = await youtube.getTrack(randomElement(related.length > 0 ? related : random.related));
 					if (raw.ok === false) return;
 
 					const data = raw.value.videos[0];

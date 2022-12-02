@@ -72,10 +72,10 @@ export function songToData(song: Song): SongData {
 	};
 }
 
-const youtube = new YouTubeProvider(process.env.COOKIE);
-const spotify = new SpotifyProvider();
-const soundcloud = new SoundCloudProvider();
-const gutenberg = new GutenbergProvider();
+export const youtube = new YouTubeProvider(process.env.COOKIE);
+export const spotify = new SpotifyProvider();
+export const soundcloud = new SoundCloudProvider();
+export const gutenberg = new GutenbergProvider();
 
 export async function createQuery(
 	query: string

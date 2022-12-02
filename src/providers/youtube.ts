@@ -249,7 +249,7 @@ export class YouTubeProvider extends Provider {
 		};
 	}
 
-	private async _searchVideo(query: string, _filter: SearchOptions): Promise<Result<SearchResult, string>> {
+	private async _searchVideo(query: string, filter: SearchOptions): Promise<Result<SearchResult, string>> {
 		const videos = await this._search(query, SearchType.Video);
 		if (!videos?.length) return { ok: false, error: `No videos found with the query \`${query}\`.` };
 
@@ -257,7 +257,7 @@ export class YouTubeProvider extends Provider {
 			ok: true,
 			value: {
 				title: undefined,
-				videos: [YouTubeProvider.itemToSong(videos[0])],
+				videos: videos.slice(0, filter.limit ?? 1).map(YouTubeProvider.itemToSong),
 			},
 		};
 	}

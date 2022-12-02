@@ -7,6 +7,7 @@ export const enum SearchType {
 
 export interface SearchOptions {
 	type: SearchType;
+	limit?: number;
 }
 
 export class Provider {

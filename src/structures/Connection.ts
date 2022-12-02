@@ -46,7 +46,7 @@ import {
 	CommandOrigin,
 } from '@/typings/common';
 import { joinVoiceChannelAndListen } from '@/util/voice';
-import { createQuery, setSongIds } from '@/util/search';
+import { createQuery, setSongIds, youtube } from '@/util/search';
 import scdl from 'soundcloud-downloader/dist/index';
 import { enforceLength, sendMessageAndDelete } from '@/util/message';
 import {
@@ -67,7 +67,7 @@ import { textToAudioStream } from '@/api/tts';
 import { CircularBuffer } from '@/util/buffer';
 import { Queue } from '@/structures/Queue';
 import { getDefaultComponents } from '@/util/components';
-import { handleYouTubeQuery } from '@/providers/youtube';
+import { SearchType } from './Provider';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -633,7 +633,7 @@ export default class Connection extends EventEmitter {
 			case ProviderOrigin.YouTube:
 			case ProviderOrigin.Spotify: {
 				if (song.url === '') {
-					const result = await handleYouTubeQuery(`${song.artist} - ${song.title}`, true);
+					const result = await youtube.search(`${song.artist} - ${song.title}`, { type: SearchType.Video, limit: 1 });
 					if (!result.ok) return;
 
 					song.url = result.value.videos[0].url;
