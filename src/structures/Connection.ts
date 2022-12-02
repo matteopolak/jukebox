@@ -312,8 +312,7 @@ export default class Connection extends EventEmitter {
 			this.updateManagerData({ 'settings.effect': effect });
 			this.updateEmbedMessage(interaction);
 
-			if (this._playing)
-				this.applyEffectChanges(old);
+			this.applyEffectChanges(old);
 		} else if (interaction) {
 			interaction.deferUpdate({ fetchReply: false });
 		}
