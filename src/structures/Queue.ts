@@ -1,13 +1,14 @@
 import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
 import { WithId } from 'mongodb';
-import { PROVIDER_TO_EMOJI } from '../constants';
-import { handleYouTubeVideo } from '../providers/youtube';
-import { ConnectionSettings, Manager, Option, Song, SongData } from '../typings/common';
-import { Database } from '../util/database';
-import { enforceLength } from '../util/message';
-import { randomElement, randomInteger } from '../util/random';
-import { getChannel, QUEUE_CLIENT } from '../util/worker';
-import Connection from './Connection';
+import { PROVIDER_TO_EMOJI } from '@/constants';
+import { handleYouTubeVideo } from '@/providers/youtube';
+import { ConnectionSettings, Manager, Option, Song, SongData } from '@/typings/common';
+import { Database } from '@/util/database';
+import { enforceLength } from '@/util/message';
+import { randomElement, randomInteger } from '@/util/random';
+import { getChannel, QUEUE_CLIENT } from '@/util/worker';
+import Connection from '@/structures/Connection';
+import { formatMilliseconds } from '@/util/duration';
 
 export interface InsertSongOptions {
 	playNext?: boolean;
@@ -123,7 +124,7 @@ export class Queue {
 				} ${i + lower === this.index ? '**' : ''}${enforceLength(
 					escapeMarkdown(s.title),
 					32
-				)} \`[${s.duration}]\`${i + lower === this.index ? '**' : ''}`
+				)} \`[${formatMilliseconds(s.duration)}]\`${i + lower === this.index ? '**' : ''}`
 		);
 
 		this.channel.messages.edit(

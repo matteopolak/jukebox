@@ -11,8 +11,8 @@ import prism from 'prism-media';
 
 import axios from 'axios';
 import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
-import Connection from '../structures/Connection';
-import { CommandOrigin } from '../typings/common.js';
+import Connection from '@/structures/Connection';
+import { CommandOrigin } from '@/typings/common';
 
 const wit = axios.create({
 	baseURL: 'https://api.wit.ai',

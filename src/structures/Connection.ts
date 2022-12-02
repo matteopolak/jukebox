@@ -26,11 +26,11 @@ import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { WithId } from 'mongodb';
 
-import { Database } from '../util/database';
+import { Database } from '@/util/database';
 import {
 	EFFECTS,
 	CUSTOM_ID_TO_INDEX_LIST,
-} from '../constants';
+} from '@/constants';
 import {
 	ConnectionSettings,
 	Effect,
@@ -41,30 +41,30 @@ import {
 	SongData,
 	SongProvider,
 	CommandOrigin,
-} from '../typings/common.js';
-import { parseDurationString } from '../util/duration';
-import { joinVoiceChannelAndListen } from '../util/voice';
-import { createQuery, setSongIds } from '../util/search';
+} from '@/typings/common';
+import { joinVoiceChannelAndListen } from '@/util/voice';
+import { createQuery, setSongIds } from '@/util/search';
 import scdl from 'soundcloud-downloader/dist/index';
-import { enforceLength, sendMessageAndDelete } from '../util/message';
+import { enforceLength, sendMessageAndDelete } from '@/util/message';
 import {
 	getLyricsById as getMusixmatchLyricsById,
 	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
-} from '../api/musixmatch';
+} from '@/api/musixmatch';
 import {
 	getLyricsById as getGeniusLyricsById,
 	getTrackIdFromSongData as getGeniusTrackIdFromSongData,
-} from '../api/genius';
+} from '@/api/genius';
 import {
 	getChannel,
 	LYRICS_CLIENT,
 	MAIN_CLIENT,
-} from '../util/worker';
-import { resolveText } from '../api/gutenberg';
-import { textToAudioStream } from '../api/tts';
-import { CircularBuffer } from '../util/buffer';
-import { Queue } from './Queue';
-import { getDefaultComponents } from '../util/components';
+} from '@/util/worker';
+import { resolveText } from '@/api/gutenberg';
+import { textToAudioStream } from '@/api/tts';
+import { CircularBuffer } from '@/util/buffer';
+import { Queue } from '@/structures/Queue';
+import { getDefaultComponents } from '@/util/components';
+import { handleYouTubeQuery } from '@/providers/youtube';
 
 export const connections: Map<string, Connection> = new Map();
 
@@ -585,7 +585,7 @@ export default class Connection extends EventEmitter {
 				{
 					attachment: song ? song.thumbnail : 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
 					name: 'thumbnail.png',
-				}
+				},
 			],
 			components: this._components,
 		});
@@ -597,10 +597,32 @@ export default class Connection extends EventEmitter {
 
 	private async createStream(
 		song: SongData
-	): Promise<Readable | Opus.Encoder | FFmpeg> {
+	): Promise<Option<Readable | Opus.Encoder | FFmpeg>> {
 		switch (song.type) {
 			case SongProvider.YouTube:
-			case SongProvider.Spotify:
+			case SongProvider.Spotify: {
+				if (song.url === '') {
+					const result = await handleYouTubeQuery(`${song.artist} - ${song.title}`, true);
+					if (result === undefined) return;
+
+					song.url = result.videos[0].url;
+					song.format = result.videos[0].format;
+
+					await Database.addSongToCache(song);
+					await Database.queue.updateMany({
+						id: song.id,
+						type: song.type,
+						url: {
+							$ne: song.url,
+						},
+					}, {
+						$set: {
+							url: song.url,
+							format: song.format,
+						},
+					});
+				}
+
 				return createAudioStream(song.url, {
 					seek: this.settings.seek || undefined,
 					highWaterMark: 1 << 25,
@@ -616,6 +638,8 @@ export default class Connection extends EventEmitter {
 						},
 					},
 				});
+			}
+				
 			case SongProvider.SoundCloud:
 				return scdl.download(song.url) as Promise<Readable>;
 			case SongProvider.Gutenberg:
@@ -631,6 +655,14 @@ export default class Connection extends EventEmitter {
 
 		// Create the audio stream
 		const stream = await this.createStream(song);
+		if (!stream) {
+			await Database.queue.deleteMany({
+				guildId: this.manager.guildId,
+				id: song.id,
+			});
+
+			return this.nextResource();
+		}
 
 		// Set the current stream so it can be destroyed if needed
 		this._currentStream = stream;
@@ -701,10 +733,8 @@ export default class Connection extends EventEmitter {
 		this.subscription.player
 			.on('stateChange', (_, state) => {
 				if (state.status === AudioPlayerStatus.Idle) {
-					const duration = parseDurationString(resource.metadata.duration);
-
 					if (
-						duration -
+						resource.metadata.duration -
 							((this.settings.seek ?? 0) * 1_000 + resource.playbackDuration) <
 						2_000
 					) {

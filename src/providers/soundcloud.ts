@@ -3,12 +3,11 @@ import {
 	SongProvider,
 	Option,
 	SongData,
-} from '../typings/common.js';
+} from '@/typings/common';
 import scdl from 'soundcloud-downloader/dist/index';
 import { TrackInfo } from 'soundcloud-downloader/dist/index';
-import { formatSeconds } from '../util/duration';
-import { getCachedSong } from '../util/search';
-import { Database } from '../util/database';
+import { getCachedSong } from '@/util/search';
+import { Database } from '@/util/database';
 
 function videoInfoToSongData(data: TrackInfo): SongData {
 	return {
@@ -21,7 +20,7 @@ function videoInfoToSongData(data: TrackInfo): SongData {
 			data.user?.avatar_url ??
 			'https://icons.iconarchive.com/icons/danleech/simple/1024/soundcloud-icon.png'
 		).replace('-large.', '-t500x500.'),
-		duration: formatSeconds(Math.floor(data.duration! / 1_000)),
+		duration: data.duration!,
 		live: false,
 		type: SongProvider.SoundCloud,
 	};

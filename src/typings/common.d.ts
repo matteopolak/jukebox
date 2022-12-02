@@ -34,7 +34,8 @@ export interface SongData {
 	id: string;
 	title: string;
 	artist: string;
-	duration: string;
+	// duration in milliseconds
+	duration: number;
 	thumbnail: string;
 	live: boolean;
 	type: SongProvider;

@@ -1,5 +1,5 @@
 import { ActionRowData, ButtonComponentData, ButtonStyle, ComponentType, StringSelectMenuComponentData } from 'discord.js';
-import { ConnectionSettings, Effect } from '../typings/common';
+import { ConnectionSettings, Effect } from '@/typings/common';
 
 export function getDefaultComponents(settings: ConnectionSettings) {
 	const components: [ActionRowData<ButtonComponentData>, ActionRowData<ButtonComponentData>, ActionRowData<StringSelectMenuComponentData>] = [
@@ -161,10 +161,10 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 							value: Effect.Normalizer.toString(),
 							default: settings.effect === Effect.Normalizer,
 						},
-					]
-				}
+					],
+				},
 			],
-		}
+		},
 	];
 
 	return components;

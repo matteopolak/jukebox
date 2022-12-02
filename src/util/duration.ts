@@ -11,3 +11,7 @@ export function formatSeconds(seconds: number) {
 
 	return `${minutes}:${secondsLeft < 10 ? '0' : ''}${secondsLeft}`;
 }
+
+export function formatMilliseconds(ms: number) {
+	return formatSeconds(ms / 1000);
+}

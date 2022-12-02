@@ -31,6 +31,24 @@
 			{ "argsIgnorePattern": "^_" }
 		],
 		"no-fallthrough": "off",
-		"no-control-regex": "off"
+		"no-control-regex": "off",
+		"comma-dangle": [
+			"error",
+			{
+				"arrays": "always-multiline",
+				"objects": "always-multiline",
+				"imports": "always-multiline",
+				"exports": "always-multiline",
+				"functions": "never"
+			}
+		],
+		"key-spacing": [
+			"error",
+			{
+				"beforeColon": false,
+				"afterColon": true,
+				"mode": "strict"
+			}
+		]
 	}
 }

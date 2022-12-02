@@ -6,9 +6,9 @@ import {
 	TrackGetResponse,
 	TrackLyricsResponse,
 	TrackSearchResponse,
-} from '../typings/musixmatch';
-import { Option, SongData } from '../typings/common.js';
-import { cleanTitle } from '../util/music';
+} from '@/typings/musixmatch';
+import { Option, SongData } from '@/typings/common';
+import { cleanTitle } from '@/util/music';
 
 type ParamValueType = string | number | boolean | undefined;
 

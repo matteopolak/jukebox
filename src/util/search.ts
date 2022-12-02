@@ -5,16 +5,16 @@ import {
 	handleYouTubePlaylist,
 	handleYouTubeVideo,
 	handleYouTubeQuery,
-} from '../providers/youtube';
+} from '@/providers/youtube';
 import {
 	handleSoundCloudAlbum,
 	handleSoundCloudVideo,
-} from '../providers/soundcloud';
-import { Option, SearchResult, Song, SongData } from '../typings/common.js';
-import { Database } from './database';
-import { handleSpotifyAlbum, handleSpotifyVideo } from '../providers/spotify';
-import { search as searchGutenberg } from '../providers/gutenberg';
-import { ALLOWED_PROTOCOLS } from '../constants';
+} from '@/providers/soundcloud';
+import { Option, SearchResult, Song, SongData } from '@/typings/common';
+import { Database } from '@/util/database';
+import { handleSpotifyAlbum, handleSpotifyVideo } from '@/providers/spotify';
+import { search as searchGutenberg } from '@/providers/gutenberg';
+import { ALLOWED_PROTOCOLS } from '@/constants';
 
 export function getCachedSong(id: string) {
 	return Database.cache.findOne({ id });
@@ -96,7 +96,7 @@ export async function createQuery(
 			}
 		case 'media.youtube.com':
 			// https://(www|media).youtube.com/playlist?list={id}
-			if (parsed.pathname === '/playlist' && parsed.searchParams.has('list'))
+			if (parsed.pathname === '/playlist' && parsed.searchParams.has('list') && parsed.searchParams.get('list').length === 34)
 				return handleYouTubePlaylist(parsed.searchParams.get('list')!);
 			// Enforce using the `/watch` endpoint of YouTube
 			if (parsed.pathname !== '/watch') break;

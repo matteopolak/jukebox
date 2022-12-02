@@ -1,4 +1,4 @@
-import { Manager, Song, SongData } from '../typings/common.js';
+import { Manager, Song, SongData } from '@/typings/common';
 import { MongoClient, Db, Collection } from 'mongodb';
 
 export class Database {
@@ -55,5 +55,9 @@ export class Database {
 				upsert: true,
 			}
 		);
+	}
+
+	public static addSongsToCache(data: SongData[]) {
+		return Promise.all(data.map(Database.addSongToCache));
 	}
 }

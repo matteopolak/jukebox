@@ -1,5 +1,5 @@
-import { Option, SearchResult, SongProvider } from '../typings/common.js';
-import { GutenbergBook, GutenbergResponse } from '../typings/gutenberg';
+import { Option, SearchResult, SongProvider } from '@/typings/common';
+import { GutenbergBook, GutenbergResponse } from '@/typings/gutenberg';
 import axios from 'axios';
 
 export async function search(query: string): Promise<Option<SearchResult>> {
@@ -27,7 +27,7 @@ export async function search(query: string): Promise<Option<SearchResult>> {
 				id: book.id.toString(),
 				title: book.title,
 				artist: book.authors?.[0].name ?? '?',
-				duration: 'N/A',
+				duration: 0,
 				type: SongProvider.Gutenberg,
 				thumbnail: book.formats['image/jpeg'].replace('small', 'medium'),
 				live: false,

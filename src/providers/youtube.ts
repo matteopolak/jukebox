@@ -1,18 +1,490 @@
+import { Option, SearchResult, SongData, SongProvider } from '@/typings/common';
 import axios from 'axios';
-import puppeteer from 'puppeteer';
 import ytdl, { videoInfo } from 'ytdl-core';
 
-import {
-	Option,
-	SearchResult,
-	Song,
-	SongData,
-	SongProvider,
-} from '../typings/common.js';
-import { Database } from '../util/database';
-import { formatSeconds } from '../util/duration';
-import { randomInteger } from '../util/random';
-import { getCachedSong } from '../util/search';
+import { Database } from '@/util/database';
+import { randomInteger } from '@/util/random';
+import { getCachedSong } from '@/util/search';
+
+const INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});/;
+
+export interface InitialData {
+	contents: Contents;
+	metadata: Metadata;
+}
+
+interface Metadata {
+	playlistMetadataRenderer: PlaylistMetadataRenderer;
+}
+
+interface PlaylistMetadataRenderer {
+	title: string;
+	description: string;
+}
+
+interface VoiceSearchDialogRenderer {
+	placeholderHeader: DescriptionTapText;
+	promptHeader: DescriptionTapText;
+	exampleQuery1: DescriptionTapText;
+	exampleQuery2: DescriptionTapText;
+	promptMicrophoneLabel: DescriptionTapText;
+	loadingHeader: DescriptionTapText;
+	connectionErrorHeader: DescriptionTapText;
+	connectionErrorMicrophoneLabel: DescriptionTapText;
+	permissionsHeader: DescriptionTapText;
+	permissionsSubtext: DescriptionTapText;
+	disabledHeader: DescriptionTapText;
+	disabledSubtext: DescriptionTapText;
+	microphoneButtonAriaLabel: DescriptionTapText;
+	exitButton: ShareButtonClass;
+	trackingParams: string;
+	microphoneOffPromptHeader: DescriptionTapText;
+}
+
+interface FluffyPopup {
+	voiceSearchDialogRenderer: VoiceSearchDialogRenderer;
+}
+
+interface PurpleOpenPopupAction {
+	popup: FluffyPopup;
+	popupType: string;
+}
+
+interface PurpleAction {
+	clickTrackingParams: string;
+	openPopupAction: PurpleOpenPopupAction;
+}
+
+interface PurpleSignalServiceEndpoint {
+	signal: Signal;
+	actions: PurpleAction[];
+}
+
+interface ButtonRendererServiceEndpoint {
+	clickTrackingParams: string;
+	commandMetadata: ContinuationEndpointCommandMetadata;
+	shareEntityServiceEndpoint?: ShareEntityServiceEndpoint;
+	signalServiceEndpoint?: PurpleSignalServiceEndpoint;
+}
+
+interface ShareButtonButtonRenderer {
+	style: string;
+	size: string;
+	isDisabled: boolean;
+	icon: Icon;
+	trackingParams: string;
+	accessibilityData?: ToggledAccessibilityDataClass;
+	serviceEndpoint?: ButtonRendererServiceEndpoint;
+	tooltip?: string;
+	navigationEndpoint?: PurpleNavigationEndpoint;
+	accessibility?: AccessibilityAccessibility;
+}
+
+interface ShareButtonClass {
+	buttonRenderer: ShareButtonButtonRenderer;
+}
+
+interface DescriptionTapText {
+	runs: DescriptionTapTextRun[];
+}
+
+interface DescriptionTapTextRun {
+	text: string;
+}
+
+enum Signal {
+	ClientSignal = 'CLIENT_SIGNAL',
+}
+
+interface ContinuationEndpointCommandMetadata {
+	webCommandMetadata: FluffyWebCommandMetadata;
+}
+
+interface FluffyWebCommandMetadata {
+	sendPost: boolean;
+	apiUrl?: APIURL;
+}
+
+enum APIURL {
+	YoutubeiV1AccountAccountMenu = '/youtubei/v1/account/account_menu',
+	YoutubeiV1Browse = '/youtubei/v1/browse',
+	YoutubeiV1BrowseEditPlaylist = '/youtubei/v1/browse/edit_playlist',
+	YoutubeiV1PlaylistCreate = '/youtubei/v1/playlist/create',
+	YoutubeiV1ShareGetSharePanel = '/youtubei/v1/share/get_share_panel',
+}
+
+interface ShareEntityServiceEndpoint {
+	serializedShareEntity: string;
+	commands: CommandElement[];
+}
+
+interface CommandElement {
+	clickTrackingParams: string;
+	openPopupAction: CommandOpenPopupAction;
+}
+
+interface CommandOpenPopupAction {
+	popup: PurplePopup;
+	popupType: string;
+	beReused: boolean;
+}
+
+interface PurplePopup {
+	unifiedSharePanelRenderer: UnifiedSharePanelRenderer;
+}
+
+interface UnifiedSharePanelRenderer {
+	trackingParams: string;
+	showLoadingSpinner: boolean;
+}
+
+interface AccessibilityAccessibility {
+	label: string;
+}
+
+interface ToggledAccessibilityDataClass {
+	accessibilityData: AccessibilityAccessibility;
+}
+
+interface Icon {
+	iconType: string;
+}
+
+interface PurpleNavigationEndpoint {
+	clickTrackingParams: string;
+	commandMetadata: OwnerEndpointCommandMetadata;
+	watchEndpoint: PurpleWatchEndpoint;
+}
+
+interface OwnerEndpointCommandMetadata {
+	webCommandMetadata: PurpleWebCommandMetadata;
+}
+
+interface PurpleWebCommandMetadata {
+	url?: string;
+	webPageType?: WebPageType;
+	rootVe?: number;
+	apiUrl?: APIURL;
+	ignoreNavigation?: boolean;
+}
+
+enum WebPageType {
+	WebPageTypeBrowse = 'WEB_PAGE_TYPE_BROWSE',
+	WebPageTypeChannel = 'WEB_PAGE_TYPE_CHANNEL',
+	WebPageTypePlaylist = 'WEB_PAGE_TYPE_PLAYLIST',
+	WebPageTypeSearch = 'WEB_PAGE_TYPE_SEARCH',
+	WebPageTypeUnknown = 'WEB_PAGE_TYPE_UNKNOWN',
+	WebPageTypeWatch = 'WEB_PAGE_TYPE_WATCH',
+}
+
+interface PurpleWatchEndpoint {
+	videoId: string;
+	playlistId: TID;
+	params: string;
+	loggingContext: LoggingContext;
+	watchEndpointSupportedOnesieConfig: WatchEndpointSupportedOnesieConfig;
+}
+
+interface LoggingContext {
+	vssLoggingContext: VssLoggingContext;
+}
+
+interface VssLoggingContext {
+	serializedContextData: SerializedContextData;
+}
+
+enum SerializedContextData {
+	GiJQTGdEUDVVS0XXYUNBX2NKZULKQmNWTGJMRmlkNDLBTVFo = 'GiJQTGdEUDVVS0xXYUNBX2NKZUlKQmNWTGJMRmlkNDlBTVFo',
+}
+
+enum TID {
+	PLgDP5UKLWaCACJeIJBcVLBLFid49AMQh = 'PLgDP5UKLWaCA_cJeIJBcVLbLFid49AMQh',
+}
+
+interface WatchEndpointSupportedOnesieConfig {
+	html5PlaybackOnesieConfig: Html5PlaybackOnesieConfig;
+}
+
+interface Html5PlaybackOnesieConfig {
+	commonConfig: CommonConfig;
+}
+
+interface CommonConfig {
+	url: string;
+}
+
+interface DescriptionText {
+	simpleText: string;
+}
+
+interface Contents {
+	twoColumnBrowseResultsRenderer: TwoColumnBrowseResultsRenderer;
+}
+
+interface TwoColumnBrowseResultsRenderer {
+	tabs: Tab[];
+}
+
+interface Tab {
+	tabRenderer: TabRenderer;
+}
+
+interface TabRenderer {
+	selected: boolean;
+	content: TabRendererContent;
+	trackingParams: string;
+}
+
+interface TabRendererContent {
+	sectionListRenderer: SectionListRenderer;
+}
+
+interface SectionListRenderer {
+	contents: SectionListRendererContent[];
+	trackingParams: string;
+}
+
+interface SectionListRendererContent {
+	itemSectionRenderer: ItemSectionRenderer;
+}
+
+interface ItemSectionRenderer {
+	contents: ItemSectionRendererContent[];
+	trackingParams: string;
+}
+
+interface ItemSectionRendererContent {
+	playlistVideoListRenderer: PlaylistVideoListRenderer;
+}
+
+interface PlaylistVideoListRenderer {
+	contents: PlaylistVideoListRendererContent[];
+	playlistId: TID;
+	isEditable: boolean;
+	canReorder: boolean;
+	trackingParams: string;
+	targetId: TID;
+}
+
+interface PlaylistVideoListRendererContent {
+	playlistVideoRenderer?: PlaylistVideoRenderer;
+	continuationItemRenderer?: ContinuationItemRenderer;
+}
+
+interface ContinuationItemRenderer {
+	trigger: string;
+	continuationEndpoint: ContinuationEndpoint;
+}
+
+interface ContinuationEndpoint {
+	clickTrackingParams: string;
+	commandMetadata: ContinuationEndpointCommandMetadata;
+	continuationCommand: ContinuationCommand;
+}
+
+interface ContinuationCommand {
+	token: string;
+	request: string;
+}
+
+interface PlaylistVideoRenderer {
+	videoId: string;
+	thumbnail: PlaylistVideoRendererThumbnail;
+	title: PlaylistVideoRendererTitle;
+	index: DescriptionText;
+	shortBylineText: OwnerText;
+	lengthText: Text;
+	navigationEndpoint: PlaylistVideoRendererNavigationEndpoint;
+	lengthSeconds: string;
+	trackingParams: string;
+	isPlayable: boolean;
+	menu: PlaylistVideoRendererMenu;
+	thumbnailOverlays: PlaylistVideoRendererThumbnailOverlay[];
+	videoInfo: DescriptionTapText;
+}
+
+interface Text {
+	accessibility: ToggledAccessibilityDataClass;
+	simpleText: string;
+}
+
+interface PlaylistVideoRendererMenu {
+	menuRenderer: PurpleMenuRenderer;
+}
+
+interface PurpleMenuRenderer {
+	items: PurpleItem[];
+	trackingParams: string;
+	accessibility: ToggledAccessibilityDataClass;
+}
+
+interface PurpleItem {
+	menuServiceItemRenderer: MenuServiceItemRenderer;
+}
+
+interface MenuServiceItemRenderer {
+	text: DescriptionTapText;
+	icon: Icon;
+	serviceEndpoint: MenuServiceItemRendererServiceEndpoint;
+	trackingParams: string;
+}
+
+interface MenuServiceItemRendererServiceEndpoint {
+	clickTrackingParams: string;
+	commandMetadata: CommandCommandMetadata;
+	signalServiceEndpoint: FluffySignalServiceEndpoint;
+}
+
+interface CommandCommandMetadata {
+	webCommandMetadata: TentacledWebCommandMetadata;
+}
+
+interface TentacledWebCommandMetadata {
+	sendPost: boolean;
+}
+
+interface FluffySignalServiceEndpoint {
+	signal: Signal;
+	actions: FluffyAction[];
+}
+
+interface FluffyAction {
+	clickTrackingParams: string;
+	addToPlaylistCommand: AddToPlaylistCommand;
+}
+
+interface AddToPlaylistCommand {
+	openMiniplayer: boolean;
+	videoId: string;
+	listType: ListType;
+	onCreateListCommand: OnCreateListCommand;
+	videoIds: string[];
+}
+
+enum ListType {
+	PlaylistEditListTypeQueue = 'PLAYLIST_EDIT_LIST_TYPE_QUEUE',
+}
+
+interface OnCreateListCommand {
+	clickTrackingParams: string;
+	commandMetadata: ContinuationEndpointCommandMetadata;
+	createPlaylistServiceEndpoint: CreatePlaylistServiceEndpoint;
+}
+
+interface CreatePlaylistServiceEndpoint {
+	videoIds: string[];
+	params: CreatePlaylistServiceEndpointParams;
+}
+
+enum CreatePlaylistServiceEndpointParams {
+	CAQ3D = 'CAQ%3D',
+}
+
+interface PlaylistVideoRendererNavigationEndpoint {
+	clickTrackingParams: string;
+	commandMetadata: OwnerEndpointCommandMetadata;
+	watchEndpoint: FluffyWatchEndpoint;
+}
+
+interface FluffyWatchEndpoint {
+	videoId: string;
+	playlistId: TID;
+	index?: number;
+	params?: WatchEndpointParams;
+	loggingContext: LoggingContext;
+	watchEndpointSupportedOnesieConfig: WatchEndpointSupportedOnesieConfig;
+}
+
+enum WatchEndpointParams {
+	CI9JIDW3D = 'CI9JIDw%3D',
+	Oai3D = 'OAI%3D',
+}
+
+interface OwnerText {
+	runs: OwnerTextRun[];
+}
+
+interface OwnerTextRun {
+	text: string;
+	navigationEndpoint: Endpoint;
+}
+
+interface Endpoint {
+	clickTrackingParams: string;
+	commandMetadata: OwnerEndpointCommandMetadata;
+	browseEndpoint: OwnerEndpointBrowseEndpoint;
+}
+
+interface OwnerEndpointBrowseEndpoint {
+	browseId: string;
+	canonicalBaseUrl: string;
+}
+
+interface PlaylistVideoRendererThumbnail {
+	thumbnails: ThumbnailElement[];
+}
+
+interface ThumbnailElement {
+	url: string;
+	width: number;
+	height: number;
+}
+
+interface PlaylistVideoRendererThumbnailOverlay {
+	thumbnailOverlayTimeStatusRenderer?: ThumbnailOverlayTimeStatusRenderer;
+	thumbnailOverlayNowPlayingRenderer?: Renderer;
+}
+
+interface Renderer {
+	text: DescriptionTapText;
+}
+
+interface ThumbnailOverlayTimeStatusRenderer {
+	text: Text;
+	style: StyleEnum;
+}
+
+enum StyleEnum {
+	Default = 'DEFAULT',
+}
+
+interface PlaylistVideoRendererTitle {
+	runs: DescriptionTapTextRun[];
+	accessibility: ToggledAccessibilityDataClass;
+}
+
+function parseInitialData(data: string): Option<InitialData> {
+	try {
+		return JSON.parse(data.replace(/['"]/g, m => m === '"' ? '\'' : '"'));
+	} catch {
+		return;
+	}
+}
+
+function parsePlaylist(data: InitialData): [Option<string>, SongData[]] {
+	const playlist = data.contents?.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents[0].itemSectionRenderer.contents[0].playlistVideoListRenderer.contents;
+	if (!playlist) return [undefined, []];
+
+	const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+	if (continuationToken) playlist.pop();
+
+	const videos = playlist.map(video => {
+		const info = video.playlistVideoRenderer!;
+
+		return {
+			id: info.videoId,
+			title: info.title.runs[0].text,
+			url: `https://www.youtube.com/watch?v=${info.videoId}`,
+			thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
+			duration: parseInt(info.lengthSeconds) * 1_000,
+			artist: info.shortBylineText.runs[0].text,
+			live: false,
+			type: SongProvider.YouTube,
+		} satisfies SongData as SongData;
+	});
+
+	return [continuationToken, videos];
+}
 
 export const ID_REGEX = /^[\w-]{11}$/;
 
@@ -35,7 +507,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 			''
 		),
 		thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
-		duration: formatSeconds(parseInt(info.lengthSeconds)),
+		duration: parseInt(info.lengthSeconds) * 1_000,
 		live: info.isLiveContent,
 		type: SongProvider.YouTube,
 		format: info.isLiveContent
@@ -159,10 +631,7 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 		await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
 			requestOptions: {
 				headers: {
-					Cookie:
-						'VISITOR_INFO1_LIVE=T_VAI0yBFOY; PREF=tz=America.Toronto&f6=40000000; SID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtFOPjd2kQUFCoClC5V40YuQ.; __Secure-1PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7Tjtyx-dRfxVWZQ00xP7mraFPQ.; __Secure-3PSID=NQivUHYSJZ8FLfUbaBCICmPAYWoA__61Re_1ME-HRDm_7TjtrZ5d1J7-CDiETHJ9cEqxuQ.; HSID=Aa-D4ML5NJt_-a8ox; SSID=A6YQW6xXjVrCFncOs; APISID=iWRw5OkxX9SQ8OMB/ACenrBIZYU15shrid; SAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-1PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; __Secure-3PAPISID=vDYSTPQ7LXMvv_ei/A04dqrDY1YUp_7iDb; LOGIN_INFO=AFmmF2swRQIgP9pMl-otPZiW2NAELUSEipK0Rt4ZkJWkcfvnSkkAI2UCIQCn8K2ab4izDUcLILL9604Rm5GJfRGF-4D-IYa8EEKmMw:QUQ3MjNmekhzNzJBV0VlZ2M0X0lGOU1oWkVqYzZJWW9YV3FkODhFZDcteXhMZ2MtUjR4WHNZWEFTVHJ4NndvSFRlUktnU2U0ZVBmN3BtbjdwNTh0TkhZNU4yZnNsV2pSb0p1QXNaby1VdWJvRTkyMlhoMzNBNHpnNWdQeHdyaXlBVWNlRG9zLVJtdnFSek51MkFYSVBvZTB1bnFfZTR5M0M2VlJvZ0VoRk5vc0NUM0h4cmdDLWxtYWJSUGYyZ1QyVTQ1SVFBTHRGTU1nR05QX0FCV1JHR1BzTmE3aFBWWVlGUQ==; SIDCC=AEf-XMSLwqkkjmDfquFh1ljbvoow6sf2w61VMa6mbaxCKr8ZJD_oangQsJSepTZyneU3qWXbAU0; __Secure-1PSIDCC=AEf-XMQQXXMvbDEGMyUdBbKZUtYjhbGvr4QLQD-LNANXdMbQ97vfO39bigtKkKPTyf1CtCq43bs; __Secure-3PSIDCC=AEf-XMQn1V1cTJ4-_RC0kLhXvk6aCUfvocmygBww1yaVcY3T5cVKL2x64zy5FqSYvFXsXf82tkc; YSC=9kBInpCgI7U; CONSISTENCY=AGXVzq9JPuaYi-KyiAYK4d1cvX_3MaSlmWTWn_Us6bbFD8z1mJ2WKkkc_BAplF4aF9qVmqBQfyleC-C30YcRfjPLGNeAaedy4rLEh_FIZe_QAEGds_PPaQUuzF62MoypePmzdBU7skfKgSIQw3hJ0j2G; ST-91les4=itct=CNkCENwwIhMI9J2uss_W-QIVy7mCCh1y0AR7MgpnLWhpZ2gtcmVjWg9GRXdoYXRfdG9fd2F0Y2iaAQYQjh4YngE%3D&csn=MC4wNTIxNDA4NDM3Mjg5NzE4NzU.&endpoint=%7B%22clickTrackingParams%22%3A%22CNkCENwwIhMI9J2uss_W-QIVy7mCCh1y0AR7MgpnLWhpZ2gtcmVjWg9GRXdoYXRfdG9fd2F0Y2iaAQYQjh4YngE%3D%22%2C%22commandMetadata%22%3A%7B%22webCommandMetadata%22%3A%7B%22url%22%3A%22%2Fwatch%3Fv%3DzE-a5eqvlv8%22%2C%22webPageType%22%3A%22WEB_PAGE_TYPE_WATCH%22%2C%22rootVe%22%3A3832%7D%7D%2C%22watchEndpoint%22%3A%7B%22videoId%22%3A%22zE-a5eqvlv8%22%2C%22watchEndpointSupportedOnesieConfig%22%3A%7B%22html5PlaybackOnesieConfig%22%3A%7B%22commonConfig%22%3A%7B%22url%22%3A%22https%3A%2F%2Frr4---sn-gvbxgn-tt1s.googlevideo.com%2Finitplayback%3Fsource%3Dyoutube%26orc%3D1%26oeis%3D1%26c%3DWEB%26oad%3D3200%26ovd%3D3200%26oaad%3D11000%26oavd%3D11000%26ocs%3D700%26oewis%3D1%26oputc%3D1%26ofpcc%3D1%26rbqsm%3Dfr%26msp%3D1%26odeak%3D1%26odepv%3D1%26osfc%3D1%26id%3Dcc4f9ae5eaaf96ff%26ip%3D167.100.66.131%26initcwndbps%3D1175000%26mt%3D1661039588%26oweuc%3D%26pxtags%3DCg4KAnR4EggyNDE5NzI3Ng%26rxtags%3DCg4KAnR4EggyNDE5NzI3NQ%252CCg4KAnR4EggyNDE5NzI3Ng%252CCg4KAnR4EggyNDE5NzI3Nw%22%7D%7D%7D%7D%7D',
-					'User-Agent':
-						'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
+					Cookie: process.env.COOKIE,
 				},
 			},
 		})
@@ -176,128 +645,43 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 	};
 }
 
-export async function handleYouTubePlaylist(
-	id: string
-): Promise<Option<SearchResult>> {
-	const browser = await puppeteer.launch({
-		args: ['--no-sandbox', '--disable-setuid-sandbox'],
-	});
+export async function handleYouTubePlaylist(id: string): Promise<Option<SearchResult>> {
+	const { data: html } = await axios.get<string>(`https://www.youtube.com/playlist?list=${id}`);
 
-	const page = await browser.newPage();
+	const dataString = html.match(INITIAL_DATA_REGEX)?.[1];
+	if (!dataString) return;
 
-	await page.goto(`https://www.youtube.com/playlist?list=${id}`, {
-		waitUntil: 'networkidle2',
-	});
+	const data = parseInitialData(dataString);
+	if (!data) return;
 
-	const videoCount = parseInt(
-		(
-			await page.evaluate(
-				element => element!.textContent!,
-				await page.$(
-					'yt-formatted-string[class="byline-item style-scope ytd-playlist-byline-renderer'
-				)
-			)
-		)
-			.split(' ')
-			.shift()!
-	);
-	const scrolls = Math.ceil(videoCount / 100) - 1;
+	const result = parsePlaylist(data);
 
-	const count = async () =>
-		(await page.$$('.ytd-playlist-video-renderer#content')).length;
-	const scrape = async () => {
-		const videos = await page.$$('.ytd-playlist-video-renderer#content');
+	const videos = result[1];
+	let continuationToken = result[0];
 
-		const times = await Promise.all(
-			videos.slice(1).map(async div => {
-				try {
-					const [time, title, link, artist] = await Promise.all([
-						page.evaluate(
-							e =>
-								e
-									.querySelector(
-										'span[class="style-scope ytd-thumbnail-overlay-time-status-renderer"]'
-									)!
-									.textContent!.trim(),
-							div
-						),
-						page.evaluate(
-							e =>
-								e.querySelector('a[id="video-title"]')!.getAttribute('title'),
-							div
-						),
-						page.evaluate(
-							e =>
-								e
-									.querySelector(
-										'a[class="yt-simple-endpoint style-scope ytd-playlist-video-renderer"]'
-									)!
-									.getAttribute('href'),
-							div
-						),
-						page.evaluate(
-							e =>
-								e.querySelector(
-									'a[class="yt-simple-endpoint style-scope yt-formatted-string"]'
-								)!.textContent,
-							div
-						),
-					]);
-
-					const id = link!.slice(9, 20);
-					const data: SongData = {
-						url: `https://www.youtube.com/watch?v=${id}`,
-						id,
-						title: title!,
-						artist: artist!,
-						duration: time,
-						thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
-						live: false,
-						type: SongProvider.YouTube,
-					};
-
-					await Database.addSongToCache(data);
-
-					return data;
-				} catch {
-					return null;
-				}
-			})
-		);
-
-		return times.filter(t => t !== null);
-	};
-
-	for (let i = 0; i < scrolls; ++i) {
-		const number = await count();
-
-		await page.evaluate(() => {
-			window.scrollBy(0, 10500);
+	while (continuationToken) {
+		const { data } = await axios.post<InitialData>('https://www.youtube.com/youtubei/v1/browse', {
+			'context': {
+				'client': {
+					'clientName': 'WEB',
+					'clientVersion': '2.20221130.04.00',
+				},
+			},
+			'continuation': '4qmFsgJfEiRWTFBMSV9lRlc4TkFGellBWFo1RHJVNkU2bVFfWGZoYUxCVVgaEkNBTjZCMUJVT2tOTE9FTSUzRJoCIlBMSV9lRlc4TkFGellBWFo1RHJVNkU2bVFfWGZoYUxCVVg%3D',
+		}, {
+			params: {
+				key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+			},
 		});
 
-		try {
-			await page.waitForFunction(
-				`document.querySelectorAll('div[id=content]').length > ${number}`
-			);
-		} catch {
-			break;
-		}
+		const [token, parsedVideos] = parsePlaylist(data);
+
+		continuationToken = token;
+		videos.push(...parsedVideos);
 	}
 
-	await page.evaluate(() => {
-		window.scrollBy(0, 10500);
-	});
-	await new Promise(r => setTimeout(r, 1000));
-
-	const data = {
-		videos: (await scrape()) as Song[],
-		title: await page.evaluate(
-			e => e!.textContent!,
-			await page.$('.yt-sans-28')
-		),
+	return {
+		title: data.metadata?.playlistMetadataRenderer?.title,
+		videos,
 	};
-
-	browser.close();
-
-	return data;
 }

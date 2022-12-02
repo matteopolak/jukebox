@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import axios, { AxiosResponse } from 'axios';
-import { Language, Option } from '../typings/common.js';
+import { Language, Option } from '@/typings/common';
 
 const SPLIT_REGEX = /.{1,200}(?=$|\s)/g;
 

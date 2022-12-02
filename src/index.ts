@@ -6,19 +6,19 @@ import {
 	GuildMember,
 } from 'discord.js';
 
-import { createAudioManager } from './util/music';
-import Connection, { connections } from './structures/Connection';
+import { createAudioManager } from '@/util/music';
+import Connection, { connections } from '@/structures/Connection';
 import {
 	getLyricsById,
 	getTrack,
 	getTrackFromSongData,
 	QueryType,
-} from './api/musixmatch';
-import { loginPromise, MAIN_CLIENT as client } from './util/worker';
+} from '@/api/musixmatch';
+import { loginPromise, MAIN_CLIENT as client } from '@/util/worker';
 
 import axios from 'axios';
-import { Database } from './util/database';
-import { Effect } from './typings/common';
+import { Database } from '@/util/database';
+import { Effect } from '@/typings/common';
 
 axios.defaults.validateStatus = () => true;
 

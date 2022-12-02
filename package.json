@@ -4,7 +4,8 @@
 	"description": "",
 	"main": "src/index.js",
 	"scripts": {
-		"start": "npx tsc --project tsconfig.json && node src/index.js",
+		"start": "npx tsc --project tsconfig.json && npx tsc-alias -p tsconfig.json && node build/index.js",
+		"build": "npx tsc --project tsconfig.json && npx tsc-alias -p tsconfig.json",
 		"check": "npx tsc --project tsconfig.json --noEmit",
 		"eslint": "eslint --ext .ts src"
 	},
@@ -42,6 +43,7 @@
 		"@typescript-eslint/eslint-plugin": "^5.45.0",
 		"@typescript-eslint/parser": "^5.45.0",
 		"eslint": "^8.28.0",
+		"tsc-alias": "^1.8.0",
 		"typescript": "^5.0.0-dev.20221130"
 	}
 }

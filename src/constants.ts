@@ -1,5 +1,5 @@
 import { ButtonStyle, ComponentType } from 'discord.js';
-import { Effect, SongProvider } from './typings/common';
+import { Effect, SongProvider } from '@/typings/common';
 
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
 export const BAD_TITLE_CHARACTER_REGEX =
@@ -87,25 +87,25 @@ export const DEFAULT_COMPONENTS = [
 				type: ComponentType.Button,
 				customId: 'repeat',
 				label: '🔂',
-				style: ButtonStyle.Secondary
+				style: ButtonStyle.Secondary,
 			},
 			{
 				type: ComponentType.Button,
 				customId: 'shuffle',
 				label: '🔀',
-				style: ButtonStyle.Secondary
+				style: ButtonStyle.Secondary,
 			},
 			{
 				type: ComponentType.Button,
 				customId: 'autoplay',
 				label: '♾️',
-				style: ButtonStyle.Secondary
+				style: ButtonStyle.Secondary,
 			},
 			{
 				type: ComponentType.Button,
 				customId: 'lyrics',
 				label: '📜',
-				style: ButtonStyle.Secondary
+				style: ButtonStyle.Secondary,
 			},
 		],
 	},
@@ -181,8 +181,8 @@ export const DEFAULT_COMPONENTS = [
 						emoji: '🔊',
 						value: Effect.Normalizer.toString(),
 					},
-				]
-			}
+				],
+			},
 		],
-	}
+	},
 ];

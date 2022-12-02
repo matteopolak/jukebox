@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { parse } from 'node-html-parser';
-import { Option, SongData } from '../typings/common.js';
-import { GeniusResponse, SearchResponse, Song } from '../typings/genius';
-import { cleanTitle } from '../util/music';
+import { Option, SongData } from '@/typings/common';
+import { GeniusResponse, SearchResponse, Song } from '@/typings/genius';
+import { cleanTitle } from '@/util/music';
 
 export async function getTrack(query: string): Promise<Option<Song>> {
 	const { data, status } = await axios.get<GeniusResponse<SearchResponse>>(
