@@ -151,6 +151,7 @@ export class YouTubeProvider extends Provider {
 			headers: this.cookie ? {
 				cookie: this.cookie,
 			} : undefined,
+			validateStatus: () => true,
 		});
 	}
 
@@ -271,15 +272,19 @@ export class YouTubeProvider extends Provider {
 
 	private async _search<T extends SearchType>(query: string, type: T): Promise<Option<SearchItem<T>[]>> {
 		const response = await this.http.post<SearchResponse<T>>('/youtubei/v1/search', {
-			client: {
-				clientName: 'WEB',
-				clientVersion: '2.20221130.04.00',
+			context: {
+				client: {
+					clientName: 'WEB',
+					clientVersion: '2.20221130.04.00',
+				},
 			},
 			params: type,
 			query,
 		});
 
-		const items = response.data.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents;
+		if (response.status !== 200) return undefined;
+
+		const items = response.data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents;
 
 		return items?.length ? items : undefined;
 	}
