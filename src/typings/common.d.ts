@@ -56,6 +56,7 @@ export const enum Effect {
 	Underwater,
 	Bass,
 	Nightcore,
+	Daycore,
 	Vaporwave,
 	Reverse,
 	EightDimensional,

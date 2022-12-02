@@ -29,6 +29,7 @@ export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.Tremolo]: ['-af', 'tremolo'],
 	[Effect.Vibrato]: ['-af', 'vibrato=f=6.5'],
 	[Effect.Normalizer]: ['-af', 'dynaudnorm=f=150:g=15'],
+	[Effect.Daycore]: ['-af', 'asetrate=44100*0.75,aresample=44100,atempo=0.75'],
 };
 
 export const CUSTOM_ID_TO_INDEX_LIST = {
@@ -140,6 +141,11 @@ export const DEFAULT_COMPONENTS = [
 						label: 'Nightcore',
 						emoji: '🌙',
 						value: Effect.Nightcore.toString(),
+					},
+					{
+						label: 'Daycore',
+						emoji: '🌞',
+						value: Effect.Daycore.toString(),
 					},
 					{
 						label: 'Vaporwave',

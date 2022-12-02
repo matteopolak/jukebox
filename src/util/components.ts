@@ -114,6 +114,12 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 							default: settings.effect === Effect.Nightcore,
 						},
 						{
+							label: 'Daycore',
+							emoji: '🌞',
+							value: Effect.Daycore.toString(),
+							default: settings.effect === Effect.Daycore,
+						},
+						{
 							label: 'Vaporwave',
 							emoji: '🌊',
 							value: Effect.Vaporwave.toString(),
