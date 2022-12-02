@@ -41,5 +41,4 @@ export async function handleSpotifyAlbum(
 		title: playlist.name,
 		videos: playlist.tracks.map(Spotify.trackToSongData),
 	};
-
 }

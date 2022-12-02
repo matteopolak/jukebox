@@ -607,6 +607,7 @@ export default class Connection extends EventEmitter {
 
 					song.url = result.videos[0].url;
 					song.format = result.videos[0].format;
+					song.related = result.videos[0].related;
 
 					await Database.addSongToCache(song);
 					await Database.queue.updateMany({
@@ -619,6 +620,7 @@ export default class Connection extends EventEmitter {
 						$set: {
 							url: song.url,
 							format: song.format,
+							related: song.related,
 						},
 					});
 				}
