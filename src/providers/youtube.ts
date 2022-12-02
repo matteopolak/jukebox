@@ -130,7 +130,7 @@ export interface Metadata {
 		description: string;
 	};
 }
-
+import fs from 'fs/promises';
 export class YouTubeProvider extends Provider {
 	private cookie?: string;
 	private http: AxiosInstance;
@@ -156,6 +156,7 @@ export class YouTubeProvider extends Provider {
 	}
 
 	public static itemToSong(item: VideoItem): SongData {
+		console.trace(item);
 		return {
 			id: item.videoRenderer.videoId,
 			title: item.videoRenderer.title.runs[0].text,
@@ -254,6 +255,8 @@ export class YouTubeProvider extends Provider {
 		const videos = await this._search(query, SearchType.Video);
 		if (!videos?.length) return { ok: false, error: `No videos found with the query \`${query}\`.` };
 
+		console.log(videos);
+
 		return {
 			ok: true,
 			value: {
@@ -284,7 +287,13 @@ export class YouTubeProvider extends Provider {
 
 		if (response.status !== 200) return undefined;
 
-		const items = response.data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents;
+		await fs.writeFile('./search-1.json', JSON.stringify(response.data));
+
+		const items = response.data.contents
+			?.twoColumnSearchResultsRenderer?.primaryContents
+			?.sectionListRenderer?.contents
+			?.find(c => !('adSlotRenderer' in c))
+			?.itemSectionRenderer?.contents;
 
 		return items?.length ? items : undefined;
 	}
@@ -298,10 +307,10 @@ export class YouTubeProvider extends Provider {
 
 			const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
 			if (continuationToken) playlist.pop();
-			
+
 			const videos = playlist.map(video => {
 				const info = video.playlistVideoRenderer!;
-			
+
 				return {
 					id: info.videoId,
 					title: info.title.runs[0].text,
