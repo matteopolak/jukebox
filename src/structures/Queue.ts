@@ -278,7 +278,7 @@ export class Queue {
 			this.updateQueueMessage();
 		}
 
-		if (options?.playNext) this.index = this._queueLength - 2;
+		if (options?.playNext) this._index = this._queueLength - 2;
 	}
 
 	public async insertMany(songs: SongData[], options?: InsertSongOptions) {
@@ -310,7 +310,7 @@ export class Queue {
 			0
 		);
 
-		if (options?.playNext) this.index = this._queueLength - songs.length - 1;
+		if (options?.playNext) this._index = this._queueLength - songs.length - 1;
 	}
 
 	public async clear() {

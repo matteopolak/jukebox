@@ -199,7 +199,9 @@ client.on('messageCreate', async message => {
 	const connection = await Connection.getOrCreate(message);
 	if (!connection) return;
 
-	await message.delete().catch(() => {});
+	// wait 1 second before deleting to avoid the glitch where it is
+	// still present on the user's client despite it being deleted
+	setTimeout(() => message.delete().catch(() => {}), 1000);
 
 	return connection.addSongByQuery(message.content);
 });
