@@ -52,19 +52,20 @@ export interface Song extends SongData {
 
 export const enum Effect {
 	None,
-	Loud,
-	Underwater,
 	Bass,
-	Nightcore,
 	Daycore,
-	Vaporwave,
-	Reverse,
-	EightDimensional,
 	Denoise,
-	Phaser,
-	Tremolo,
-	Vibrato,
+	EightDimensional,
+	Loud,
+	Nightcore,
+	NightcorePlus,
 	Normalizer,
+	Phaser,
+	Reverse,
+	Tremolo,
+	Underwater,
+	Vaporwave,
+	Vibrato,
 }
 
 export interface RawData {
