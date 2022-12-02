@@ -22,6 +22,7 @@ export const EFFECTS: Record<Effect, string[]> = {
 		'-filter_complex',
 		'acontrast,acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
 	],
+	[Effect.NightcoreMinus]: ['-af', 'asetrate=44100*1.15,aresample=44100,atempo=1.15'],
 	[Effect.Nightcore]: ['-af', 'asetrate=44100*1.25,aresample=44100,atempo=1.25'],
 	[Effect.NightcorePlus]: ['-af', 'asetrate=44100*1.35,aresample=44100,atempo=1.35'],
 	[Effect.Normalizer]: ['-af', 'dynaudnorm=f=150:g=15'],
@@ -35,6 +36,7 @@ export const EFFECTS: Record<Effect, string[]> = {
 
 export const EFFECT_TO_SPEED: Record<Effect, number> = {
 	[Effect.Daycore]: 0.75,
+	[Effect.NightcoreMinus]: 1.15,
 	[Effect.Nightcore]: 1.25,
 	[Effect.NightcorePlus]: 1.35,
 	[Effect.Vaporwave]: 0.8,
@@ -170,6 +172,11 @@ export const DEFAULT_COMPONENTS = [
 						label: 'Nightcore',
 						emoji: '🌙',
 						value: Effect.Nightcore.toString(),
+					},
+					{
+						label: 'Nightcore-',
+						emoji: '🌛',
+						value: Effect.NightcoreMinus.toString(),
 					},
 					{
 						label: 'Nightcore+',

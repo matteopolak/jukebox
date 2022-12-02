@@ -59,6 +59,7 @@ export const enum Effect {
 	Denoise,
 	EightDimensional,
 	Loud,
+	NightcoreMinus,
 	Nightcore,
 	NightcorePlus,
 	Normalizer,

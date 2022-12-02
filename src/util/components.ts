@@ -126,6 +126,12 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 							default: settings.effect === Effect.Nightcore,
 						},
 						{
+							label: 'Nightcore-',
+							emoji: '🌛',
+							value: Effect.NightcoreMinus.toString(),
+							default: settings.effect === Effect.NightcoreMinus,
+						},
+						{
 							label: 'Nightcore+',
 							emoji: '🪩',
 							value: Effect.NightcorePlus.toString(),
