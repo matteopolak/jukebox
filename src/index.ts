@@ -18,7 +18,7 @@ import { loginPromise, MAIN_CLIENT as client } from '@/util/worker';
 
 import axios from 'axios';
 import { Database } from '@/util/database';
-import { Effect } from '@/typings/common';
+import { CommandOrigin, Effect } from '@/typings/common';
 
 axios.defaults.validateStatus = () => true;
 
@@ -63,8 +63,7 @@ client.once('ready', async () => {
 						},
 					],
 				},
-			],
-			'637031306370220084'
+			]
 		)
 		.catch(() => {});
 });
@@ -93,32 +92,30 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			break;
 		case 'remove':
-			connection.removeCurrentSong();
+			connection.removeCurrentSong(interaction);
 
 			break;
 		case 'shuffle':
-			connection.setShuffle(!connection.settings.shuffle);
+			connection.setShuffle(!connection.settings.shuffle, CommandOrigin.Text, interaction);
 
 			break;
 		case 'remove_all':
-			connection.removeAllSongs();
+			connection.removeAllSongs(interaction);
 
 			break;
 		case 'repeat':
-			connection.setRepeat(!connection.settings.repeat);
+			connection.setRepeat(!connection.settings.repeat, CommandOrigin.Text, interaction);
 
 			break;
 		case 'autoplay':
-			connection.setAutoplay(!connection.settings.autoplay);
+			connection.setAutoplay(!connection.settings.autoplay, CommandOrigin.Text, interaction);
 
 			break;
 		case 'lyrics':
-			connection.setLyrics(!connection.settings.lyrics);
+			connection.setLyrics(!connection.settings.lyrics, CommandOrigin.Text, interaction);
 
 			break;
 	}
-
-	return interaction.deferUpdate({ fetchReply: false });
 }
 
 client.on('interactionCreate', async interaction => {
@@ -188,7 +185,7 @@ client.on('interactionCreate', async interaction => {
 
 		switch (interaction.customId) {
 			case 'effect':
-				connection.setEffect(parseInt(interaction.values[0]) as Effect);
+				connection.setEffect(parseInt(interaction.values[0]) as Effect, interaction);
 		}
 
 		return void interaction.deferUpdate({ fetchReply: false });

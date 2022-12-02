@@ -19,6 +19,8 @@ import {
 	TextChannel,
 	Interaction,
 	ButtonStyle,
+	ButtonInteraction,
+	StringSelectMenuInteraction,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
@@ -209,7 +211,8 @@ export default class Connection extends EventEmitter {
 
 	public async setRepeat(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text
+		origin: CommandOrigin = CommandOrigin.Text,
+		interaction?: ButtonInteraction
 	): Promise<void> {
 		const old = this.settings.repeat;
 		this.settings.repeat = enabled;
@@ -218,7 +221,7 @@ export default class Connection extends EventEmitter {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.repeat;
 			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
 
-			this.updateEmbedMessage();
+			this.updateEmbedMessage(interaction);
 			this.updateManagerData({ 'settings.repeat': enabled });
 
 			if (origin === CommandOrigin.Voice) {
@@ -227,12 +230,15 @@ export default class Connection extends EventEmitter {
 					`🎙️ Repeat has been **${enabled ? 'enabled' : 'disabled'}**.`
 				);
 			}
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
 	public async setAutoplay(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text
+		origin: CommandOrigin = CommandOrigin.Text,
+		interaction?: ButtonInteraction
 	): Promise<void> {
 		const old = this.settings.autoplay;
 		this.settings.autoplay = enabled;
@@ -241,7 +247,7 @@ export default class Connection extends EventEmitter {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.autoplay;
 			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
 
-			this.updateEmbedMessage();
+			this.updateEmbedMessage(interaction);
 			this.updateManagerData({ 'settings.autoplay': enabled });
 
 			if (origin === CommandOrigin.Voice) {
@@ -250,12 +256,15 @@ export default class Connection extends EventEmitter {
 					`🎙️ Autoplay has been **${enabled ? 'enabled' : 'disabled'}**.`
 				);
 			}
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
 	public async setLyrics(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text
+		origin: CommandOrigin = CommandOrigin.Text,
+		interaction?: ButtonInteraction
 	): Promise<void> {
 		const old = this.settings.lyrics;
 		this.settings.lyrics = enabled;
@@ -272,7 +281,7 @@ export default class Connection extends EventEmitter {
 				this.manager.lyricsId = undefined;
 			}
 
-			this.updateEmbedMessage();
+			this.updateEmbedMessage(interaction);
 			this.updateManagerData({ 'settings.lyrics': enabled });
 
 			if (origin === CommandOrigin.Voice) {
@@ -281,10 +290,12 @@ export default class Connection extends EventEmitter {
 					`🎙️ Lyrics have been **${enabled ? 'enabled' : 'disabled'}**.`
 				);
 			}
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
-	public setEffect(effect: Effect): void {
+	public setEffect(effect: Effect, interaction?: ButtonInteraction | StringSelectMenuInteraction): void {
 		if (this.settings.effect === effect) {
 			effect = Effect.None;
 		}
@@ -298,14 +309,17 @@ export default class Connection extends EventEmitter {
 			this._components[row].components[index].options![effect].default = true;
 
 			this.updateManagerData({ 'settings.effect': effect });
-			this.updateEmbedMessage();
+			this.updateEmbedMessage(interaction);
 			this.applyEffectChanges();
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
 	public async setShuffle(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text
+		origin: CommandOrigin = CommandOrigin.Text,
+		interaction?: ButtonInteraction
 	): Promise<void> {
 		const old = this.settings.shuffle;
 		this.settings.shuffle = enabled;
@@ -314,7 +328,7 @@ export default class Connection extends EventEmitter {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.shuffle;
 			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
 
-			this.updateEmbedMessage();
+			this.updateEmbedMessage(interaction);
 			this.updateManagerData({ 'settings.shuffle': enabled });
 
 			if (origin === CommandOrigin.Voice) {
@@ -323,6 +337,8 @@ export default class Connection extends EventEmitter {
 					`🎙️ Shuffle has been **${enabled ? 'enabled' : 'disabled'}**.`
 				);
 			}
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
@@ -372,7 +388,7 @@ export default class Connection extends EventEmitter {
 		this.restartCurrentSong();
 	}
 
-	public pause() {
+	public pause(interaction?: ButtonInteraction) {
 		if (
 			this.subscription !== undefined &&
 			this.subscription.player.state.status !== AudioPlayerStatus.Paused &&
@@ -382,11 +398,13 @@ export default class Connection extends EventEmitter {
 			this._components[row].components[index].label = '▶️';
 
 			this.subscription.player.pause();
-			this.updateEmbedMessage();
+			this.updateEmbedMessage(interaction);
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
-	public resume() {
+	public resume(interaction?: ButtonInteraction) {
 		if (
 			this.subscription !== undefined &&
 			this.queue.length > 0 &&
@@ -403,8 +421,12 @@ export default class Connection extends EventEmitter {
 			} else if (
 				this.subscription.player.state.status !== AudioPlayerStatus.Idle
 			) {
-				this.updateEmbedMessage();
+				this.updateEmbedMessage(interaction);
+			} else if (interaction) {
+				interaction.deferUpdate({ fetchReply: false });
 			}
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
@@ -443,17 +465,17 @@ export default class Connection extends EventEmitter {
 		this.endCurrentSong();
 	}
 
-	public async removeAllSongs() {
+	public async removeAllSongs(interaction?: ButtonInteraction) {
 		// Forcefully remove the current resource
 		this.currentResource = undefined;
 
 		await this.queue.clear();
-		await Promise.all([this.updateEmbedMessage()]);
+		await Promise.all([this.updateEmbedMessage(interaction)]);
 
 		this.endCurrentSong();
 	}
 
-	public async removeCurrentSong() {
+	public async removeCurrentSong(interaction?: ButtonInteraction) {
 		if (!this.currentResource) return;
 
 		await this.queue.removeCurrent();
@@ -463,7 +485,9 @@ export default class Connection extends EventEmitter {
 
 		if (this.queue.length === 0) {
 			this.currentResource = undefined;
-			await this.updateEmbedMessage();
+			this.updateEmbedMessage(interaction);
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
 		}
 	}
 
@@ -576,10 +600,9 @@ export default class Connection extends EventEmitter {
 		);
 	}
 
-	public async updateEmbedMessage() {
+	public async updateEmbedMessage(interaction?: ButtonInteraction | StringSelectMenuInteraction) {
 		const song = this.currentResource?.metadata;
-
-		this.textChannel.messages.edit(this.manager.messageId, {
+		const payload = {
 			content: song ? `**${enforceLength(escapeMarkdown(song.title), 32)}** by **${escapeMarkdown(song?.artist)}**` : '',
 			files: [
 				{
@@ -588,7 +611,13 @@ export default class Connection extends EventEmitter {
 				},
 			],
 			components: this._components,
-		});
+		};
+
+		if (interaction) {
+			interaction.update(payload);
+		} else {
+			this.textChannel.messages.edit(this.manager.messageId, payload);
+		}
 
 		if (this.settings.lyrics) {
 			this.updateLyricsMessage();
