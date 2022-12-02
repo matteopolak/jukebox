@@ -4,3 +4,4 @@ node_modules
 *.js
 other
 readme_assets/logo.xcf
+build

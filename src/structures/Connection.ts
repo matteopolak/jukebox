@@ -609,6 +609,10 @@ export default class Connection extends EventEmitter {
 					song.format = result.videos[0].format;
 					song.related = result.videos[0].related;
 
+					if (song.thumbnail === '') {
+						song.thumbnail = result.videos[0].thumbnail;
+					}
+
 					await Database.addSongToCache(song);
 					await Database.queue.updateMany({
 						id: song.id,

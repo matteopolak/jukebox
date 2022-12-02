@@ -3,7 +3,8 @@ import { bufferUnordered } from '@/util/promise';
 
 import axios from 'axios';
 
-const MAX_BATCH_SIZE = 100;
+const MAX_BATCH_SIZE_PLAYLIST = 100;
+const MAX_BATCH_SIZE_ALBUM = 50;
 
 interface Token {
 	token: string;
@@ -43,7 +44,7 @@ interface PaginatedTrack {
 
 interface PlaylistMetadata {
 	name: string;
-	tracks: Container<Track>;
+	tracks: Container<PaginatedTrack>;
 }
 
 interface AlbumMetadata {
@@ -100,7 +101,7 @@ export class Spotify {
 			live: false,
 			id: track.id,
 			type: SongProvider.Spotify,
-			thumbnail: track.album.images[0]?.url ?? '',
+			thumbnail: track.album?.images?.[0]?.url ?? '',
 		};
 	}
 
@@ -125,7 +126,7 @@ export class Spotify {
 				Authorization: `Bearer ${await this.getAccessToken()}`,
 			},
 			params: {
-				limit: MAX_BATCH_SIZE,
+				limit: MAX_BATCH_SIZE_ALBUM,
 				// use an obscure market to stay anonymous
 				market: 'AX',
 			},
@@ -134,16 +135,16 @@ export class Spotify {
 		if (response.status !== 200) return undefined;
 
 		const total = response.data.tracks.total;
-		const batches = Math.ceil(total / MAX_BATCH_SIZE) - 1;
+		const batches = Math.ceil(total / MAX_BATCH_SIZE_ALBUM) - 1;
 
-		const tracks = await bufferUnordered(Array(batches), async (_, index) => {
+		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
 			const response = await axios.get<Container<Track>>(`https://api.spotify.com/v1/albums/${id}/tracks`, {
 				headers: {
 					Authorization: `Bearer ${await this.getAccessToken()}`,
 				},
 				params: {
-					offset: index * MAX_BATCH_SIZE + MAX_BATCH_SIZE,
-					limit: MAX_BATCH_SIZE,
+					offset: index * MAX_BATCH_SIZE_ALBUM + MAX_BATCH_SIZE_ALBUM,
+					limit: MAX_BATCH_SIZE_ALBUM,
 					market: 'AX',
 				},
 			});
@@ -165,7 +166,7 @@ export class Spotify {
 				Authorization: `Bearer ${await this.getAccessToken()}`,
 			},
 			params: {
-				limit: MAX_BATCH_SIZE,
+				limit: MAX_BATCH_SIZE_PLAYLIST,
 				additional_types: 'track',
 				fields: 'name,owner(display_name),public,tracks(total,offset,limit,items(track(album(images),name,duration_ms,id,artists(name))))',
 			},
@@ -174,16 +175,16 @@ export class Spotify {
 		if (response.status !== 200) return undefined;
 
 		const total = response.data.tracks.total;
-		const batches = Math.ceil(total / MAX_BATCH_SIZE) - 1;
+		const batches = Math.ceil(total / MAX_BATCH_SIZE_PLAYLIST) - 1;
 
-		const tracks = await bufferUnordered(Array(batches), async (_, index) => {
+		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
 			const response = await axios.get<Container<PaginatedTrack>>(`https://api.spotify.com/v1/playlists/${id}/tracks`, {
 				headers: {
 					Authorization: `Bearer ${await this.getAccessToken()}`,
 				},
 				params: {
-					offset: index * MAX_BATCH_SIZE + MAX_BATCH_SIZE,
-					limit: MAX_BATCH_SIZE,
+					offset: index * MAX_BATCH_SIZE_PLAYLIST + MAX_BATCH_SIZE_PLAYLIST,
+					limit: MAX_BATCH_SIZE_PLAYLIST,
 					additional_types: 'track',
 					fields: 'items(track(album(images),id,name,duration_ms,artists(name)))',
 				},
@@ -192,7 +193,7 @@ export class Spotify {
 			return response.data.items.map(item => item.track);
 		});
 
-		tracks.push(response.data.tracks.items);
+		tracks.push(response.data.tracks.items.map(item => item.track));
 
 		return {
 			name: response.data.name,

@@ -6,11 +6,20 @@ import { Database } from '@/util/database';
 import { randomInteger } from '@/util/random';
 import { getCachedSong } from '@/util/search';
 
-const INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});/;
+const INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});</;
 
 export interface InitialData {
 	contents: Contents;
 	metadata: Metadata;
+	onResponseReceivedActions: OnResponseReceivedAction[];
+}
+
+interface OnResponseReceivedAction {
+	appendContinuationItemsAction: AppendContinuationItemsAction;
+}
+
+interface AppendContinuationItemsAction {
+	continuationItems: PlaylistVideoListRendererContent[];
 }
 
 interface Metadata {
@@ -453,16 +462,40 @@ interface PlaylistVideoRendererTitle {
 	accessibility: ToggledAccessibilityDataClass;
 }
 
-function parseInitialData(data: string): Option<InitialData> {
+function parseInitialData(dataString: string): [[undefined, SongData[]], undefined] | [[Option<string>, SongData[]], Metadata] {
 	try {
-		return JSON.parse(data.replace(/['"]/g, m => m === '"' ? '\'' : '"'));
-	} catch {
-		return;
+		const data: InitialData = JSON.parse(dataString);
+		
+		const playlist = data.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
+		if (!playlist) return [[undefined, []], undefined];
+		
+		const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+		if (continuationToken) playlist.pop();
+		
+		const videos = playlist.map(video => {
+			const info = video.playlistVideoRenderer!;
+		
+			return {
+				id: info.videoId,
+				title: info.title.runs[0].text,
+				url: `https://www.youtube.com/watch?v=${info.videoId}`,
+				thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
+				duration: parseInt(info.lengthSeconds) * 1_000,
+				artist: info.shortBylineText.runs[0].text,
+				live: false,
+				type: SongProvider.YouTube,
+			} satisfies SongData as SongData;
+		});
+		
+		return [[continuationToken, videos], data.metadata];
+		// .replace(/['"]/g, m => m === '"' ? '\'' : '"'));
+	} catch (e) {
+		return [[undefined, []], undefined];
 	}
 }
 
 function parsePlaylist(data: InitialData): [Option<string>, SongData[]] {
-	const playlist = data.contents?.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents[0].itemSectionRenderer.contents[0].playlistVideoListRenderer.contents;
+	const playlist = data?.onResponseReceivedActions?.[0]?.appendContinuationItemsAction?.continuationItems;
 	if (!playlist) return [undefined, []];
 
 	const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
@@ -645,29 +678,31 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 	};
 }
 
+import fs from 'fs/promises';
+
 export async function handleYouTubePlaylist(id: string): Promise<Option<SearchResult>> {
 	const { data: html } = await axios.get<string>(`https://www.youtube.com/playlist?list=${id}`);
+
+	fs.writeFile('./asd.html', html);
 
 	const dataString = html.match(INITIAL_DATA_REGEX)?.[1];
 	if (!dataString) return;
 
-	const data = parseInitialData(dataString);
+	const [data, metadata] = parseInitialData(dataString);
 	if (!data) return;
 
-	const result = parsePlaylist(data);
-
-	const videos = result[1];
-	let continuationToken = result[0];
+	const videos = data[1];
+	let continuationToken = data[0];
 
 	while (continuationToken) {
 		const { data } = await axios.post<InitialData>('https://www.youtube.com/youtubei/v1/browse', {
-			'context': {
-				'client': {
-					'clientName': 'WEB',
-					'clientVersion': '2.20221130.04.00',
+			context: {
+				client: {
+					clientName: 'WEB',
+					clientVersion: '2.20221130.04.00',
 				},
 			},
-			'continuation': '4qmFsgJfEiRWTFBMSV9lRlc4TkFGellBWFo1RHJVNkU2bVFfWGZoYUxCVVgaEkNBTjZCMUJVT2tOTE9FTSUzRJoCIlBMSV9lRlc4TkFGellBWFo1RHJVNkU2bVFfWGZoYUxCVVg%3D',
+			continuation: continuationToken,
 		}, {
 			params: {
 				key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
@@ -681,7 +716,7 @@ export async function handleYouTubePlaylist(id: string): Promise<Option<SearchRe
 	}
 
 	return {
-		title: data.metadata?.playlistMetadataRenderer?.title,
+		title: metadata?.playlistMetadataRenderer?.title,
 		videos,
 	};
 }
