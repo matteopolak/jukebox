@@ -62,7 +62,6 @@ export const enum Effect {
 	Nightcore,
 	Nightcore2,
 	Nightcore3,
-	Nightcore4,
 	Normalizer,
 	Phaser,
 	Reverse,

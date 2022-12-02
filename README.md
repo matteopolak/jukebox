@@ -7,13 +7,44 @@
 
 [Jukebox](https://github.com/matteopolak/jukebox) is a Discord bot that plays music in voice channels from Soundcloud, Spotify, and YouTube.
 
-## Disclaimer ⚠️
+### Disclaimer ⚠️
 
 To abide by Discord and YouTube ToS, playing copyrighted content from YouTube is strictly forbidden and I am not responsible for any consequences taken against you.
 
-## Usage
+## Features
+
+* 16 audio effects
+* Supports 3 major music providers
+  * **Spotify** albums, playlists, and singles
+  * **YouTube** playlists and singles
+  * **SoundCloud** albums, playlists, and singles
+* Dedicated channel to request and control music
+* Support for playing restricted YouTube content
+
+## Installation and usage
+
+With yarn:
 
 ```bash
+# install dependencies
 yarn install
-yarn run start
+yarn run build
+
+# start the bot
+node build/index.js
 ```
+
+With npm:
+
+```bash
+# install dependencies
+npm install
+npm run build
+
+# start the bot
+node build/index.js
+```
+
+## Screenshots
+
+Coming soon...
