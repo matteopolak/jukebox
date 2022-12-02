@@ -60,15 +60,52 @@ interface Playlist {
 export class Spotify {
 	private _accessToken: Option<Token>;
 	private _accessTokenPromise: Option<Promise<string>>;
+	private _clientToken: Option<string>;
+	private _clientTokenPromise: Option<Promise<string>>;
 
+	private async _getClientToken(): Promise<string> {
+		const response = await axios.post('https://clienttoken.spotify.com/v1/clienttoken', {
+			client_data: {
+				client_version: '1.2.1.53.g789bae87',
+				client_id: 'd8a5ed958d274c2e8ee717e6a4b0971d',
+				js_sdk_data: {
+					device_brand: 'unknown',
+					device_model: 'desktop',
+					os: 'Windows',
+					os_version: 'NT 10.0',
+				},
+			},
+		}, {
+			headers: {
+				accept: 'application/json',
+			},
+		});
+
+		this._clientToken = response.data.granted_token.token as string;
+		this._clientTokenPromise = undefined;
+
+		return this._clientToken;
+	}
+
+	private async getClientToken(): Promise<string> {
+		if (this._clientToken) return this._clientToken;
+		if (this._clientTokenPromise) return this._clientTokenPromise;
+
+		return this._clientTokenPromise = this._getClientToken();
+	}
+	
 	private async _getAccessToken() {
-		const response = await axios.get<TokenRefreshResponse>('https://open.spotify.com/get_access_token');
+		const response = await axios.get<TokenRefreshResponse>('https://open.spotify.com/get_access_token', {
+			headers: {
+				// 'client-token': await this.getClientToken(),
+			},
+		});
 
-		this._accessTokenPromise = undefined;
 		this._accessToken = {
 			token: response.data.accessToken,
 			expires: response.data.accessTokenExpirationTimestampMs,
 		};
+		this._accessTokenPromise = undefined;
 
 		return this._accessToken.token;
 	}
@@ -84,7 +121,10 @@ export class Spotify {
 		// if the token is still valid for the next `n` milliseconds, return it
 		if (this._accessToken && this._accessToken.expires > Date.now() + n) return this._accessToken.token;
 
-		return this._accessTokenPromise = this._getAccessToken();
+		this._accessTokenPromise = this._getAccessToken();
+		const response = await this._accessTokenPromise;
+
+		return response;
 	}
 
 	public static trackToSongData(track: Track): SongData {
@@ -103,7 +143,9 @@ export class Spotify {
 	public async getTrack(id: string): Promise<Option<Track>> {
 		const response = await axios.get<Track>(`https://api.spotify.com/v1/tracks/${id}`, {
 			headers: {
-				Authorization: `Bearer ${await this.getAccessToken()}`,
+				authorization: `Bearer ${await this.getAccessToken()}`,
+				'client-token': await this.getClientToken(),
+				'spotify-app-version': '1.2.1.53.g789bae87',
 			},
 			params: {
 				market: 'AX',
@@ -118,7 +160,9 @@ export class Spotify {
 	public async getAlbum(id: string): Promise<Option<Playlist>> {
 		const response = await axios.get<AlbumMetadata>(`https://api.spotify.com/v1/albums/${id}`, {
 			headers: {
-				Authorization: `Bearer ${await this.getAccessToken()}`,
+				authorization: `Bearer ${await this.getAccessToken()}`,
+				'client-token': await this.getClientToken(),
+				'spotify-app-version': '1.2.1.53.g789bae87',
 			},
 			params: {
 				limit: MAX_BATCH_SIZE_ALBUM,
@@ -135,7 +179,9 @@ export class Spotify {
 		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
 			const response = await axios.get<Container<Track>>(`https://api.spotify.com/v1/albums/${id}/tracks`, {
 				headers: {
-					Authorization: `Bearer ${await this.getAccessToken()}`,
+					authorization: `Bearer ${await this.getAccessToken()}`,
+					'client-token': await this.getClientToken(),
+					'spotify-app-version': '1.2.1.53.g789bae87',
 				},
 				params: {
 					offset: index * MAX_BATCH_SIZE_ALBUM + MAX_BATCH_SIZE_ALBUM,
@@ -158,7 +204,9 @@ export class Spotify {
 	public async getPlaylist(id: string): Promise<Option<Playlist>> {
 		const response = await axios.get<PlaylistMetadata>(`https://api.spotify.com/v1/playlists/${id}`, {
 			headers: {
-				Authorization: `Bearer ${await this.getAccessToken()}`,
+				authorization: `Bearer ${await this.getAccessToken()}`,
+				// 'client-token': await this.getClientToken(),
+				// 'spotify-app-version': '1.2.1.53.g789bae87'
 			},
 			params: {
 				limit: MAX_BATCH_SIZE_PLAYLIST,
@@ -166,6 +214,8 @@ export class Spotify {
 				fields: 'name,owner(display_name),public,tracks(total,offset,limit,items(track(album(images),name,duration_ms,id,artists(name))))',
 			},
 		});
+
+		console.log(response.data);
 
 		if (response.status !== 200) return undefined;
 
@@ -175,7 +225,9 @@ export class Spotify {
 		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
 			const response = await axios.get<Container<PaginatedTrack>>(`https://api.spotify.com/v1/playlists/${id}/tracks`, {
 				headers: {
-					Authorization: `Bearer ${await this.getAccessToken()}`,
+					authorization: `Bearer ${await this.getAccessToken()}`,
+					'client-token': await this.getClientToken(),
+					'spotify-app-version': '1.2.1.53.g789bae87',
 				},
 				params: {
 					offset: index * MAX_BATCH_SIZE_PLAYLIST + MAX_BATCH_SIZE_PLAYLIST,
