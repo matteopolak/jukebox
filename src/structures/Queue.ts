@@ -32,7 +32,7 @@ export class Queue {
 
 		this._queueLength = 0;
 		this._queueLengthWithRelated = 0;
-		this._index = this.connection.manager.index;
+		this._index = this.connection.manager.index - 1;
 
 		this.channel = getChannel(
 			QUEUE_CLIENT,
