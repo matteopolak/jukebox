@@ -169,14 +169,14 @@ export const DEFAULT_COMPONENTS = [
 						value: Effect.Loud.toString(),
 					},
 					{
-						label: 'Nightcore',
-						emoji: '🌙',
-						value: Effect.Nightcore.toString(),
+						label: 'Nightcore-',
+						emoji: '🌓',
+						value: Effect.NightcoreMinus.toString(),
 					},
 					{
-						label: 'Nightcore-',
-						emoji: '🌛',
-						value: Effect.NightcoreMinus.toString(),
+						label: 'Nightcore',
+						emoji: '🌑',
+						value: Effect.Nightcore.toString(),
 					},
 					{
 						label: 'Nightcore+',

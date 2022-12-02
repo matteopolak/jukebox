@@ -120,16 +120,16 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 							default: settings.effect === Effect.Loud,
 						},
 						{
-							label: 'Nightcore',
-							emoji: '🌙',
-							value: Effect.Nightcore.toString(),
-							default: settings.effect === Effect.Nightcore,
-						},
-						{
 							label: 'Nightcore-',
-							emoji: '🌛',
+							emoji: '🌓',
 							value: Effect.NightcoreMinus.toString(),
 							default: settings.effect === Effect.NightcoreMinus,
+						},
+						{
+							label: 'Nightcore',
+							emoji: '🌑',
+							value: Effect.Nightcore.toString(),
+							default: settings.effect === Effect.Nightcore,
 						},
 						{
 							label: 'Nightcore+',
