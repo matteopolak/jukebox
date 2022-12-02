@@ -32,6 +32,7 @@ import { Database } from '@/util/database';
 import {
 	EFFECTS,
 	CUSTOM_ID_TO_INDEX_LIST,
+	EFFECT_TO_SPEED,
 } from '@/constants';
 import {
 	ConnectionSettings,
@@ -310,7 +311,7 @@ export default class Connection extends EventEmitter {
 
 			this.updateManagerData({ 'settings.effect': effect });
 			this.updateEmbedMessage(interaction);
-			this.applyEffectChanges();
+			this.applyEffectChanges(old);
 		} else if (interaction) {
 			interaction.deferUpdate({ fetchReply: false });
 		}
@@ -376,13 +377,13 @@ export default class Connection extends EventEmitter {
 		}
 	}
 
-	public applyEffectChanges() {
+	public applyEffectChanges(old: Effect) {
 		if (!this.currentResource) return;
 
 		if (this.settings.seek) {
-			this.settings.seek += this.currentResource.playbackDuration / 1000;
+			this.settings.seek += this.currentResource.playbackDuration * EFFECT_TO_SPEED[old] / 1000;
 		} else {
-			this.settings.seek = this.currentResource.playbackDuration / 1000;
+			this.settings.seek = this.currentResource.playbackDuration * EFFECT_TO_SPEED[old] / 1000;
 		}
 
 		this.restartCurrentSong();

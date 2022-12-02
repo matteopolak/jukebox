@@ -23,7 +23,7 @@ export const EFFECTS: Record<Effect, string[]> = {
 		'acontrast,acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
 	],
 	[Effect.Nightcore]: ['-af', 'asetrate=44100*1.25,aresample=44100,atempo=1.25'],
-	[Effect.NightcorePlus]: ['-af', 'asetrate=44100*1.5,aresample=44100,atempo=1.5'],
+	[Effect.NightcorePlus]: ['-af', 'asetrate=44100*1.35,aresample=44100,atempo=1.35'],
 	[Effect.Normalizer]: ['-af', 'dynaudnorm=f=150:g=15'],
 	[Effect.Phaser]: ['-af', 'aphaser=in_gain=0.4'],
 	[Effect.Reverse]: ['-filter_complex', 'areverse'],
@@ -31,6 +31,24 @@ export const EFFECTS: Record<Effect, string[]> = {
 	[Effect.Underwater]: ['-af', 'lowpass=f=450,volume=2.0'],
 	[Effect.Vaporwave]: ['-af', 'aresample=async=1,atempo=0.8'],
 	[Effect.Vibrato]: ['-af', 'vibrato=f=6.5'],
+};
+
+export const EFFECT_TO_SPEED: Record<Effect, number> = {
+	[Effect.Daycore]: 0.75,
+	[Effect.Nightcore]: 1.25,
+	[Effect.NightcorePlus]: 1.35,
+	[Effect.Vaporwave]: 0.8,
+	[Effect.None]: 1,
+	[Effect.Bass]: 1,
+	[Effect.Denoise]: 1,
+	[Effect.EightDimensional]: 1,
+	[Effect.Loud]: 1,
+	[Effect.Normalizer]: 1,
+	[Effect.Phaser]: 1,
+	[Effect.Reverse]: 1,
+	[Effect.Tremolo]: 1,
+	[Effect.Underwater]: 1,
+	[Effect.Vibrato]: 1,
 };
 
 export const CUSTOM_ID_TO_INDEX_LIST = {
