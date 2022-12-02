@@ -283,7 +283,7 @@ export class Queue {
 
 	public async insertMany(songs: SongData[], options?: InsertSongOptions) {
 		if (songs.length === 0) return;
-		if (songs.length === 1) return this.insertOne(songs[0]);
+		if (songs.length === 1) return this.insertOne(songs[0], options);
 
 		const now = Date.now();
 
