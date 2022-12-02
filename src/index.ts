@@ -2,6 +2,8 @@ import {
 	ApplicationCommandOptionType,
 	ApplicationCommandType,
 	ButtonInteraction,
+	ButtonStyle,
+	ComponentType,
 	escapeMarkdown,
 	GuildMember,
 } from 'discord.js';
@@ -14,7 +16,7 @@ import {
 	getTrackFromSongData,
 	QueryType,
 } from '@/api/musixmatch';
-import { loginPromise, MAIN_CLIENT as client } from '@/util/worker';
+import { loginPromise, LYRICS_CLIENT, MAIN_CLIENT as client, QUEUE_CLIENT } from '@/util/worker';
 
 import axios from 'axios';
 import { Database } from '@/util/database';
@@ -62,6 +64,11 @@ client.once('ready', async () => {
 							required: false,
 						},
 					],
+				},
+				{
+					name: 'invite',
+					description: 'Sends an invite link for the bot',
+					type: ApplicationCommandType.ChatInput,
 				},
 			]
 		)
@@ -175,6 +182,10 @@ client.on('interactionCreate', async interaction => {
 					)}**\n\n${lyrics}`
 				);
 			}
+			case 'invite':
+				return void interaction.reply({
+					content: `<https://discord.com/api/oauth2/authorize?client_id=${client.user!.id}&permissions=3419136&scope=bot%20applications.commands`,
+				});
 		}
 	} else if (interaction.isStringSelectMenu()) {
 		const voiceChannelId = (interaction.member! as GuildMember).voice.channelId;
@@ -204,4 +215,35 @@ client.on('messageCreate', async message => {
 	setTimeout(() => message.delete().catch(() => {}), 1000);
 
 	return connection.addSongByQuery(message.content);
+});
+
+client.on('guildCreate', async guild => {
+	// send a message in the general channel that the other two bots
+	// need to be added to the server
+	if (guild.systemChannel) {
+		guild.systemChannel.send(
+			{
+				content: `<@${guild.ownerId}> To use this bot, you need to add **${LYRICS_CLIENT.user!.username}** and **${QUEUE_CLIENT.user!.username}** to your server.`,
+				components: [
+					{
+						type: ComponentType.ActionRow,
+						components: [
+							{
+								type: ComponentType.Button,
+								label: 'Add Lyrics Bot',
+								style: ButtonStyle.Link,
+								url: 'https://discord.com/api/oauth2/authorize?client_id=1010946569866055820&permissions=326417776640&scope=bot%20applications.commands',
+							},
+							{
+								type: ComponentType.Button,
+								label: 'Add Queue Bot',
+								style: ButtonStyle.Link,
+								url: 'https://discord.com/api/oauth2/authorize?client_id=1010945002647597177&permissions=265216&scope=bot%20applications.commands',
+							},
+						],
+					},
+				],
+			}
+		);
+	}
 });
