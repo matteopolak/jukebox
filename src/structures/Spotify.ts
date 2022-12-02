@@ -84,12 +84,7 @@ export class Spotify {
 		// if the token is still valid for the next `n` milliseconds, return it
 		if (this._accessToken && this._accessToken.expires > Date.now() + n) return this._accessToken.token;
 
-		this._accessTokenPromise = this._getAccessToken();
-		const response = await this._accessTokenPromise;
-
-		this._accessTokenPromise = undefined;
-
-		return response;
+		return this._accessTokenPromise = this._getAccessToken();
 	}
 
 	public static trackToSongData(track: Track): SongData {
