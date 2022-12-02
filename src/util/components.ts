@@ -138,6 +138,12 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 							default: settings.effect === Effect.Nightcore3,
 						},
 						{
+							label: 'Nightcore²',
+							emoji: '🌃',
+							value: Effect.Nightcore4.toString(),
+							default: settings.effect === Effect.Nightcore4,
+						},
+						{
 							label: 'Normalizer',
 							emoji: '🔊',
 							value: Effect.Normalizer.toString(),
