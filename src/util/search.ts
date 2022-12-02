@@ -1,20 +1,13 @@
 import { URL } from 'node:url';
 
-import {
-	ID_REGEX as YOUTUBE_ID_REGEX,
-	handleYouTubePlaylist,
-	handleYouTubeVideo,
-	handleYouTubeQuery,
-} from '@/providers/youtube';
-import {
-	handleSoundCloudAlbum,
-	handleSoundCloudVideo,
-} from '@/providers/soundcloud';
+import { YouTubeProvider } from '@/providers/youtube';
+import { SoundCloudProvider } from '@/providers/soundcloud';
 import { Result, SearchResult, Song, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
-import { handleSpotifyAlbum, handleSpotifyVideo } from '@/providers/spotify';
-import { search as searchGutenberg } from '@/providers/gutenberg';
+import { GutenbergProvider } from '@/providers/gutenberg';
 import { ALLOWED_PROTOCOLS } from '@/constants';
+import { SpotifyProvider } from '@/providers/spotify';
+import { SearchType } from '@/structures/Provider';
 
 export function getCachedSong(id: string) {
 	return Database.cache.findOne({ id });
@@ -79,12 +72,18 @@ export function songToData(song: Song): SongData {
 	};
 }
 
+const youtube = new YouTubeProvider(process.env.COOKIE);
+const spotify = new SpotifyProvider();
+const soundcloud = new SoundCloudProvider();
+const gutenberg = new GutenbergProvider();
+
 export async function createQuery(
 	query: string
 ): Promise<Result<SearchResult, string>> {
 	const parsed = parseUrlWrapper(query);
 
 	if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return { ok: false, error: `Invalid protocol: **${parsed.protocol}**` };
+	if (query.startsWith('!pl ')) return youtube.search(query.slice(4), { type: SearchType.Playlist });
 
 	switch (parsed.hostname) {
 		// Handle direct YouTube video queries
@@ -97,14 +96,14 @@ export async function createQuery(
 		case 'media.youtube.com':
 			// https://(www|media).youtube.com/playlist?list={id}
 			if (parsed.pathname === '/playlist' && parsed.searchParams.has('list') && parsed.searchParams.get('list').length === 34)
-				return handleYouTubePlaylist(parsed.searchParams.get('list')!);
+				return youtube.getPlaylist(parsed.searchParams.get('list')!);
 			// Enforce using the `/watch` endpoint of YouTube
 			if (parsed.pathname !== '/watch') break;
 		case 'youtu.be': {
 			const id = parsed.searchParams.get('v') ?? parsed.pathname.slice(1);
-			if (!YOUTUBE_ID_REGEX.test(id)) break;
+			if (!YouTubeProvider.ID_REGEX.test(id)) break;
 
-			return handleYouTubeVideo(id);
+			return youtube.getTrack(id);
 		}
 
 		// Handle SoundCloud queries
@@ -113,23 +112,23 @@ export async function createQuery(
 			const [, user, song, album] = parsed.pathname.split('/');
 
 			if (!user || !song) break;
-			if (song === 'sets' && album) return handleSoundCloudAlbum(parsed.href);
+			if (song === 'sets' && album) return soundcloud.getAlbum(parsed.href);
 
-			return handleSoundCloudVideo(parsed.href);
+			return soundcloud.getTrack(parsed.href);
 		}
 		case 'open.spotify.com': {
 			const [, type, id] = parsed.pathname.split('/');
 
 			if (!id) break;
-			if (type === 'track') return handleSpotifyVideo(id);
-			if (type === 'album' || type === 'playlist')
-				return handleSpotifyAlbum(id, type);
+			if (type === 'track') return spotify.getTrack(id);
+			if (type === 'album') return spotify.getAlbum(id);
+			if (type === 'playlist') return spotify.getPlaylist(id);
 
 			break;
 		}
 		case '!book':
-			return searchGutenberg(parsed.pathname);
+			return gutenberg.search(parsed.pathname);
 	}
 
-	return handleYouTubeQuery(query);
+	return youtube.search(query, { type: SearchType.Video });
 }

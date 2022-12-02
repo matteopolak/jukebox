@@ -42,7 +42,7 @@ import {
 	Option,
 	RawData,
 	SongData,
-	SongProvider,
+	ProviderOrigin,
 	CommandOrigin,
 } from '@/typings/common';
 import { joinVoiceChannelAndListen } from '@/util/voice';
@@ -539,7 +539,7 @@ export default class Connection extends EventEmitter {
 			return this.updateOrCreateLyricsMessage('No song is currently playing.');
 
 		if (
-			song.type === SongProvider.Gutenberg ||
+			song.type === ProviderOrigin.Gutenberg ||
 			(song.musixmatchId === undefined && song.geniusId === undefined)
 		)
 			return this.updateOrCreateLyricsMessage('Track not found.');
@@ -630,8 +630,8 @@ export default class Connection extends EventEmitter {
 		song: SongData
 	): Promise<Option<Readable | Opus.Encoder | FFmpeg>> {
 		switch (song.type) {
-			case SongProvider.YouTube:
-			case SongProvider.Spotify: {
+			case ProviderOrigin.YouTube:
+			case ProviderOrigin.Spotify: {
 				if (song.url === '') {
 					const result = await handleYouTubeQuery(`${song.artist} - ${song.title}`, true);
 					if (!result.ok) return;
@@ -677,9 +677,9 @@ export default class Connection extends EventEmitter {
 				});
 			}
 				
-			case SongProvider.SoundCloud:
+			case ProviderOrigin.SoundCloud:
 				return scdl.download(song.url) as Promise<Readable>;
-			case SongProvider.Gutenberg:
+			case ProviderOrigin.Gutenberg:
 				return textToAudioStream(await resolveText(song.url));
 		}
 	}
@@ -708,8 +708,8 @@ export default class Connection extends EventEmitter {
 		const resource = createAudioResource(stream, {
 			inlineVolume: true,
 			inputType:
-				song.type === SongProvider.SoundCloud ||
-				song.type === SongProvider.Gutenberg
+				song.type === ProviderOrigin.SoundCloud ||
+				song.type === ProviderOrigin.Gutenberg
 					? StreamType.Arbitrary
 					: StreamType.Opus,
 			metadata: song,
@@ -725,7 +725,7 @@ export default class Connection extends EventEmitter {
 			const [effectRow, effectIndex] = CUSTOM_ID_TO_INDEX_LIST.effect;
 			const effects = this._components[effectRow].components[effectIndex];
 
-			effects.disabled = song.type === SongProvider.SoundCloud;
+			effects.disabled = song.type === ProviderOrigin.SoundCloud;
 
 			// Different song
 			this.updateEmbedMessage();

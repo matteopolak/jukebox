@@ -24,7 +24,7 @@ export interface ConnectionSettings {
 	lyrics: boolean;
 }
 
-export const enum SongProvider {
+export const enum ProviderOrigin {
 	YouTube,
 	Spotify,
 	SoundCloud,
@@ -40,7 +40,7 @@ export interface SongData {
 	duration: number;
 	thumbnail: string;
 	live: boolean;
-	type: SongProvider;
+	type: ProviderOrigin;
 	format?: Option<videoFormat>;
 	related?: string[];
 	musixmatchId?: Option<number>;

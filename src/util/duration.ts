@@ -1,8 +1,14 @@
-export function parseDurationString(duration: string): number {
-	const d = duration.split(':');
-	const ms = parseInt(d[0]) * 60_000 + parseInt(d[1]) * 1_000;
+const INDEX_TO_DURATION: Record<number, number> = {
+	0: 1_000,
+	1: 60_000,
+	2: 3_600_000,
+	3: 86_400_000,
+};
 
-	return ms;
+export function parseDurationString(duration: string): number {
+	return duration
+		.split(':')
+		.reduceRight((a, b, i) => a + INDEX_TO_DURATION[i] * parseInt(b), 0);
 }
 
 export function formatSeconds(seconds: number) {

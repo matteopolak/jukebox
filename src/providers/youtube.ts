@@ -1,13 +1,65 @@
-import { Option, Result, SearchResult, SongData, SongProvider } from '@/typings/common';
-import axios from 'axios';
-import ytdl, { videoInfo } from 'ytdl-core';
-
+import axios, { AxiosInstance } from 'axios';
+import { Option, Result, SearchResult, SongData, ProviderOrigin } from '@/typings/common';
+import { parseDurationString } from '@/util/duration';
+import ytdl, { videoInfo as VideoInfo } from 'ytdl-core';
 import { Database } from '@/util/database';
-import { randomInteger } from '@/util/random';
-import { getCachedSong } from '@/util/search';
-import { escapeMarkdown } from 'discord.js';
+import { SearchOptions, SearchType, Provider } from '@/structures/Provider';
 
-const INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});</;
+export type SearchItem<T extends SearchType> = T extends SearchType.Playlist ? PlaylistItem : T extends SearchType.Video ? VideoItem : never;
+
+export interface PlaylistItem {
+	playlistRenderer: {
+		playlistId: string;
+		title: {
+			simpleText: string;
+		};
+		videoCount: string;
+	}
+}
+
+export interface VideoItem {
+	videoRenderer: {
+		videoId: string;
+		// video title
+		title: Run<Text>;
+		// video author
+		ownerText: Run<Text>;
+		// video duration as `00:00:00` or `00:00`
+		lengthText: SimpleText;
+		// video views as `24,000 views`
+		viewCountText: SimpleText;
+	}
+}
+
+export interface SimpleText {
+	simpleText: string;
+}
+
+export interface Text {
+	text: string;
+}
+
+export interface Run<T> {
+	runs: T[];
+}
+
+export interface SearchResponse<T extends SearchType> {
+	contents: {
+		twoColumnSearchResultsRenderer: {
+			primaryContents: {
+				sectionListRenderer: {
+					contents: [
+						{
+							itemSectionRenderer: {
+								contents: SearchItem<T>[];
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+}
 
 export interface InitialData {
 	contents: Contents;
@@ -15,265 +67,40 @@ export interface InitialData {
 	onResponseReceivedActions: OnResponseReceivedAction[];
 }
 
+interface ContentContainer<T> {
+	contents: T[];
+}
+
+interface RunContainer<T> {
+	runs: T[]
+}
+
 interface OnResponseReceivedAction {
-	appendContinuationItemsAction: AppendContinuationItemsAction;
-}
-
-interface AppendContinuationItemsAction {
-	continuationItems: PlaylistVideoListRendererContent[];
-}
-
-interface Metadata {
-	playlistMetadataRenderer: PlaylistMetadataRenderer;
-}
-
-interface PlaylistMetadataRenderer {
-	title: string;
-	description: string;
-}
-
-interface VoiceSearchDialogRenderer {
-	placeholderHeader: DescriptionTapText;
-	promptHeader: DescriptionTapText;
-	exampleQuery1: DescriptionTapText;
-	exampleQuery2: DescriptionTapText;
-	promptMicrophoneLabel: DescriptionTapText;
-	loadingHeader: DescriptionTapText;
-	connectionErrorHeader: DescriptionTapText;
-	connectionErrorMicrophoneLabel: DescriptionTapText;
-	permissionsHeader: DescriptionTapText;
-	permissionsSubtext: DescriptionTapText;
-	disabledHeader: DescriptionTapText;
-	disabledSubtext: DescriptionTapText;
-	microphoneButtonAriaLabel: DescriptionTapText;
-	exitButton: ShareButtonClass;
-	trackingParams: string;
-	microphoneOffPromptHeader: DescriptionTapText;
-}
-
-interface FluffyPopup {
-	voiceSearchDialogRenderer: VoiceSearchDialogRenderer;
-}
-
-interface PurpleOpenPopupAction {
-	popup: FluffyPopup;
-	popupType: string;
-}
-
-interface PurpleAction {
-	clickTrackingParams: string;
-	openPopupAction: PurpleOpenPopupAction;
-}
-
-interface PurpleSignalServiceEndpoint {
-	signal: Signal;
-	actions: PurpleAction[];
-}
-
-interface ButtonRendererServiceEndpoint {
-	clickTrackingParams: string;
-	commandMetadata: ContinuationEndpointCommandMetadata;
-	shareEntityServiceEndpoint?: ShareEntityServiceEndpoint;
-	signalServiceEndpoint?: PurpleSignalServiceEndpoint;
-}
-
-interface ShareButtonButtonRenderer {
-	style: string;
-	size: string;
-	isDisabled: boolean;
-	icon: Icon;
-	trackingParams: string;
-	accessibilityData?: ToggledAccessibilityDataClass;
-	serviceEndpoint?: ButtonRendererServiceEndpoint;
-	tooltip?: string;
-	navigationEndpoint?: PurpleNavigationEndpoint;
-	accessibility?: AccessibilityAccessibility;
-}
-
-interface ShareButtonClass {
-	buttonRenderer: ShareButtonButtonRenderer;
-}
-
-interface DescriptionTapText {
-	runs: DescriptionTapTextRun[];
-}
-
-interface DescriptionTapTextRun {
-	text: string;
-}
-
-enum Signal {
-	ClientSignal = 'CLIENT_SIGNAL',
-}
-
-interface ContinuationEndpointCommandMetadata {
-	webCommandMetadata: FluffyWebCommandMetadata;
-}
-
-interface FluffyWebCommandMetadata {
-	sendPost: boolean;
-	apiUrl?: APIURL;
-}
-
-enum APIURL {
-	YoutubeiV1AccountAccountMenu = '/youtubei/v1/account/account_menu',
-	YoutubeiV1Browse = '/youtubei/v1/browse',
-	YoutubeiV1BrowseEditPlaylist = '/youtubei/v1/browse/edit_playlist',
-	YoutubeiV1PlaylistCreate = '/youtubei/v1/playlist/create',
-	YoutubeiV1ShareGetSharePanel = '/youtubei/v1/share/get_share_panel',
-}
-
-interface ShareEntityServiceEndpoint {
-	serializedShareEntity: string;
-	commands: CommandElement[];
-}
-
-interface CommandElement {
-	clickTrackingParams: string;
-	openPopupAction: CommandOpenPopupAction;
-}
-
-interface CommandOpenPopupAction {
-	popup: PurplePopup;
-	popupType: string;
-	beReused: boolean;
-}
-
-interface PurplePopup {
-	unifiedSharePanelRenderer: UnifiedSharePanelRenderer;
-}
-
-interface UnifiedSharePanelRenderer {
-	trackingParams: string;
-	showLoadingSpinner: boolean;
-}
-
-interface AccessibilityAccessibility {
-	label: string;
-}
-
-interface ToggledAccessibilityDataClass {
-	accessibilityData: AccessibilityAccessibility;
-}
-
-interface Icon {
-	iconType: string;
-}
-
-interface PurpleNavigationEndpoint {
-	clickTrackingParams: string;
-	commandMetadata: OwnerEndpointCommandMetadata;
-	watchEndpoint: PurpleWatchEndpoint;
-}
-
-interface OwnerEndpointCommandMetadata {
-	webCommandMetadata: PurpleWebCommandMetadata;
-}
-
-interface PurpleWebCommandMetadata {
-	url?: string;
-	webPageType?: WebPageType;
-	rootVe?: number;
-	apiUrl?: APIURL;
-	ignoreNavigation?: boolean;
-}
-
-enum WebPageType {
-	WebPageTypeBrowse = 'WEB_PAGE_TYPE_BROWSE',
-	WebPageTypeChannel = 'WEB_PAGE_TYPE_CHANNEL',
-	WebPageTypePlaylist = 'WEB_PAGE_TYPE_PLAYLIST',
-	WebPageTypeSearch = 'WEB_PAGE_TYPE_SEARCH',
-	WebPageTypeUnknown = 'WEB_PAGE_TYPE_UNKNOWN',
-	WebPageTypeWatch = 'WEB_PAGE_TYPE_WATCH',
-}
-
-interface PurpleWatchEndpoint {
-	videoId: string;
-	playlistId: TID;
-	params: string;
-	loggingContext: LoggingContext;
-	watchEndpointSupportedOnesieConfig: WatchEndpointSupportedOnesieConfig;
-}
-
-interface LoggingContext {
-	vssLoggingContext: VssLoggingContext;
-}
-
-interface VssLoggingContext {
-	serializedContextData: SerializedContextData;
-}
-
-enum SerializedContextData {
-	GiJQTGdEUDVVS0XXYUNBX2NKZULKQmNWTGJMRmlkNDLBTVFo = 'GiJQTGdEUDVVS0xXYUNBX2NKZUlKQmNWTGJMRmlkNDlBTVFo',
-}
-
-enum TID {
-	PLgDP5UKLWaCACJeIJBcVLBLFid49AMQh = 'PLgDP5UKLWaCA_cJeIJBcVLbLFid49AMQh',
-}
-
-interface WatchEndpointSupportedOnesieConfig {
-	html5PlaybackOnesieConfig: Html5PlaybackOnesieConfig;
-}
-
-interface Html5PlaybackOnesieConfig {
-	commonConfig: CommonConfig;
-}
-
-interface CommonConfig {
-	url: string;
-}
-
-interface DescriptionText {
-	simpleText: string;
+	appendContinuationItemsAction: {
+		continuationItems: PlaylistVideoListRendererContent[];
+	}
 }
 
 interface Contents {
-	twoColumnBrowseResultsRenderer: TwoColumnBrowseResultsRenderer;
-}
-
-interface TwoColumnBrowseResultsRenderer {
-	tabs: Tab[];
+	twoColumnBrowseResultsRenderer: {
+		tabs: Tab[];
+	};
 }
 
 interface Tab {
-	tabRenderer: TabRenderer;
-}
-
-interface TabRenderer {
-	selected: boolean;
-	content: TabRendererContent;
-	trackingParams: string;
-}
-
-interface TabRendererContent {
-	sectionListRenderer: SectionListRenderer;
-}
-
-interface SectionListRenderer {
-	contents: SectionListRendererContent[];
-	trackingParams: string;
+	tabRenderer: {
+		content: {
+			sectionListRenderer: ContentContainer<SectionListRendererContent>
+		};
+	};
 }
 
 interface SectionListRendererContent {
-	itemSectionRenderer: ItemSectionRenderer;
-}
-
-interface ItemSectionRenderer {
-	contents: ItemSectionRendererContent[];
-	trackingParams: string;
+	itemSectionRenderer: ContentContainer<ItemSectionRendererContent>;
 }
 
 interface ItemSectionRendererContent {
-	playlistVideoListRenderer: PlaylistVideoListRenderer;
-}
-
-interface PlaylistVideoListRenderer {
-	contents: PlaylistVideoListRendererContent[];
-	playlistId: TID;
-	isEditable: boolean;
-	canReorder: boolean;
-	trackingParams: string;
-	targetId: TID;
+	playlistVideoListRenderer: ContentContainer<PlaylistVideoListRendererContent>;
 }
 
 interface PlaylistVideoListRendererContent {
@@ -282,200 +109,222 @@ interface PlaylistVideoListRendererContent {
 }
 
 interface ContinuationItemRenderer {
-	trigger: string;
-	continuationEndpoint: ContinuationEndpoint;
-}
-
-interface ContinuationEndpoint {
-	clickTrackingParams: string;
-	commandMetadata: ContinuationEndpointCommandMetadata;
-	continuationCommand: ContinuationCommand;
-}
-
-interface ContinuationCommand {
-	token: string;
-	request: string;
+	continuationEndpoint: {
+		continuationCommand: {
+			token: string;
+		};
+	};
 }
 
 interface PlaylistVideoRenderer {
 	videoId: string;
-	thumbnail: PlaylistVideoRendererThumbnail;
-	title: PlaylistVideoRendererTitle;
-	index: DescriptionText;
-	shortBylineText: OwnerText;
-	lengthText: Text;
-	navigationEndpoint: PlaylistVideoRendererNavigationEndpoint;
+	title: RunContainer<Text>;
+	shortBylineText: RunContainer<Text>;
 	lengthSeconds: string;
-	trackingParams: string;
 	isPlayable: boolean;
-	menu: PlaylistVideoRendererMenu;
-	thumbnailOverlays: PlaylistVideoRendererThumbnailOverlay[];
-	videoInfo: DescriptionTapText;
 }
 
-interface Text {
-	accessibility: ToggledAccessibilityDataClass;
-	simpleText: string;
+export interface Metadata {
+	playlistMetadataRenderer: {
+		title: string;
+		description: string;
+	};
 }
 
-interface PlaylistVideoRendererMenu {
-	menuRenderer: PurpleMenuRenderer;
-}
+export class YouTubeProvider extends Provider {
+	private cookie?: string;
+	private http: AxiosInstance;
 
-interface PurpleMenuRenderer {
-	items: PurpleItem[];
-	trackingParams: string;
-	accessibility: ToggledAccessibilityDataClass;
-}
+	private static INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});</;
+	private static YOUTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+	public static ID_REGEX = /^[\w-]{11}$/;
 
-interface PurpleItem {
-	menuServiceItemRenderer: MenuServiceItemRenderer;
-}
+	constructor(cookie?: string) {
+		super();
 
-interface MenuServiceItemRenderer {
-	text: DescriptionTapText;
-	icon: Icon;
-	serviceEndpoint: MenuServiceItemRendererServiceEndpoint;
-	trackingParams: string;
-}
+		this.cookie = cookie;
+		this.http = axios.create({
+			baseURL: 'https://www.youtube.com',
+			params: {
+				key: YouTubeProvider.YOUTUBE_API_KEY,
+			},
+			headers: this.cookie ? {
+				cookie: this.cookie,
+			} : undefined,
+		});
+	}
 
-interface MenuServiceItemRendererServiceEndpoint {
-	clickTrackingParams: string;
-	commandMetadata: CommandCommandMetadata;
-	signalServiceEndpoint: FluffySignalServiceEndpoint;
-}
+	public static itemToSong(item: VideoItem): SongData {
+		return {
+			id: item.videoRenderer.videoId,
+			title: item.videoRenderer.title.runs[0].text,
+			url: `https://www.youtube.com/watch?v=${item.videoRenderer.videoId}`,
+			thumbnail: `https://i.ytimg.com/vi/${item.videoRenderer.videoId}/hqdefault.jpg`,
+			artist: item.videoRenderer.ownerText.runs[0].text,
+			live: false,
+			duration: parseDurationString(item.videoRenderer.lengthText.simpleText),
+			type: ProviderOrigin.YouTube,
+		};
+	}
 
-interface CommandCommandMetadata {
-	webCommandMetadata: TentacledWebCommandMetadata;
-}
-
-interface TentacledWebCommandMetadata {
-	sendPost: boolean;
-}
-
-interface FluffySignalServiceEndpoint {
-	signal: Signal;
-	actions: FluffyAction[];
-}
-
-interface FluffyAction {
-	clickTrackingParams: string;
-	addToPlaylistCommand: AddToPlaylistCommand;
-}
-
-interface AddToPlaylistCommand {
-	openMiniplayer: boolean;
-	videoId: string;
-	listType: ListType;
-	onCreateListCommand: OnCreateListCommand;
-	videoIds: string[];
-}
-
-enum ListType {
-	PlaylistEditListTypeQueue = 'PLAYLIST_EDIT_LIST_TYPE_QUEUE',
-}
-
-interface OnCreateListCommand {
-	clickTrackingParams: string;
-	commandMetadata: ContinuationEndpointCommandMetadata;
-	createPlaylistServiceEndpoint: CreatePlaylistServiceEndpoint;
-}
-
-interface CreatePlaylistServiceEndpoint {
-	videoIds: string[];
-	params: CreatePlaylistServiceEndpointParams;
-}
-
-enum CreatePlaylistServiceEndpointParams {
-	CAQ3D = 'CAQ%3D',
-}
-
-interface PlaylistVideoRendererNavigationEndpoint {
-	clickTrackingParams: string;
-	commandMetadata: OwnerEndpointCommandMetadata;
-	watchEndpoint: FluffyWatchEndpoint;
-}
-
-interface FluffyWatchEndpoint {
-	videoId: string;
-	playlistId: TID;
-	index?: number;
-	params?: WatchEndpointParams;
-	loggingContext: LoggingContext;
-	watchEndpointSupportedOnesieConfig: WatchEndpointSupportedOnesieConfig;
-}
-
-enum WatchEndpointParams {
-	CI9JIDW3D = 'CI9JIDw%3D',
-	Oai3D = 'OAI%3D',
-}
-
-interface OwnerText {
-	runs: OwnerTextRun[];
-}
-
-interface OwnerTextRun {
-	text: string;
-	navigationEndpoint: Endpoint;
-}
-
-interface Endpoint {
-	clickTrackingParams: string;
-	commandMetadata: OwnerEndpointCommandMetadata;
-	browseEndpoint: OwnerEndpointBrowseEndpoint;
-}
-
-interface OwnerEndpointBrowseEndpoint {
-	browseId: string;
-	canonicalBaseUrl: string;
-}
-
-interface PlaylistVideoRendererThumbnail {
-	thumbnails: ThumbnailElement[];
-}
-
-interface ThumbnailElement {
-	url: string;
-	width: number;
-	height: number;
-}
-
-interface PlaylistVideoRendererThumbnailOverlay {
-	thumbnailOverlayTimeStatusRenderer?: ThumbnailOverlayTimeStatusRenderer;
-	thumbnailOverlayNowPlayingRenderer?: Renderer;
-}
-
-interface Renderer {
-	text: DescriptionTapText;
-}
-
-interface ThumbnailOverlayTimeStatusRenderer {
-	text: Text;
-	style: StyleEnum;
-}
-
-enum StyleEnum {
-	Default = 'DEFAULT',
-}
-
-interface PlaylistVideoRendererTitle {
-	runs: DescriptionTapTextRun[];
-	accessibility: ToggledAccessibilityDataClass;
-}
-
-function parseInitialData(dataString: string): [[undefined, SongData[]], undefined] | [[Option<string>, SongData[]], Metadata] {
-	try {
-		const data: InitialData = JSON.parse(dataString);
+	public async getTrack(id: string): Promise<Result<SearchResult, string>> {
+		try {
+			const data = YouTubeProvider.videoInfoToSongData(
+				await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
+					requestOptions: {
+						headers: {
+							Cookie: process.env.COOKIE,
+						},
+					},
+				})
+			);
 		
-		const playlist = data.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
-		if (!playlist) return [[undefined, []], undefined];
+			await Database.addSongToCache(data);
 		
+			return {
+				ok: true,
+				value: {
+					videos: [data],
+					title: undefined,
+				},
+			};
+		} catch {
+			return {
+				ok: false,
+				error: `A YouTube video by the id of \`${id}\` does not exist.`,
+			};
+		}
+	}
+
+	public async search(query: string, filter: SearchOptions): Promise<Result<SearchResult, string>> {
+		if (filter.type === SearchType.Video) {
+			return this._searchVideo(query, filter);
+		}
+
+		return this._searchPlaylist(query, filter);
+	}
+
+	public async getPlaylist(id: string): Promise<Result<SearchResult, string>> {
+		const { data: html } = await axios.get<string>(`https://www.youtube.com/playlist?list=${id}`);
+	
+		const dataString = html.match(YouTubeProvider.INITIAL_DATA_REGEX)?.[1];
+		if (!dataString) return { ok: false, error: `Could not find playlist data from the YouTube playlist \`${id}\`.` };
+	
+		const [data, metadata] = YouTubeProvider.parseInitialData(dataString);
+		if (!data) return { ok: false, error: `Could not parse playlist data from the YouTube playlist \`${id}\`.` };
+	
+		const videos = data[1];
+		let continuationToken = data[0];
+	
+		while (continuationToken) {
+			const { data } = await axios.post<InitialData>('https://www.youtube.com/youtubei/v1/browse', {
+				context: {
+					client: {
+						clientName: 'WEB',
+						clientVersion: '2.20221130.04.00',
+					},
+				},
+				continuation: continuationToken,
+			}, {
+				params: {
+					key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+				},
+				headers: process.env.COOKIE ? {
+					Cookie: process.env.COOKIE,
+				} : undefined,
+			});
+	
+			const [token, parsedVideos] = YouTubeProvider.parsePlaylist(data);
+	
+			continuationToken = token;
+			videos.push(...parsedVideos);
+		}
+	
+		return {
+			ok: true,
+			value: {
+				title: metadata?.playlistMetadataRenderer?.title,
+				videos,
+			},
+		};
+	}
+
+	private async _searchVideo(query: string, _filter: SearchOptions): Promise<Result<SearchResult, string>> {
+		const videos = await this._search(query, SearchType.Video);
+		if (!videos?.length) return { ok: false, error: `No videos found with the query \`${query}\`.` };
+
+		return {
+			ok: true,
+			value: {
+				title: undefined,
+				videos: [YouTubeProvider.itemToSong(videos[0])],
+			},
+		};
+	}
+
+	private async _searchPlaylist(query: string, _filter: SearchOptions): Promise<Result<SearchResult, string>> {
+		const playlists = await this._search(query, SearchType.Playlist);
+		if (!playlists) return { ok: false, error: `No playlists found with the query \`${query}\`.` };
+
+		return this.getPlaylist(playlists[0].playlistRenderer.playlistId);
+	}
+
+	private async _search<T extends SearchType>(query: string, type: T): Promise<Option<SearchItem<T>[]>> {
+		const response = await this.http.post<SearchResponse<T>>('/youtubei/v1/search', {
+			client: {
+				clientName: 'WEB',
+				clientVersion: '2.20221130.04.00',
+			},
+			params: type,
+			query,
+		});
+
+		const items = response.data.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents;
+
+		return items?.length ? items : undefined;
+	}
+
+	private static parseInitialData(initialData: string): [[undefined, SongData[]], undefined] | [[Option<string>, SongData[]], Metadata] {
+		try {
+			const data: InitialData = JSON.parse(initialData);
+			
+			const playlist = data.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
+			if (!playlist) return [[undefined, []], undefined];
+
+			const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+			if (continuationToken) playlist.pop();
+			
+			const videos = playlist.map(video => {
+				const info = video.playlistVideoRenderer!;
+			
+				return {
+					id: info.videoId,
+					title: info.title.runs[0].text,
+					url: `https://www.youtube.com/watch?v=${info.videoId}`,
+					thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
+					duration: parseInt(info.lengthSeconds) * 1_000,
+					artist: info.shortBylineText.runs[0].text,
+					live: false,
+					type: ProviderOrigin.YouTube,
+				} satisfies SongData as SongData;
+			});
+			
+			return [[continuationToken, videos], data.metadata];
+		} catch (e) {
+			return [[undefined, []], undefined];
+		}
+	}
+
+	private static parsePlaylist(data: InitialData): [Option<string>, SongData[]] {
+		const playlist = data?.onResponseReceivedActions?.[0]?.appendContinuationItemsAction?.continuationItems;
+		if (!playlist) return [undefined, []];
+	
 		const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
 		if (continuationToken) playlist.pop();
-		
+	
 		const videos = playlist.map(video => {
 			const info = video.playlistVideoRenderer!;
-		
+	
 			return {
 				id: info.videoId,
 				title: info.title.runs[0].text,
@@ -484,255 +333,80 @@ function parseInitialData(dataString: string): [[undefined, SongData[]], undefin
 				duration: parseInt(info.lengthSeconds) * 1_000,
 				artist: info.shortBylineText.runs[0].text,
 				live: false,
-				type: SongProvider.YouTube,
+				type: ProviderOrigin.YouTube,
 			} satisfies SongData as SongData;
 		});
-		
-		return [[continuationToken, videos], data.metadata];
-		// .replace(/['"]/g, m => m === '"' ? '\'' : '"'));
-	} catch (e) {
-		return [[undefined, []], undefined];
+	
+		return [continuationToken, videos];
 	}
-}
 
-function parsePlaylist(data: InitialData): [Option<string>, SongData[]] {
-	const playlist = data?.onResponseReceivedActions?.[0]?.appendContinuationItemsAction?.continuationItems;
-	if (!playlist) return [undefined, []];
-
-	const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
-	if (continuationToken) playlist.pop();
-
-	const videos = playlist.map(video => {
-		const info = video.playlistVideoRenderer!;
-
-		return {
+	private static videoInfoToSongData(data: VideoInfo): SongData {
+		const info = data.videoDetails;
+		const related = data.related_videos.filter(v => v?.id);
+	
+		const song = {
 			id: info.videoId,
-			title: info.title.runs[0].text,
-			url: `https://www.youtube.com/watch?v=${info.videoId}`,
+			url: info.video_url,
+			title: info.title,
+			artist: // prettier-ignore
+			// @ts-expect-error - ytdl doesn't have a type for author but it exists
+			(data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				(c: any) => c.videoSecondaryInfoRenderer
+			)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
+				?.text ?? data.videoDetails.author.name).replace(
+				' - Topic',
+				''
+			),
 			thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
 			duration: parseInt(info.lengthSeconds) * 1_000,
-			artist: info.shortBylineText.runs[0].text,
-			live: false,
-			type: SongProvider.YouTube,
-		} satisfies SongData as SongData;
-	});
-
-	return [continuationToken, videos];
-}
-
-export const ID_REGEX = /^[\w-]{11}$/;
-
-function videoInfoToSongData(data: videoInfo): SongData {
-	const info = data.videoDetails;
-	const related = data.related_videos.filter(v => v?.id);
-
-	const song = {
-		id: info.videoId,
-		url: info.video_url,
-		title: info.title,
-		artist: // prettier-ignore
-		// @ts-expect-error - ytdl doesn't have a type for author but it exists
-		(data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(c: any) => c.videoSecondaryInfoRenderer
-		)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
-			?.text ?? data.videoDetails.author.name).replace(
-			' - Topic',
-			''
-		),
-		thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
-		duration: parseInt(info.lengthSeconds) * 1_000,
-		live: info.isLiveContent,
-		type: SongProvider.YouTube,
-		format: info.isLiveContent
-			? ytdl.chooseFormat(data.formats, {})
-			: undefined,
-		// only provide an array of related videos if there is at least one
-		related: related.length > 0 ? related.map(v => v.id!) : undefined,
-	};
-
-	const metadata =
-		// @ts-expect-error - ytdl does not have a typescript definition for this
-		data.response?.engagementPanels
-			.find(
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(i: any) =>
-					i.engagementPanelSectionListRenderer?.header
-						?.engagementPanelTitleHeaderRenderer?.title?.simpleText ===
-					'Description'
-			)
-			?.engagementPanelSectionListRenderer.content.structuredDescriptionContentRenderer.items.find(
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(i: any) =>
-					i?.videoDescriptionMusicSectionRenderer?.sectionTitle?.simpleText ===
-					'Music'
-			);
-
-	if (metadata) {
-		for (const item of metadata.videoDescriptionMusicSectionRenderer
-			?.carouselLockups[0]?.carouselLockupRenderer?.infoRows ?? []) {
-			const content =
-				item.infoRowRenderer?.defaultMetadata?.simpleText ??
-				item.infoRowRenderer?.expandedMetadata?.simpleText ??
-				item.infoRowRenderer?.defaultMetadata?.runs[0]?.text;
-
-			switch (item.infoRowRenderer.title.simpleText) {
-				case 'SONG':
-					song.title = content;
-
-					break;
-				case 'ARTIST':
-					song.artist = content;
-
-					break;
+			live: info.isLiveContent,
+			type: ProviderOrigin.YouTube,
+			format: info.isLiveContent
+				? ytdl.chooseFormat(data.formats, {})
+				: undefined,
+			// only provide an array of related videos if there is at least one
+			related: related.length > 0 ? related.map(v => v.id!) : undefined,
+		};
+	
+		const metadata =
+			// @ts-expect-error - ytdl does not have a typescript definition for this
+			data.response?.engagementPanels
+				.find(
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(i: any) =>
+						i.engagementPanelSectionListRenderer?.header
+							?.engagementPanelTitleHeaderRenderer?.title?.simpleText ===
+						'Description'
+				)
+				?.engagementPanelSectionListRenderer.content.structuredDescriptionContentRenderer.items.find(
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(i: any) =>
+						i?.videoDescriptionMusicSectionRenderer?.sectionTitle?.simpleText ===
+						'Music'
+				);
+	
+		if (metadata) {
+			for (const item of metadata.videoDescriptionMusicSectionRenderer
+				?.carouselLockups[0]?.carouselLockupRenderer?.infoRows ?? []) {
+				const content =
+					item.infoRowRenderer?.defaultMetadata?.simpleText ??
+					item.infoRowRenderer?.expandedMetadata?.simpleText ??
+					item.infoRowRenderer?.defaultMetadata?.runs[0]?.text;
+	
+				switch (item.infoRowRenderer.title.simpleText) {
+					case 'SONG':
+						song.title = content;
+	
+						break;
+					case 'ARTIST':
+						song.artist = content;
+	
+						break;
+				}
 			}
 		}
-	}
-
-	return song;
-}
-
-async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
-	if (query === '!random') {
-		const count = await Database.cache.countDocuments();
-		if (count === 0) return;
-
-		const [song] = await Database.cache
-			.find({})
-			.sort({ _id: 1 })
-			.skip(randomInteger(count))
-			.limit(1)
-			.toArray();
-
-		return song?.id ?? null;
-	}
-
-	const result = await axios.get<string>('https://www.youtube.com/results', {
-		params: {
-			search_query: query,
-			sp: 'EgIQAQ==',
-		},
-	});
-
-	if (result.status !== 200 && result.status !== 304) return;
-
-	return result.data.match(/\/watch\?v=([\w-]{11})/)?.[1];
-}
-
-export async function handleYouTubeQuery(
-	query: string,
-	single = false
-): Promise<Result<SearchResult, string>> {
-	if (single) {
-		const videoId = await getVideoIdFromQuery(query);
-		if (videoId === undefined) return { ok: false, error: `No results found for the query **${escapeMarkdown(query)}**` };
-
-		return handleYouTubeVideo(videoId);
-	}
-
-	const names = query.split('\n');
-	if (names.length === 1) return handleYouTubeQuery(query, true);
-
-	return {
-		ok: true,
-		value: {
-			videos: (
-				await Promise.all(
-					names.map(async title => {
-						const result = await handleYouTubeQuery(title, true);
-						if (!result.ok) return null;
 	
-						return result.value.videos[0];
-					})
-				)
-			).filter(s => s !== null) as SongData[],
-			title: 'Inline Playlist',
-		},
-	};
-}
-
-export async function handleYouTubeVideo(id: string): Promise<Result<SearchResult, string>> {
-	const cached = await getCachedSong(id);
-	if (cached) {
-		// Remove the unique id
-		// @ts-expect-error - _id is not a property of SongData
-		cached._id = undefined;
-
-		return {
-			ok: true,
-			value: {
-				videos: [cached],
-				title: undefined,
-			},
-		};
+		return song;
 	}
-
-	try {
-		const data = videoInfoToSongData(
-			await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
-				requestOptions: {
-					headers: {
-						Cookie: process.env.COOKIE,
-					},
-				},
-			})
-		);
-	
-		await Database.addSongToCache(data);
-	
-		return {
-			ok: true,
-			value: {
-				videos: [data],
-				title: undefined,
-			},
-		};
-	} catch {
-		return {
-			ok: false,
-			error: `A YouTube video by the id of \`${id}\` does not exist.`,
-		};
-	}
-}
-
-export async function handleYouTubePlaylist(id: string): Promise<Result<SearchResult, string>> {
-	const { data: html } = await axios.get<string>(`https://www.youtube.com/playlist?list=${id}`);
-
-	const dataString = html.match(INITIAL_DATA_REGEX)?.[1];
-	if (!dataString) return { ok: false, error: `Could not find playlist data from the YouTube playlist \`${id}\`.` };
-
-	const [data, metadata] = parseInitialData(dataString);
-	if (!data) return { ok: false, error: `Could not parse playlist data from the YouTube playlist \`${id}\`.` };
-
-	const videos = data[1];
-	let continuationToken = data[0];
-
-	while (continuationToken) {
-		const { data } = await axios.post<InitialData>('https://www.youtube.com/youtubei/v1/browse', {
-			context: {
-				client: {
-					clientName: 'WEB',
-					clientVersion: '2.20221130.04.00',
-				},
-			},
-			continuation: continuationToken,
-		}, {
-			params: {
-				key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
-			},
-		});
-
-		const [token, parsedVideos] = parsePlaylist(data);
-
-		continuationToken = token;
-		videos.push(...parsedVideos);
-	}
-
-	return {
-		ok: true,
-		value: {
-			title: metadata?.playlistMetadataRenderer?.title,
-			videos,
-		},
-	};
 }
