@@ -204,9 +204,10 @@ export class Queue {
 					const set = new Set(recent);
 					const related = random.related.filter(id => !set.has(id));
 
-					const data = (await handleYouTubeVideo(
-						randomElement(related.length > 0 ? related : random.related)
-					))!.videos[0];
+					const raw = await handleYouTubeVideo(randomElement(related.length > 0 ? related : random.related));
+					if (raw.ok === false) return;
+
+					const data = raw.value.videos[0];
 
 					if (data) {
 						await this.insertOne(data);

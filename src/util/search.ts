@@ -10,7 +10,7 @@ import {
 	handleSoundCloudAlbum,
 	handleSoundCloudVideo,
 } from '@/providers/soundcloud';
-import { Option, SearchResult, Song, SongData } from '@/typings/common';
+import { Result, SearchResult, Song, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
 import { handleSpotifyAlbum, handleSpotifyVideo } from '@/providers/spotify';
 import { search as searchGutenberg } from '@/providers/gutenberg';
@@ -81,10 +81,10 @@ export function songToData(song: Song): SongData {
 
 export async function createQuery(
 	query: string
-): Promise<Option<SearchResult>> {
+): Promise<Result<SearchResult, string>> {
 	const parsed = parseUrlWrapper(query);
 
-	if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return;
+	if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return { ok: false, error: `Invalid protocol: **${parsed.protocol}**` };
 
 	switch (parsed.hostname) {
 		// Handle direct YouTube video queries
@@ -110,9 +110,6 @@ export async function createQuery(
 		// Handle SoundCloud queries
 		case 'www.soundcloud.com':
 		case 'soundcloud.com': {
-			// if (parsed.pathname === '/charts/top')
-			//	return handleSoundCloudChart(parsed.href);
-
 			const [, user, song, album] = parsed.pathname.split('/');
 
 			if (!user || !song) break;

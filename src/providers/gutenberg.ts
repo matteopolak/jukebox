@@ -1,8 +1,8 @@
-import { Option, SearchResult, SongProvider } from '@/typings/common';
+import { Result, SearchResult, SongProvider } from '@/typings/common';
 import { GutenbergBook, GutenbergResponse } from '@/typings/gutenberg';
 import axios from 'axios';
 
-export async function search(query: string): Promise<Option<SearchResult>> {
+export async function search(query: string): Promise<Result<SearchResult, string>> {
 	const { data } = await axios.get<GutenbergResponse<GutenbergBook>>(
 		'http://gutendex.com/books/',
 		{
@@ -15,23 +15,26 @@ export async function search(query: string): Promise<Option<SearchResult>> {
 	);
 
 	const book = data.results[0];
-	if (!book) return;
+	if (!book) return { ok: false, error: `No Gutenberg book matched the query \`${query}\`.` };
 
 	return {
-		title: undefined,
-		videos: [
-			{
-				url:
+		ok: true,
+		value: {
+			title: undefined,
+			videos: [
+				{
+					url:
 					book.formats['text/plain'] ??
 					book.formats['text/plain; charset=utf-8'],
-				id: book.id.toString(),
-				title: book.title,
-				artist: book.authors?.[0].name ?? '?',
-				duration: 0,
-				type: SongProvider.Gutenberg,
-				thumbnail: book.formats['image/jpeg'].replace('small', 'medium'),
-				live: false,
-			},
-		],
+					id: book.id.toString(),
+					title: book.title,
+					artist: book.authors?.[0].name ?? '?',
+					duration: 0,
+					type: SongProvider.Gutenberg,
+					thumbnail: book.formats['image/jpeg'].replace('small', 'medium'),
+					live: false,
+				},
+			],
+		},
 	};
 }

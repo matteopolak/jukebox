@@ -1,8 +1,8 @@
 import {
 	SearchResult,
 	SongProvider,
-	Option,
 	SongData,
+	Result,
 } from '@/typings/common';
 import scdl from 'soundcloud-downloader/dist/index';
 import { TrackInfo } from 'soundcloud-downloader/dist/index';
@@ -28,7 +28,7 @@ function videoInfoToSongData(data: TrackInfo): SongData {
 
 export async function handleSoundCloudVideo(
 	url: string
-): Promise<Option<SearchResult>> {
+): Promise<Result<SearchResult, string>> {
 	const cached = await getCachedSong(url);
 	if (cached) {
 		// Remove the unique id
@@ -36,34 +36,53 @@ export async function handleSoundCloudVideo(
 		cached._id = undefined;
 
 		return {
-			videos: [cached],
-			title: undefined,
+			ok: true,
+			value: {
+				videos: [cached],
+				title: undefined,
+			},
 		};
 	}
 
-	const raw = await scdl.getInfo(url);
+	try {
+		const raw = await scdl.getInfo(url);
 
-	// Only return song if it can be streamed
-	if (!raw.streamable) return;
+		// Only return song if it can be streamed
+		if (!raw.streamable) return { ok: false, error: `The SoundCloud song \`${url}\` is not streamable.` };
 
-	const data = videoInfoToSongData(raw);
-	await Database.addSongToCache(data);
+		const data = videoInfoToSongData(raw);
+		await Database.addSongToCache(data);
 
-	return {
-		videos: [data],
-		title: undefined,
-	};
+		return {
+			ok: true,
+			value: {
+				videos: [data],
+				title: undefined,
+			},
+		};
+	} catch {
+		return { ok: false, error: `The SoundCloud song \`${url}\` could not be found.` };
+	}
 }
 
 // Handles albums and playlists
 export async function handleSoundCloudAlbum(
 	url: string
-): Promise<Option<SearchResult>> {
-	const set = await scdl.getSetInfo(url);
+): Promise<Result<SearchResult, string>> {
+	try {
+		const set = await scdl.getSetInfo(url);
 
-	return {
-		// The property `title` exists
-		title: set.title,
-		videos: set.tracks.map(videoInfoToSongData),
-	};
+		return {
+			ok: true,
+			value: {
+				title: set.title,
+				videos: set.tracks.map(videoInfoToSongData),
+			},
+		};
+	} catch {
+		return {
+			ok: false,
+			error: `Unknown SoundCloud album or playlist \`${url}\`.`,
+		};
+	}
 }

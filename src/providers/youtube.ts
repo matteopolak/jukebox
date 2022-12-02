@@ -1,10 +1,11 @@
-import { Option, SearchResult, SongData, SongProvider } from '@/typings/common';
+import { Option, Result, SearchResult, SongData, SongProvider } from '@/typings/common';
 import axios from 'axios';
 import ytdl, { videoInfo } from 'ytdl-core';
 
 import { Database } from '@/util/database';
 import { randomInteger } from '@/util/random';
 import { getCachedSong } from '@/util/search';
+import { escapeMarkdown } from 'discord.js';
 
 const INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});</;
 
@@ -592,7 +593,7 @@ function videoInfoToSongData(data: videoInfo): SongData {
 }
 
 async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
-	if (query === '?random') {
+	if (query === '!random') {
 		const count = await Database.cache.countDocuments();
 		if (count === 0) return;
 
@@ -621,10 +622,10 @@ async function getVideoIdFromQuery(query: string): Promise<Option<string>> {
 export async function handleYouTubeQuery(
 	query: string,
 	single = false
-): Promise<Option<SearchResult>> {
+): Promise<Result<SearchResult, string>> {
 	if (single) {
 		const videoId = await getVideoIdFromQuery(query);
-		if (videoId === undefined) return;
+		if (videoId === undefined) return { ok: false, error: `No results found for the query **${escapeMarkdown(query)}**` };
 
 		return handleYouTubeVideo(videoId);
 	}
@@ -633,21 +634,24 @@ export async function handleYouTubeQuery(
 	if (names.length === 1) return handleYouTubeQuery(query, true);
 
 	return {
-		videos: (
-			await Promise.all(
-				names.map(async title => {
-					const result = await handleYouTubeQuery(title, true);
-					if (result === undefined) return null;
-
-					return result.videos[0];
-				})
-			)
-		).filter(s => s !== null) as SongData[],
-		title: undefined,
+		ok: true,
+		value: {
+			videos: (
+				await Promise.all(
+					names.map(async title => {
+						const result = await handleYouTubeQuery(title, true);
+						if (!result.ok) return null;
+	
+						return result.value.videos[0];
+					})
+				)
+			).filter(s => s !== null) as SongData[],
+			title: 'Inline Playlist',
+		},
 	};
 }
 
-export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
+export async function handleYouTubeVideo(id: string): Promise<Result<SearchResult, string>> {
 	const cached = await getCachedSong(id);
 	if (cached) {
 		// Remove the unique id
@@ -655,41 +659,50 @@ export async function handleYouTubeVideo(id: string): Promise<SearchResult> {
 		cached._id = undefined;
 
 		return {
-			videos: [cached],
-			title: undefined,
+			ok: true,
+			value: {
+				videos: [cached],
+				title: undefined,
+			},
 		};
 	}
 
-	const data = videoInfoToSongData(
-		await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
-			requestOptions: {
-				headers: {
-					Cookie: process.env.COOKIE,
+	try {
+		const data = videoInfoToSongData(
+			await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
+				requestOptions: {
+					headers: {
+						Cookie: process.env.COOKIE,
+					},
 				},
+			})
+		);
+	
+		await Database.addSongToCache(data);
+	
+		return {
+			ok: true,
+			value: {
+				videos: [data],
+				title: undefined,
 			},
-		})
-	);
-
-	await Database.addSongToCache(data);
-
-	return {
-		videos: [data],
-		title: undefined,
-	};
+		};
+	} catch {
+		return {
+			ok: false,
+			error: `A YouTube video by the id of \`${id}\` does not exist.`,
+		};
+	}
 }
 
-import fs from 'fs/promises';
-
-export async function handleYouTubePlaylist(id: string): Promise<Option<SearchResult>> {
+export async function handleYouTubePlaylist(id: string): Promise<Result<SearchResult, string>> {
 	const { data: html } = await axios.get<string>(`https://www.youtube.com/playlist?list=${id}`);
 
-	fs.writeFile('./asd.html', html);
-
 	const dataString = html.match(INITIAL_DATA_REGEX)?.[1];
-	if (!dataString) return;
+	if (!dataString) return { ok: false, error: `Could not find playlist data from the YouTube playlist \`${id}\`.` };
 
 	const [data, metadata] = parseInitialData(dataString);
-	if (!data) return;
+	if (!data) return { ok: false, error: `Could not parse playlist data from the YouTube playlist \`${id}\`.` };
 
 	const videos = data[1];
 	let continuationToken = data[0];
@@ -716,7 +729,10 @@ export async function handleYouTubePlaylist(id: string): Promise<Option<SearchRe
 	}
 
 	return {
-		title: metadata?.playlistMetadataRenderer?.title,
-		videos,
+		ok: true,
+		value: {
+			title: metadata?.playlistMetadataRenderer?.title,
+			videos,
+		},
 	};
 }

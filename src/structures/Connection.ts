@@ -633,14 +633,14 @@ export default class Connection extends EventEmitter {
 			case SongProvider.Spotify: {
 				if (song.url === '') {
 					const result = await handleYouTubeQuery(`${song.artist} - ${song.title}`, true);
-					if (result === undefined) return;
+					if (!result.ok) return;
 
-					song.url = result.videos[0].url;
-					song.format = result.videos[0].format;
-					song.related = result.videos[0].related;
+					song.url = result.value.videos[0].url;
+					song.format = result.value.videos[0].format;
+					song.related = result.value.videos[0].related;
 
 					if (song.thumbnail === '') {
-						song.thumbnail = result.videos[0].thumbnail;
+						song.thumbnail = result.value.videos[0].thumbnail;
 					}
 
 					await Database.addSongToCache(song);
@@ -815,31 +815,27 @@ export default class Connection extends EventEmitter {
 
 		const result = await createQuery(query);
 
-		if (result) {
-			this.addSongs(result.videos, true, skipToSong);
+		if (result.ok) {
+			this.addSongs(result.value.videos, true, skipToSong);
 
 			await sendMessageAndDelete(
 				this.textChannel,
-				result.videos.length === 1
+				result.value.title === undefined
 					? `${
 						origin === CommandOrigin.Voice ? '🎙️ ' : ''
-					}Added **${escapeMarkdown(result.videos[0].title)}** to the queue.`
+					}Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
 					: `${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Added **${
-						result.videos.length
+						result.value.videos.length
 					}** songs from ${
-						result.title !== undefined
-							? `the playlist **${escapeMarkdown(result.title)}**`
+						result.value.title !== undefined
+							? `the playlist **${escapeMarkdown(result.value.title)}**`
 							: 'an anonymous playlist'
 					} to the queue.`
 			);
 		} else {
 			await sendMessageAndDelete(
 				this.textChannel,
-				`${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Could not find a ${
-					query.startsWith('!book ')
-						? `book from the query \`${query.slice(6)}\``
-						: `song from the query \`${query}\``
-				}.`
+				`${origin === CommandOrigin.Voice ? '🎙️ ' : ''}❌ ${result.error}`
 			);
 		}
 	}
