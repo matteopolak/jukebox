@@ -215,8 +215,6 @@ export class Spotify {
 			},
 		});
 
-		console.log(response.data);
-
 		if (response.status !== 200) return undefined;
 
 		const total = response.data.tracks.total;
