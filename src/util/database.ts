@@ -44,6 +44,7 @@ export class Database {
 				artist: data.artist,
 				thumbnail: data.thumbnail,
 				live: data.live,
+				id: data.id,
 			},
 		};
 
@@ -65,7 +66,7 @@ export class Database {
 
 		return Database.cache.updateOne(
 			{
-				id: data.id,
+				uid: data.uid,
 			},
 			payload as UpdateFilter<SongData>,
 			{
