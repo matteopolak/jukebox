@@ -340,10 +340,23 @@ export default class Connection extends EventEmitter {
 			this.threadChannel = undefined;
 			delete this.manager.threadId;
 			delete this.manager.lyricsId;
+
+			Database.manager.updateOne({
+				_id: this.manager._id,
+			}, {
+				$set: {
+					'settings.lyrics': enabled,
+				},
+				$unset: {
+					threadId: true,
+					lyricsId: true,
+				},
+			});
+		} else {
+			this.updateManagerData({ 'settings.lyrics': enabled });
 		}
 
 		this.updateEmbedMessage(interaction);
-		this.updateManagerData({ 'settings.lyrics': enabled });
 
 		if (origin === CommandOrigin.Voice) {
 			await sendMessageAndDelete(
