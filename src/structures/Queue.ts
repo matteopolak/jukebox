@@ -165,7 +165,6 @@ export class Queue {
 		const index = this._nextIndex(first);
 
 		if (index === -1) {
-			this._index = 0;
 			return this._current = undefined;
 		}
 

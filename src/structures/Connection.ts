@@ -896,13 +896,18 @@ export default class Connection extends EventEmitter {
 
 	public async play() {
 		const error = await this.playNextResource(true);
-		if (error) return;
-
-		while (this.queue.length > 0) {
-			const error = await this.playNextResource();
-
-			if (error) break;
+		if (!error) {
+			while (this.queue.length > 0) {
+				const error = await this.playNextResource();
+	
+				if (error) break;
+			}
 		}
+
+		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
+		this._components[row].components[index].label = '▶️';
+
+		this.updateEmbedMessage();
 	}
 
 	public async addSongByQuery(
