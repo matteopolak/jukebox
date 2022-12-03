@@ -371,10 +371,6 @@ export class YouTubeProvider extends Provider {
 			type: ProviderOrigin.YouTube,
 		} satisfies SongData as SongData;
 
-		if (!info.isLiveContent) {
-			song.format = ytdl.chooseFormat(data.formats, {});
-		}
-
 		if (related.length) {
 			song.related = related.map(v => v.id!);
 		}

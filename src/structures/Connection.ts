@@ -766,9 +766,8 @@ export default class Connection extends EventEmitter {
 				return createAudioStream(song.url, {
 					seek: this.settings.seek || undefined,
 					highWaterMark: 1 << 25,
-					format: song.format ?? undefined,
 					filter: song.live ? undefined : 'audioonly',
-					quality: 'highestaudio',
+					quality: song.live ? undefined : 'highestaudio',
 					opusEncoded: true,
 					encoderArgs: EFFECTS[this.settings.effect],
 					requestOptions: {
