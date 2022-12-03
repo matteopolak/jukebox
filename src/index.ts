@@ -71,7 +71,7 @@ client.once('ready', async () => {
 				},
 				{
 					name: 'invite',
-					description: 'Sends an invite link for the bot',
+					description: 'Sends an invite link for the bot.',
 					type: ApplicationCommandType.ChatInput,
 				},
 				{
@@ -347,7 +347,7 @@ client.on('interactionCreate', async interaction => {
 			}
 			case 'invite':
 				return void interaction.reply({
-					content: `<https://discord.com/api/oauth2/authorize?client_id=${client.user!.id}&permissions=3419136&scope=bot%20applications.commands`,
+					content: `<https://discord.com/api/oauth2/authorize?client_id=${client.user!.id}&permissions=3419136&scope=bot%20applications.commands>`,
 				});
 		}
 	} else if (interaction.isStringSelectMenu()) {
