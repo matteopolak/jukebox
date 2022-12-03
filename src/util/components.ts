@@ -45,8 +45,16 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 				{
 					type: ComponentType.Button,
 					customId: 'repeat',
+					label: '🔁',
+					style: settings.repeat && !settings.shuffle && !settings.repeatOne
+						? ButtonStyle.Success
+						: ButtonStyle.Secondary,
+				},
+				{
+					type: ComponentType.Button,
+					customId: 'repeat_one',
 					label: '🔂',
-					style: settings.repeat
+					style: settings.repeatOne
 						? ButtonStyle.Success
 						: ButtonStyle.Secondary,
 				},
@@ -54,7 +62,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					type: ComponentType.Button,
 					customId: 'shuffle',
 					label: '🔀',
-					style: settings.shuffle
+					style: settings.shuffle && !settings.repeatOne
 						? ButtonStyle.Success
 						: ButtonStyle.Secondary,
 				},
@@ -62,7 +70,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					type: ComponentType.Button,
 					customId: 'autoplay',
 					label: '♾️',
-					style: settings.autoplay
+					style: settings.autoplay && !settings.repeat && !settings.shuffle && !settings.repeatOne
 						? ButtonStyle.Success
 						: ButtonStyle.Secondary,
 				},

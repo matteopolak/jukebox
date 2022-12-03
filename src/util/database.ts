@@ -1,9 +1,12 @@
-import { Manager, Song, SongData } from '@/typings/common';
+import { Manager, Option, Song, SongData } from '@/typings/common';
 import { MongoClient, Db, Collection, UpdateFilter } from 'mongodb';
 
 export class Database {
 	public static client: MongoClient;
 	public static database: Db;
+	private static _queue: Option<Collection<Song>>;
+	private static _managers: Option<Collection<Manager>>;
+	private static _cache: Option<Collection<SongData>>;
 
 	public static async login() {
 		this.client = await MongoClient.connect(process.env.MONGODB_URI!);
@@ -18,15 +21,15 @@ export class Database {
 	}
 
 	public static get queue(): Collection<Song> {
-		return this.database.collection('queue');
+		return this._queue ? this._queue : (this._queue = this.database.collection('queue'));
 	}
 
-	public static get managers(): Collection<Manager> {
-		return this.database.collection('managers');
+	public static get manager(): Collection<Manager> {
+		return this._managers ? this._managers : (this._managers = this.database.collection('managers'));
 	}
 
 	public static get cache(): Collection<SongData> {
-		return this.database.collection('cache');
+		return this._cache ? this._cache : (this._cache = this.database.collection('cache'));
 	}
 
 	public static addSongToCache(data: SongData) {

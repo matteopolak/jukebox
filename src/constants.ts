@@ -53,16 +53,22 @@ export const EFFECT_TO_SPEED: Record<Effect, number> = {
 	[Effect.Vibrato]: 1,
 };
 
+// priority list:
+// 1. repeatOne
+// 2. shuffle
+// 3. repeat
+// 4. autoplay
 export const CUSTOM_ID_TO_INDEX_LIST = {
 	toggle: [0, 0],
 	previous: [0, 1],
 	next: [0, 2],
 	remove: [0, 3],
-	remove_all: [0, 4],
+	removeAll: [0, 4],
 	repeat: [1, 0],
-	shuffle: [1, 1],
-	autoplay: [1, 2],
-	lyrics: [1, 3],
+	repeatOne: [1, 1],
+	shuffle: [1, 2],
+	autoplay: [1, 3],
+	lyrics: [1, 4],
 	effect: [2, 0],
 } as const;
 
@@ -108,6 +114,12 @@ export const DEFAULT_COMPONENTS = [
 			{
 				type: ComponentType.Button,
 				customId: 'repeat',
+				label: '🔁',
+				style: ButtonStyle.Secondary,
+			},
+			{
+				type: ComponentType.Button,
+				customId: 'repeat_one',
 				label: '🔂',
 				style: ButtonStyle.Secondary,
 			},

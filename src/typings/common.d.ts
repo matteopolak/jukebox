@@ -18,6 +18,7 @@ export interface Manager {
 export interface ConnectionSettings {
 	effect: Effect;
 	repeat: boolean;
+	repeatOne: boolean;
 	autoplay: boolean;
 	seek: number;
 	shuffle: boolean;

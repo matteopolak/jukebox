@@ -49,6 +49,12 @@
 				"afterColon": true,
 				"mode": "strict"
 			}
+		],
+		"no-multi-spaces": [
+			"error",
+			{
+				"ignoreEOLComments": true
+			}
 		]
 	}
 }

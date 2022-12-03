@@ -87,6 +87,7 @@ export default class Connection extends EventEmitter {
 	public settings: ConnectionSettings = {
 		effect: Effect.None,
 		repeat: false,
+		repeatOne: false,
 		autoplay: false,
 		seek: 0,
 		shuffle: false,
@@ -134,12 +135,15 @@ export default class Connection extends EventEmitter {
 		connections.set(manager.guildId, this);
 	}
 
-	
+	private setStyle(key: Exclude<keyof typeof CUSTOM_ID_TO_INDEX_LIST, 'effect'>, enabled: boolean) {
+		const [row, index] = CUSTOM_ID_TO_INDEX_LIST[key];
+		this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+	}
 
 	public static async getOrCreate(
 		data: Interaction | Message | RawData
 	): Promise<Option<Connection>> {
-		const manager = await Database.managers.findOne({
+		const manager = await Database.manager.findOne({
 			channelId: data.channel!.id,
 		});
 		if (!manager) return;
@@ -176,8 +180,8 @@ export default class Connection extends EventEmitter {
 		this.subscription?.connection.destroy();
 	}
 
-	private updateManagerData(update: Record<string, string | number | boolean>) {
-		return Database.managers.updateMany(
+	private updateManagerData(update: UpdateFilter<Manager>) {
+		return Database.manager.updateMany(
 			{
 				_id: this.manager._id,
 			},
@@ -219,16 +223,66 @@ export default class Connection extends EventEmitter {
 		this.settings.repeat = enabled;
 
 		if (old !== enabled) {
-			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.repeat;
-			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+			this.setStyle('repeat', enabled);
+
+			if (enabled) {
+				this.setStyle('repeatOne', false);
+				this.setStyle('shuffle', false);
+				this.setStyle('autoplay', false);
+
+				this.updateManagerData({
+					'settings.repeatOne': false,
+					'settings.shuffle': false,
+					'settings.repeat': true,
+				});
+			} else if (this.settings.autoplay) {
+				this.setStyle('autoplay', true);
+				this.updateManagerData({ 'settings.repeat': false });
+			}
 
 			this.updateEmbedMessage(interaction);
-			this.updateManagerData({ 'settings.repeat': enabled });
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(
 					this.textChannel,
 					`🎙️ Repeat has been **${enabled ? 'enabled' : 'disabled'}**.`
+				);
+			}
+		} else if (interaction) {
+			interaction.deferUpdate({ fetchReply: false });
+		}
+	}
+
+	public async setRepeatOne(
+		enabled: boolean,
+		origin: CommandOrigin = CommandOrigin.Text,
+		interaction?: ButtonInteraction
+	): Promise<void> {
+		const old = this.settings.repeatOne;
+		this.settings.repeatOne = enabled;
+
+		if (old !== enabled) {
+			this.setStyle('repeatOne', enabled);
+
+			if (enabled) {
+				this.setStyle('shuffle', false);
+				this.setStyle('repeat', false);
+				this.setStyle('autoplay', false);
+			} else if (this.settings.shuffle) {
+				this.setStyle('shuffle', true);
+			} else if (this.settings.repeat) {
+				this.setStyle('repeat', true);
+			} else if (this.settings.autoplay) {
+				this.setStyle('autoplay', true);
+			}
+
+			this.updateEmbedMessage(interaction);
+			this.updateManagerData({ 'settings.repeatOne': enabled });
+
+			if (origin === CommandOrigin.Voice) {
+				await sendMessageAndDelete(
+					this.textChannel,
+					`🎙️ Repeat one has been **${enabled ? 'enabled' : 'disabled'}**.`
 				);
 			}
 		} else if (interaction) {
@@ -245,11 +299,21 @@ export default class Connection extends EventEmitter {
 		this.settings.autoplay = enabled;
 
 		if (old !== enabled) {
-			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.autoplay;
-			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+			this.setStyle('autoplay', enabled);
 
-			this.updateEmbedMessage(interaction);
-			this.updateManagerData({ 'settings.autoplay': enabled });
+			if (enabled) {
+				this.setStyle('repeatOne', false);
+				this.setStyle('shuffle', false);
+				this.setStyle('repeat', false);
+				this.updateManagerData({
+					'settings.repeatOne': false,
+					'settings.shuffle': false,
+					'settings.repeat': false,
+					'settings.autoplay': true,
+				});
+			} else {
+				this.updateManagerData({ 'settings.autoplay': false });
+			}
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(
@@ -271,8 +335,7 @@ export default class Connection extends EventEmitter {
 		this.settings.lyrics = enabled;
 
 		if (old !== enabled) {
-			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.lyrics;
-			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+			this.setStyle('lyrics', enabled);
 
 			if (!enabled && this.threadChannel) {
 				this.threadChannel.delete().catch(() => {});
@@ -326,11 +389,25 @@ export default class Connection extends EventEmitter {
 		this.settings.shuffle = enabled;
 
 		if (old !== enabled) {
-			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.shuffle;
-			this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
+			this.setStyle('shuffle', enabled);
 
-			this.updateEmbedMessage(interaction);
-			this.updateManagerData({ 'settings.shuffle': enabled });
+			if (enabled) {
+				this.setStyle('repeatOne', false);
+				this.setStyle('repeat', false);
+				this.setStyle('autoplay', false);
+				this.updateManagerData({
+					'settings.repeatOne': false,
+					'settings.shuffle': true,
+				});
+			} else {
+				if (this.settings.repeat) {
+					this.setStyle('repeat', true);
+				} else if (this.settings.autoplay) {
+					this.setStyle('autoplay', true);
+				}
+
+				this.updateManagerData({ 'settings.shuffle': false });
+			}
 
 			if (origin === CommandOrigin.Voice) {
 				await sendMessageAndDelete(

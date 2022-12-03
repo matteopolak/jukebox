@@ -24,7 +24,7 @@ export async function createAudioManager(interaction: CommandInteraction) {
 		content: '\u200b',
 	});
 
-	await Database.managers.updateOne(
+	await Database.manager.updateOne(
 		{
 			guildId: interaction.guildId!,
 			channelId: interaction.channelId,

@@ -86,7 +86,7 @@ export class Queue {
 		this._index = value % this._queueLength;
 		if (this._index < 0) this._index = this._queueLength + this._index;
 
-		Database.managers.updateOne(
+		Database.manager.updateOne(
 			{
 				_id: this.manager._id,
 			},
@@ -135,7 +135,7 @@ export class Queue {
 
 	private _nextIndex(): number {
 		// If the current song should be repeated, don't modify the index
-		if (this.settings.repeat) return this._index;
+		if (this.settings.repeatOne) return this._index;
 		if (this.settings.shuffle)
 			return this._index = randomInteger(this._queueLength);
 
@@ -144,7 +144,7 @@ export class Queue {
 
 		// If the index would go out of bounds, wrap around to 0
 		// unless autoplay is enabled
-		if (this._index >= this._queueLength && !this.settings.autoplay) {
+		if (this._index >= this._queueLength && (!this.settings.autoplay || this.settings.repeat)) {
 			this._index = 0;
 		} else if (this._index < 0) {
 			if (this.settings.autoplay) {
