@@ -164,12 +164,16 @@ async function handleButton(interaction: ButtonInteraction) {
 			connection.setShuffle(!connection.settings.shuffle, CommandOrigin.Text, interaction);
 
 			break;
-		case 'remove_all':
+		case 'removeAll':
 			connection.removeAllSongs(interaction);
 
 			break;
 		case 'repeat':
 			connection.setRepeat(!connection.settings.repeat, CommandOrigin.Text, interaction);
+
+			break;
+		case 'repeatOne':
+			connection.setRepeatOne(!connection.settings.repeatOne, CommandOrigin.Text, interaction);
 
 			break;
 		case 'autoplay':
