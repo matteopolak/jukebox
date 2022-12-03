@@ -168,7 +168,8 @@ export default class Connection extends EventEmitter {
 			await connection.setVoiceChannel(member.voice.channel);
 		}
 
-		connection.queue._index -= 1;
+		if (!connection.isEnabled('repeatOne'))
+			connection.queue._index -= 1;
 
 		return connection;
 	}
@@ -534,13 +535,20 @@ export default class Connection extends EventEmitter {
 	}
 
 	public restartCurrentSong() {
-		this.queue._index -= 1;
+		if (!this.isEnabled('repeatOne'))
+			this.queue._index -= 1;
+
 		this.endCurrentSong();
 	}
 
 	public previous() {
 		this.settings.seek = 0;
-		this.queue._index -= 2;
+
+		if (!this.isEnabled('repeatOne'))
+			this.queue._index -= 1;
+		else
+			this.queue._index -= 2;
+
 		this.endCurrentSong();
 	}
 
