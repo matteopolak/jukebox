@@ -17,7 +17,7 @@ export interface InsertSongOptions {
 export class Queue {
 	public _index = 0;
 	private _queueLength = 0;
-	private _queueLengthWithRelated = 0;
+	public _queueLengthWithRelated = 0;
 	private _current: Option<WithId<Song>>;
 
 	private connection: Connection;
@@ -168,7 +168,7 @@ export class Queue {
 			return this._current = undefined;
 		}
 
-		if (index >= this._queueLength && this.settings.autoplay) {
+		if (index >= this._queueLength && this.connection.isEnabled('autoplay')) {
 			if (this._queueLengthWithRelated > 0) {
 				const recent = this.connection.recent.toArray();
 				const [random] = await Database.queue

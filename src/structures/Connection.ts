@@ -725,7 +725,7 @@ export default class Connection extends EventEmitter {
 	}
 
 	private async createStream(
-		song: SongData
+		song: WithId<SongData>
 	): Promise<Option<Readable | Opus.Encoder | FFmpeg>> {
 		switch (song.type) {
 			case ProviderOrigin.YouTube:
@@ -762,11 +762,13 @@ export default class Connection extends EventEmitter {
 						}
 
 						await Database.addSongToCache(song);
-						await Database.queue.updateMany({
-							uid: song.uid,
+						await Database.queue.updateOne({
+							_id: song._id,
 						}, {
 							$set: set,
 						});
+
+						this.queue._queueLengthWithRelated += song.related?.length ?? 0;
 					}
 				}
 
@@ -801,7 +803,7 @@ export default class Connection extends EventEmitter {
 		if (song === undefined) return;
 
 		// Create the audio stream
-		const stream = await this.createStream(songToData(song));
+		const stream = await this.createStream(song);
 		if (!stream) {
 			await Database.queue.deleteMany({
 				guildId: this.manager.guildId,
