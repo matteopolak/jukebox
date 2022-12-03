@@ -38,6 +38,7 @@ export async function createAudioManager(interaction: CommandInteraction) {
 				settings: {
 					effect: Effect.None,
 					repeat: false,
+					repeatOne: false,
 					autoplay: false,
 					seek: 0,
 					shuffle: false,
