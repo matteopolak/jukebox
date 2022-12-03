@@ -1,8 +1,8 @@
 import { Result, SearchResult, SongData } from '@/typings/common';
 
 export const enum SearchType {
-	Video = 'EgIQAQ%253D%253D',
-	Playlist = 'EgIQAw%253D%253D'
+	Video = 'EgIQAQ%3D%3D',
+	Playlist = 'EgIQAw%3D%3D'
 }
 
 export interface SearchOptions {

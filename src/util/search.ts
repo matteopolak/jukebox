@@ -83,7 +83,6 @@ export async function createQuery(
 	const parsed = parseUrlWrapper(query);
 
 	if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return { ok: false, error: `Invalid protocol: **${parsed.protocol}**` };
-	if (query.startsWith('!pl ')) return youtube.search(query.slice(4), { type: SearchType.Playlist });
 
 	switch (parsed.hostname) {
 		// Handle direct YouTube video queries
@@ -126,8 +125,6 @@ export async function createQuery(
 
 			break;
 		}
-		case '!book':
-			return gutenberg.search(parsed.pathname);
 	}
 
 	return youtube.search(query, { type: SearchType.Video });

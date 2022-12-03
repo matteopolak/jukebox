@@ -93,7 +93,7 @@ export default class Connection extends EventEmitter {
 		lyrics: false,
 	};
 
-	protected queue: Queue;
+	public queue: Queue;
 	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable>;
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
 	private _playing = false;
@@ -811,13 +811,10 @@ export default class Connection extends EventEmitter {
 		query: string,
 		origin: CommandOrigin = CommandOrigin.Text
 	) {
-		const skipToSong = query.startsWith(';');
-		if (skipToSong) query = query.slice(1);
-
 		const result = await createQuery(query);
 
 		if (result.ok) {
-			this.addSongs(result.value.videos, true, skipToSong);
+			this.addSongs(result.value.videos, true, false);
 
 			await sendMessageAndDelete(
 				this.textChannel,
@@ -828,9 +825,7 @@ export default class Connection extends EventEmitter {
 					: `${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Added **${
 						result.value.videos.length
 					}** songs from ${
-						result.value.title !== undefined
-							? `the playlist **${escapeMarkdown(result.value.title)}**`
-							: 'an anonymous playlist'
+						`the playlist **${escapeMarkdown(result.value.title)}**`
 					} to the queue.`
 			);
 		} else {

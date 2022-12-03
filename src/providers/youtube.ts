@@ -7,6 +7,11 @@ import { SearchOptions, SearchType, Provider } from '@/structures/Provider';
 
 export type SearchItem<T extends SearchType> = T extends SearchType.Playlist ? PlaylistItem : T extends SearchType.Video ? VideoItem : never;
 
+export const SEARCH_TYPE_TO_KEY: Record<SearchType, string> = {
+	[SearchType.Video]: 'videoRenderer',
+	[SearchType.Playlist]: 'playlistRenderer',
+};
+
 export interface PlaylistItem {
 	playlistRenderer: {
 		playlistId: string;
@@ -156,7 +161,6 @@ export class YouTubeProvider extends Provider {
 	}
 
 	public static itemToSong(item: VideoItem): SongData {
-		console.trace(item);
 		return {
 			id: item.videoRenderer.videoId,
 			title: item.videoRenderer.title.runs[0].text,
@@ -175,7 +179,7 @@ export class YouTubeProvider extends Provider {
 				await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
 					requestOptions: {
 						headers: {
-							Cookie: process.env.COOKIE,
+							Cookie: this.cookie,
 						},
 					},
 				})
@@ -231,9 +235,6 @@ export class YouTubeProvider extends Provider {
 				params: {
 					key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
 				},
-				headers: process.env.COOKIE ? {
-					Cookie: process.env.COOKIE,
-				} : undefined,
 			});
 	
 			const [token, parsedVideos] = YouTubeProvider.parsePlaylist(data);
@@ -254,8 +255,6 @@ export class YouTubeProvider extends Provider {
 	private async _searchVideo(query: string, filter: SearchOptions): Promise<Result<SearchResult, string>> {
 		const videos = await this._search(query, SearchType.Video);
 		if (!videos?.length) return { ok: false, error: `No videos found with the query \`${query}\`.` };
-
-		console.log(videos);
 
 		return {
 			ok: true,
@@ -290,8 +289,9 @@ export class YouTubeProvider extends Provider {
 		const items = response.data.contents
 			?.twoColumnSearchResultsRenderer?.primaryContents
 			?.sectionListRenderer?.contents
-			?.find(c => !('adSlotRenderer' in c))
-			?.itemSectionRenderer?.contents;
+			?.flatMap((section) => section.itemSectionRenderer
+				?.contents?.filter(s => SEARCH_TYPE_TO_KEY[type] in s) ?? []
+			);
 
 		return items?.length ? items : undefined;
 	}

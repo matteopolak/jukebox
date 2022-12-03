@@ -21,6 +21,9 @@ import { loginPromise, LYRICS_CLIENT, MAIN_CLIENT as client, QUEUE_CLIENT } from
 import axios from 'axios';
 import { Database } from '@/util/database';
 import { CommandOrigin, Effect } from '@/typings/common';
+import { createQuery, gutenberg, youtube } from './util/search';
+import { sendMessageAndDelete } from './util/message';
+import { SearchType } from './structures/Provider';
 
 axios.defaults.validateStatus = () => true;
 
@@ -35,14 +38,14 @@ client.once('ready', async () => {
 			[
 				{
 					name: 'create',
-					description: 'Creates a new audio player',
+					description: 'Creates a new audio player.',
 					type: ApplicationCommandType.ChatInput,
 					options: [],
 				},
 				{
 					name: 'lyrics',
 					description:
-						'Displays the lyrics of a song (or the current song is none is provided)',
+						'Displays the lyrics of a song (or the current song is none is provided).',
 					type: ApplicationCommandType.ChatInput,
 					options: [
 						{
@@ -69,6 +72,57 @@ client.once('ready', async () => {
 					name: 'invite',
 					description: 'Sends an invite link for the bot',
 					type: ApplicationCommandType.ChatInput,
+				},
+				{
+					name: 'book',
+					description: 'Queries for a book and adds it to the queue.',
+					type: ApplicationCommandType.ChatInput,
+					options: [
+						{
+							name: 'title',
+							description: 'The title of the book.',
+							type: ApplicationCommandOptionType.String,
+							required: true,
+						},
+						{
+							name: 'play',
+							description: 'Whether to play the book immediately.',
+							type: ApplicationCommandOptionType.Boolean,
+							required: false,
+						},
+					],
+				},
+				{
+					name: 'play',
+					description: 'Immediately plays the results of the query, ending the current track.',
+					type: ApplicationCommandType.ChatInput,
+					options: [
+						{
+							name: 'query',
+							description: 'The query to search for.',
+							type: ApplicationCommandOptionType.String,
+							required: true,
+						},
+					],
+				},
+				{
+					name: 'playlist',
+					description: 'Queries for a playlist and adds it to the queue.',
+					type: ApplicationCommandType.ChatInput,
+					options: [
+						{
+							name: 'title',
+							description: 'The title of the playlist.',
+							type: ApplicationCommandOptionType.String,
+							required: true,
+						},
+						{
+							name: 'play',
+							description: 'Whether to play the playlist immediately.',
+							type: ApplicationCommandOptionType.Boolean,
+							required: false,
+						},
+					],
 				},
 			]
 		)
@@ -139,6 +193,102 @@ client.on('interactionCreate', async interaction => {
 				await interaction.deleteReply();
 
 				break;
+			case 'book': {
+				const connection = await Connection.getOrCreate(interaction);
+				if (!connection) return;
+
+				// wait 1 second before deleting to avoid the glitch where it is
+				// still present on the user's client despite it being deleted
+				setTimeout(async () => {
+					await interaction.deferReply();
+					await interaction.deleteReply();
+				}, 1000);
+
+				const title = interaction.options.getString('title', true);
+				const playNext = interaction.options.getBoolean('play', false) ?? false;
+				const result = await gutenberg.search(title);
+
+				if (result.ok) {
+					connection.addSongs(result.value.videos, true, playNext);
+		
+					await sendMessageAndDelete(
+						connection.textChannel,
+						`Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
+					);
+				} else {
+					await sendMessageAndDelete(
+						connection.textChannel,
+						`❌ ${result.error}`
+					);
+				}
+			}
+			case 'play': {
+				const connection = await Connection.getOrCreate(interaction);
+				if (!connection) return;
+
+				// wait 1 second before deleting to avoid the glitch where it is
+				// still present on the user's client despite it being deleted
+				setTimeout(async () => {
+					await interaction.deferReply();
+					await interaction.deleteReply();
+				}, 1000);
+
+				const query = interaction.options.getString('query', true);
+				const result = await createQuery(query);
+
+				if (result.ok) {
+					connection.addSongs(result.value.videos, true, true);
+		
+					await sendMessageAndDelete(
+						connection.textChannel,
+						result.value.title === undefined
+							? `Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
+							: `Added **${
+								result.value.videos.length
+							}** songs from ${
+								`the playlist **${escapeMarkdown(result.value.title)}**`
+							} to the queue.`
+					);
+				} else {
+					await sendMessageAndDelete(
+						connection.textChannel,
+						`❌ ${result.error}`
+					);
+				}
+			}
+			case 'playlist': {
+				const connection = await Connection.getOrCreate(interaction);
+				if (!connection) return;
+
+				// wait 1 second before deleting to avoid the glitch where it is
+				// still present on the user's client despite it being deleted
+				setTimeout(async () => {
+					await interaction.deferReply();
+					await interaction.deleteReply();
+				}, 1000);
+
+				const title = interaction.options.getString('title', true);
+				const playNext = interaction.options.getBoolean('play', false) ?? false;
+				const result = await youtube.search(title, { type: SearchType.Playlist });
+
+				if (result.ok) {
+					connection.addSongs(result.value.videos, true, playNext);
+		
+					await sendMessageAndDelete(
+						connection.textChannel,
+						`Added **${
+							result.value.videos.length
+						}** songs from ${
+							`the playlist **${escapeMarkdown(result.value.title!)}**`
+						} to the queue.`
+					);
+				} else {
+					await sendMessageAndDelete(
+						connection.textChannel,
+						`❌ ${result.error}`
+					);
+				}
+			}
 			case 'lyrics': {
 				const query: Partial<Record<QueryType, string>> = {
 					q_track: interaction.options.getString('title') ?? undefined,
