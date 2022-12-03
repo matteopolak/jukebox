@@ -135,12 +135,12 @@ export class Queue {
 
 	private _nextIndex(first = false): number {
 		// If the current song should be repeated, don't modify the index
-		if (this.settings.repeatOne) return this._index + (first ? 1 : 0);
+		if (this.settings.repeatOne) return this._index;
 		if (this.settings.shuffle)
 			return this._index = randomInteger(this._queueLength);
-
+		
 		// Increase the index by 1
-		++this._index;
+		if (!first) ++this._index;
 
 		// If the index would go out of bounds, wrap around to 0
 		// unless autoplay is enabled

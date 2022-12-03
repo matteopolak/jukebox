@@ -168,9 +168,6 @@ export default class Connection extends EventEmitter {
 			await connection.setVoiceChannel(member.voice.channel);
 		}
 
-		if (!connection.isEnabled('repeatOne'))
-			connection.queue._index -= 1;
-
 		return connection;
 	}
 
