@@ -4,6 +4,7 @@ import { parseDurationString } from '@/util/duration';
 import ytdl, { videoInfo as VideoInfo } from 'ytdl-core';
 import { Database } from '@/util/database';
 import { SearchOptions, SearchType, Provider } from '@/structures/Provider';
+import { getCachedSong } from '@/util/search';
 
 export type SearchItem<T extends SearchType> = T extends SearchType.Playlist ? PlaylistItem : T extends SearchType.Video ? VideoItem : never;
 
@@ -164,6 +165,7 @@ export class YouTubeProvider extends Provider {
 	public static itemToSong(item: VideoItem): SongData {
 		return {
 			id: item.videoRenderer.videoId,
+			uid: item.videoRenderer.videoId,
 			title: item.videoRenderer.title.runs[0].text,
 			url: `https://www.youtube.com/watch?v=${item.videoRenderer.videoId}`,
 			thumbnail: `https://i.ytimg.com/vi/${item.videoRenderer.videoId}/hqdefault.jpg`,
@@ -175,6 +177,21 @@ export class YouTubeProvider extends Provider {
 	}
 
 	public async getTrack(id: string): Promise<Result<SearchResult, string>> {
+		const cached = await getCachedSong(id);
+		if (cached) {
+			// Remove the unique id
+			// @ts-expect-error - _id is not a property of SongData
+			cached._id = undefined;
+
+			return {
+				ok: true,
+				value: {
+					videos: [cached],
+					title: undefined,
+				},
+			};
+		}
+
 		try {
 			const data = YouTubeProvider.videoInfoToSongData(
 				await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
@@ -306,6 +323,7 @@ export class YouTubeProvider extends Provider {
 
 				return {
 					id: info.videoId,
+					uid: info.videoId,
 					title: info.title.runs[0].text,
 					url: `https://www.youtube.com/watch?v=${info.videoId}`,
 					thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
@@ -334,6 +352,7 @@ export class YouTubeProvider extends Provider {
 	
 			return {
 				id: info.videoId,
+				uid: info.videoId,
 				title: info.title.runs[0].text,
 				url: `https://www.youtube.com/watch?v=${info.videoId}`,
 				thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
@@ -353,6 +372,7 @@ export class YouTubeProvider extends Provider {
 	
 		const song = {
 			id: info.videoId,
+			uid: info.videoId,
 			url: info.video_url,
 			title: info.title,
 			artist: // prettier-ignore

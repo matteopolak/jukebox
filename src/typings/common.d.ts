@@ -35,6 +35,7 @@ export const enum ProviderOrigin {
 export interface SongData {
 	url: string;
 	id: string;
+	uid: string;
 	title: string;
 	artist: string;
 	// duration in milliseconds

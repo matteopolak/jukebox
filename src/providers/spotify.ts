@@ -5,6 +5,7 @@ import { bufferUnordered } from '@/util/promise';
 
 import axios from 'axios';
 import { Provider } from '@/structures/Provider';
+import { getCachedSong } from '@/util/search';
 
 const MAX_BATCH_SIZE_PLAYLIST = 100;
 const MAX_BATCH_SIZE_ALBUM = 50;
@@ -136,6 +137,7 @@ export class SpotifyProvider extends Provider {
 			url: '',
 			live: false,
 			id: track.id,
+			uid: track.id,
 			type: ProviderOrigin.Spotify,
 			thumbnail: track.album?.images?.[0]?.url ?? '',
 		};
@@ -150,6 +152,7 @@ export class SpotifyProvider extends Provider {
 			url: '',
 			live: false,
 			id: track.track.id,
+			uid: track.track.id,
 			type: ProviderOrigin.Spotify,
 			thumbnail: track.track.albumOfTrack.coverArt.sources[0].url,
 			duration: track.track.duration.totalMilliseconds,
@@ -157,6 +160,21 @@ export class SpotifyProvider extends Provider {
 	}
 
 	public async getTrack(id: string): Promise<Result<SearchResult, string>> {
+		const cached = await getCachedSong(id);
+		if (cached) {
+			// Remove the unique id
+			// @ts-expect-error - _id is not a property of SongData
+			cached._id = undefined;
+
+			return {
+				ok: true,
+				value: {
+					videos: [cached],
+					title: undefined,
+				},
+			};
+		}
+
 		const response = await axios.get<Track>(`https://api.spotify.com/v1/tracks/${id}`, {
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,

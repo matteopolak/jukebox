@@ -29,6 +29,7 @@ export class GutenbergProvider extends Provider {
 						book.formats['text/plain'] ??
 						book.formats['text/plain; charset=utf-8'],
 						id: book.id.toString(),
+						uid: book.id.toString(),
 						title: book.title,
 						artist: book.authors?.[0].name ?? '?',
 						duration: 0,

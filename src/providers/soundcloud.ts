@@ -6,14 +6,13 @@ import {
 } from '@/typings/common';
 import scdl from 'soundcloud-downloader/dist/index';
 import { TrackInfo } from 'soundcloud-downloader/dist/index';
-import { getCachedSong } from '@/util/search';
-import { Database } from '@/util/database';
 import { Provider } from '@/structures/Provider';
 
 export class SoundCloudProvider extends Provider {
 	public static trackInfoToSongData(data: TrackInfo): SongData {
 		return {
 			id: data.id.toString(),
+			uid: data.id.toString(),
 			url: data.uri!,
 			title: data.title!,
 			artist: data.user ? data.user.full_name : '???',
@@ -29,30 +28,13 @@ export class SoundCloudProvider extends Provider {
 	}
 
 	public async getTrack(url: string): Promise<Result<SearchResult, string>> {
-		const cached = await getCachedSong(url);
-		if (cached) {
-			// Remove the unique id
-			// @ts-expect-error - _id is not a property of SongData
-			cached._id = undefined;
-		
-			return {
-				ok: true,
-				value: {
-					videos: [cached],
-					title: undefined,
-				},
-			};
-		}
-		
 		try {
 			const raw = await scdl.getInfo(url);
-		
+
 			// Only return song if it can be streamed
 			if (!raw.streamable) return { ok: false, error: `The SoundCloud song \`${url}\` is not streamable.` };
-		
 			const data = SoundCloudProvider.trackInfoToSongData(raw);
-			await Database.addSongToCache(data);
-		
+
 			return {
 				ok: true,
 				value: {
@@ -68,7 +50,7 @@ export class SoundCloudProvider extends Provider {
 	public async getAlbum(url: string): Promise<Result<SearchResult, string>> {
 		try {
 			const set = await scdl.getSetInfo(url);
-	
+
 			return {
 				ok: true,
 				value: {

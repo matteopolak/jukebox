@@ -735,6 +735,7 @@ export default class Connection extends EventEmitter {
 					if (!result.ok) return;
 
 					song.url = result.value.videos[0].url;
+					song.id = result.value.videos[0].id;
 
 					if (result.value.videos[0].format) {
 						song.format = result.value.videos[0].format;
@@ -791,7 +792,7 @@ export default class Connection extends EventEmitter {
 					},
 				});
 			}
-				
+
 			case ProviderOrigin.SoundCloud:
 				return scdl.download(song.url) as Promise<Readable>;
 			case ProviderOrigin.Gutenberg:

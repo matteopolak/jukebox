@@ -5,7 +5,7 @@
 ![Build Status](https://github.com/matteopolak/jukebox/actions/workflows/ci.yml/badge.svg)
 [![License:MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Jukebox](https://github.com/matteopolak/jukebox) is a Discord bot that plays music in voice channels from Soundcloud, Spotify, and YouTube.
+[Jukebox](https://github.com/matteopolak/jukebox) is a Discord bot that plays music in voice channels from SoundCloud, Spotify, and YouTube.
 
 ### Disclaimer ⚠️
 

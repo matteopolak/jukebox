@@ -9,8 +9,8 @@ import { ALLOWED_PROTOCOLS } from '@/constants';
 import { SpotifyProvider } from '@/providers/spotify';
 import { SearchType } from '@/structures/Provider';
 
-export function getCachedSong(id: string) {
-	return Database.cache.findOne({ id });
+export function getCachedSong(uid: string) {
+	return Database.cache.findOne({ uid });
 }
 
 function parseUrlWrapper(query: string) {
@@ -62,6 +62,7 @@ export async function setSongIds(
 export function songToData(song: Song): SongData {
 	return {
 		id: song.id,
+		uid: song.id,
 		url: song.url,
 		title: song.title,
 		artist: song.artist,
