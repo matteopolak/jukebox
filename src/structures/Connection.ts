@@ -46,7 +46,7 @@ import {
 	CommandOrigin,
 } from '@/typings/common';
 import { joinVoiceChannelAndListen } from '@/util/voice';
-import { createQuery, getCachedSong, setSongIds, youtube } from '@/util/search';
+import { createQuery, getCachedSong, setSongIds, songToData, youtube } from '@/util/search';
 import scdl from 'soundcloud-downloader/dist/index';
 import { enforceLength, sendMessageAndDelete } from '@/util/message';
 import {
@@ -801,7 +801,7 @@ export default class Connection extends EventEmitter {
 		if (song === undefined) return;
 
 		// Create the audio stream
-		const stream = await this.createStream(song);
+		const stream = await this.createStream(songToData(song));
 		if (!stream) {
 			await Database.queue.deleteMany({
 				guildId: this.manager.guildId,
