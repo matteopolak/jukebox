@@ -6,6 +6,7 @@ import {
 	ComponentType,
 	escapeMarkdown,
 	GuildMember,
+	MessageType,
 } from 'discord.js';
 
 import { createAudioManager } from '@/util/music';
@@ -221,6 +222,8 @@ client.on('interactionCreate', async interaction => {
 						`❌ ${result.error}`
 					);
 				}
+
+				break;
 			}
 			case 'play': {
 				const connection = await Connection.getOrCreate(interaction);
@@ -255,6 +258,8 @@ client.on('interactionCreate', async interaction => {
 						`❌ ${result.error}`
 					);
 				}
+
+				break;
 			}
 			case 'playlist': {
 				const connection = await Connection.getOrCreate(interaction);
@@ -288,6 +293,8 @@ client.on('interactionCreate', async interaction => {
 						`❌ ${result.error}`
 					);
 				}
+
+				break;
 			}
 			case 'lyrics': {
 				const query: Partial<Record<QueryType, string>> = {
@@ -355,7 +362,7 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.on('messageCreate', async message => {
-	if (message.author.bot || !message.inGuild()) return;
+	if (message.author.bot || !message.inGuild() || message.type !== MessageType.Default) return;
 
 	const connection = await Connection.getOrCreate(message);
 	if (!connection) return;
