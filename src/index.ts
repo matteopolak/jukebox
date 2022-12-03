@@ -142,8 +142,7 @@ async function handleButton(interaction: ButtonInteraction) {
 
 	switch (interaction.customId) {
 		case 'toggle':
-			connection.togglePlayback();
-			interaction.deferUpdate({ fetchReply: false });
+			connection.togglePlayback(interaction);
 
 			break;
 		case 'previous':
@@ -157,31 +156,31 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			break;
 		case 'remove':
-			connection.removeCurrentSong(interaction);
+			await connection.removeCurrentSong(interaction);
 
 			break;
 		case 'shuffle':
-			connection.setShuffle(!connection.settings.shuffle, CommandOrigin.Text, interaction);
+			await connection.setShuffle(!connection.isEnabled('shuffle'), CommandOrigin.Text, interaction);
 
 			break;
 		case 'removeAll':
-			connection.removeAllSongs(interaction);
+			await connection.removeAllSongs(interaction);
 
 			break;
 		case 'repeat':
-			connection.setRepeat(!connection.settings.repeat, CommandOrigin.Text, interaction);
+			await connection.setRepeat(!connection.isEnabled('repeat'), CommandOrigin.Text, interaction);
 
 			break;
 		case 'repeatOne':
-			connection.setRepeatOne(!connection.settings.repeatOne, CommandOrigin.Text, interaction);
+			await connection.setRepeatOne(!connection.isEnabled('repeatOne'), CommandOrigin.Text, interaction);
 
 			break;
 		case 'autoplay':
-			connection.setAutoplay(!connection.settings.autoplay, CommandOrigin.Text, interaction);
+			await connection.setAutoplay(!connection.isEnabled('autoplay'), CommandOrigin.Text, interaction);
 
 			break;
 		case 'lyrics':
-			connection.setLyrics(!connection.settings.lyrics, CommandOrigin.Text, interaction);
+			await connection.setLyrics(!connection.isEnabled('lyrics'), CommandOrigin.Text, interaction);
 
 			break;
 	}
@@ -351,7 +350,7 @@ client.on('interactionCreate', async interaction => {
 			}
 			case 'invite':
 				return void interaction.reply({
-					content: `<https://discord.com/api/oauth2/authorize?client_id=${client.user!.id}&permissions=3419136&scope=bot%20applications.commands>`,
+					content: `<https://discord.com/api/oauth2/authorize?client_id=${client.user!.id}&permissions=20196352&scope=bot%20applications.commands>`,
 				});
 		}
 	} else if (interaction.isStringSelectMenu()) {

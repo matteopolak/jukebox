@@ -133,9 +133,9 @@ export class Queue {
 		);
 	}
 
-	private _nextIndex(): number {
+	private _nextIndex(first = false): number {
 		// If the current song should be repeated, don't modify the index
-		if (this.settings.repeatOne) return this._index;
+		if (this.settings.repeatOne) return this._index + (first ? 1 : 0);
 		if (this.settings.shuffle)
 			return this._index = randomInteger(this._queueLength);
 
@@ -147,7 +147,7 @@ export class Queue {
 		if (this._index >= this._queueLength && (!this.settings.autoplay || this.settings.repeat)) {
 			this._index = 0;
 		} else if (this._index < 0) {
-			if (this.settings.autoplay) {
+			if (this.settings.autoplay && !this.settings.repeat) {
 				this._index = this._queueLength;
 			} else {
 				this._index = this._queueLength - 1;
@@ -157,15 +157,9 @@ export class Queue {
 		return this._index;
 	}
 
-	private nextIndex(): number {
-		const index = this._nextIndex();
-
-		return this.index = index;
-	}
-
-	public async next(): Promise<Option<WithId<Song>>> {
+	public async next(first = false): Promise<Option<WithId<Song>>> {
 		const previousIndex = this.index;
-		const index = this._nextIndex();
+		const index = this._nextIndex(first);
 
 		if (index >= this._queueLength && this.settings.autoplay) {
 			if (this._queueLengthWithRelated > 0) {
@@ -253,7 +247,7 @@ export class Queue {
 			if (this._current?.id !== song.id || previousIndex !== index) {
 				this.updateQueueMessage();
 			}
-		
+
 			this._current = song;
 		}
 

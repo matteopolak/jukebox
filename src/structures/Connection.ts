@@ -140,6 +140,11 @@ export default class Connection extends EventEmitter {
 		this._components[row].components[index].style = enabled ? ButtonStyle.Success : ButtonStyle.Secondary;
 	}
 
+	public isEnabled(key: Exclude<keyof typeof CUSTOM_ID_TO_INDEX_LIST, 'effect'>) {
+		const [row, index] = CUSTOM_ID_TO_INDEX_LIST[key];
+		return this._components[row].components[index].style === ButtonStyle.Success;
+	}
+
 	public static async getOrCreate(
 		data: Interaction | Message | RawData
 	): Promise<Option<Connection>> {
@@ -192,6 +197,12 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async setVoiceChannel(voiceChannel: VoiceBasedChannel) {
+		if (this.voiceChannel === voiceChannel) return;
+		if (this.voiceChannel) {
+			const me = await voiceChannel.guild.members.fetchMe();
+			return void me.voice.setChannel(voiceChannel);
+		}
+
 		this.voiceChannel = voiceChannel;
 
 		// Remove the current connections
@@ -219,37 +230,34 @@ export default class Connection extends EventEmitter {
 		origin: CommandOrigin = CommandOrigin.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
-		const old = this.settings.repeat;
 		this.settings.repeat = enabled;
+		this.setStyle('repeat', enabled);
 
-		if (old !== enabled) {
-			this.setStyle('repeat', enabled);
+		if (enabled) {
+			this.setStyle('repeatOne', false);
+			this.setStyle('shuffle', false);
+			this.setStyle('autoplay', false);
 
-			if (enabled) {
-				this.setStyle('repeatOne', false);
-				this.setStyle('shuffle', false);
-				this.setStyle('autoplay', false);
+			this.updateManagerData({
+				'settings.repeatOne': false,
+				'settings.shuffle': false,
+				'settings.repeat': true,
+			});
 
-				this.updateManagerData({
-					'settings.repeatOne': false,
-					'settings.shuffle': false,
-					'settings.repeat': true,
-				});
-			} else if (this.settings.autoplay) {
-				this.setStyle('autoplay', true);
-				this.updateManagerData({ 'settings.repeat': false });
-			}
+			this.settings.repeatOne = false;
+			this.settings.shuffle = false;
+		} else if (this.settings.autoplay) {
+			this.setStyle('autoplay', true);
+			this.updateManagerData({ 'settings.repeat': false });
+		}
 
-			this.updateEmbedMessage(interaction);
+		this.updateEmbedMessage(interaction);
 
-			if (origin === CommandOrigin.Voice) {
-				await sendMessageAndDelete(
-					this.textChannel,
-					`🎙️ Repeat has been **${enabled ? 'enabled' : 'disabled'}**.`
-				);
-			}
-		} else if (interaction) {
-			interaction.deferUpdate({ fetchReply: false });
+		if (origin === CommandOrigin.Voice) {
+			await sendMessageAndDelete(
+				this.textChannel,
+				`🎙️ Repeat has been **${enabled ? 'enabled' : 'disabled'}**.`
+			);
 		}
 	}
 
@@ -258,35 +266,29 @@ export default class Connection extends EventEmitter {
 		origin: CommandOrigin = CommandOrigin.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
-		const old = this.settings.repeatOne;
 		this.settings.repeatOne = enabled;
+		this.setStyle('repeatOne', enabled);
 
-		if (old !== enabled) {
-			this.setStyle('repeatOne', enabled);
+		if (enabled) {
+			this.setStyle('shuffle', false);
+			this.setStyle('repeat', false);
+			this.setStyle('autoplay', false);
+		} else if (this.settings.shuffle) {
+			this.setStyle('shuffle', true);
+		} else if (this.settings.repeat) {
+			this.setStyle('repeat', true);
+		} else if (this.settings.autoplay) {
+			this.setStyle('autoplay', true);
+		}
 
-			if (enabled) {
-				this.setStyle('shuffle', false);
-				this.setStyle('repeat', false);
-				this.setStyle('autoplay', false);
-			} else if (this.settings.shuffle) {
-				this.setStyle('shuffle', true);
-			} else if (this.settings.repeat) {
-				this.setStyle('repeat', true);
-			} else if (this.settings.autoplay) {
-				this.setStyle('autoplay', true);
-			}
+		this.updateEmbedMessage(interaction);
+		this.updateManagerData({ 'settings.repeatOne': enabled });
 
-			this.updateEmbedMessage(interaction);
-			this.updateManagerData({ 'settings.repeatOne': enabled });
-
-			if (origin === CommandOrigin.Voice) {
-				await sendMessageAndDelete(
-					this.textChannel,
-					`🎙️ Repeat one has been **${enabled ? 'enabled' : 'disabled'}**.`
-				);
-			}
-		} else if (interaction) {
-			interaction.deferUpdate({ fetchReply: false });
+		if (origin === CommandOrigin.Voice) {
+			await sendMessageAndDelete(
+				this.textChannel,
+				`🎙️ Repeat one has been **${enabled ? 'enabled' : 'disabled'}**.`
+			);
 		}
 	}
 
@@ -295,34 +297,34 @@ export default class Connection extends EventEmitter {
 		origin: CommandOrigin = CommandOrigin.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
-		const old = this.settings.autoplay;
 		this.settings.autoplay = enabled;
+		this.setStyle('autoplay', enabled);
 
-		if (old !== enabled) {
-			this.setStyle('autoplay', enabled);
+		if (enabled) {
+			this.setStyle('repeatOne', false);
+			this.setStyle('shuffle', false);
+			this.setStyle('repeat', false);
+			this.updateManagerData({
+				'settings.repeatOne': false,
+				'settings.shuffle': false,
+				'settings.repeat': false,
+				'settings.autoplay': true,
+			});
 
-			if (enabled) {
-				this.setStyle('repeatOne', false);
-				this.setStyle('shuffle', false);
-				this.setStyle('repeat', false);
-				this.updateManagerData({
-					'settings.repeatOne': false,
-					'settings.shuffle': false,
-					'settings.repeat': false,
-					'settings.autoplay': true,
-				});
-			} else {
-				this.updateManagerData({ 'settings.autoplay': false });
-			}
+			this.settings.repeatOne = false;
+			this.settings.shuffle = false;
+			this.settings.repeat = false;
+		} else {
+			this.updateManagerData({ 'settings.autoplay': false });
+		}
 
-			if (origin === CommandOrigin.Voice) {
-				await sendMessageAndDelete(
-					this.textChannel,
-					`🎙️ Autoplay has been **${enabled ? 'enabled' : 'disabled'}**.`
-				);
-			}
-		} else if (interaction) {
-			interaction.deferUpdate({ fetchReply: false });
+		this.updateEmbedMessage(interaction);
+
+		if (origin === CommandOrigin.Voice) {
+			await sendMessageAndDelete(
+				this.textChannel,
+				`🎙️ Autoplay has been **${enabled ? 'enabled' : 'disabled'}**.`
+			);
 		}
 	}
 
@@ -331,31 +333,25 @@ export default class Connection extends EventEmitter {
 		origin: CommandOrigin = CommandOrigin.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
-		const old = this.settings.lyrics;
 		this.settings.lyrics = enabled;
+		this.setStyle('lyrics', enabled);
 
-		if (old !== enabled) {
-			this.setStyle('lyrics', enabled);
+		if (!enabled && this.threadChannel) {
+			this.threadChannel.delete().catch(() => {});
 
-			if (!enabled && this.threadChannel) {
-				this.threadChannel.delete().catch(() => {});
+			this.threadChannel = undefined;
+			delete this.manager.threadId;
+			delete this.manager.lyricsId;
+		}
 
-				this.threadChannel = undefined;
-				delete this.manager.threadId;
-				delete this.manager.lyricsId;
-			}
+		this.updateEmbedMessage(interaction);
+		this.updateManagerData({ 'settings.lyrics': enabled });
 
-			this.updateEmbedMessage(interaction);
-			this.updateManagerData({ 'settings.lyrics': enabled });
-
-			if (origin === CommandOrigin.Voice) {
-				await sendMessageAndDelete(
-					this.textChannel,
-					`🎙️ Lyrics have been **${enabled ? 'enabled' : 'disabled'}**.`
-				);
-			}
-		} else if (interaction) {
-			interaction.deferUpdate({ fetchReply: false });
+		if (origin === CommandOrigin.Voice) {
+			await sendMessageAndDelete(
+				this.textChannel,
+				`🎙️ Lyrics have been **${enabled ? 'enabled' : 'disabled'}**.`
+			);
 		}
 	}
 
@@ -363,21 +359,18 @@ export default class Connection extends EventEmitter {
 		const old = this.settings.effect;
 		this.settings.effect = effect;
 
-		if (old !== effect) {
-			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.effect;
-			this._components[row].components[index].options![old].default = false;
+		const [row, index] = CUSTOM_ID_TO_INDEX_LIST.effect;
+		this._components[row].components[index].options![old].default = false;
 
-			if (effect !== Effect.None) {
-				this._components[row].components[index].options![effect].default = true;
-			}
-
-			this.updateManagerData({ 'settings.effect': effect });
-			this.updateEmbedMessage(interaction);
-
-			this.applyEffectChanges(old);
-		} else if (interaction) {
-			interaction.deferUpdate({ fetchReply: false });
+		if (effect !== Effect.None) {
+			this._components[row].components[index].options![effect].default = true;
 		}
+
+		this.updateManagerData({ 'settings.effect': effect });
+		this.updateEmbedMessage(interaction);
+
+		this.applyEffectChanges(old);
+
 	}
 
 	public async setShuffle(
@@ -385,38 +378,36 @@ export default class Connection extends EventEmitter {
 		origin: CommandOrigin = CommandOrigin.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
-		const old = this.settings.shuffle;
 		this.settings.shuffle = enabled;
+		this.setStyle('shuffle', enabled);
 
-		if (old !== enabled) {
-			this.setStyle('shuffle', enabled);
+		if (enabled) {
+			this.setStyle('repeatOne', false);
+			this.setStyle('repeat', false);
+			this.setStyle('autoplay', false);
+			this.updateManagerData({
+				'settings.repeatOne': false,
+				'settings.shuffle': true,
+			});
 
-			if (enabled) {
-				this.setStyle('repeatOne', false);
-				this.setStyle('repeat', false);
-				this.setStyle('autoplay', false);
-				this.updateManagerData({
-					'settings.repeatOne': false,
-					'settings.shuffle': true,
-				});
-			} else {
-				if (this.settings.repeat) {
-					this.setStyle('repeat', true);
-				} else if (this.settings.autoplay) {
-					this.setStyle('autoplay', true);
-				}
-
-				this.updateManagerData({ 'settings.shuffle': false });
+			this.settings.repeatOne = false;
+		} else {
+			if (this.settings.repeat) {
+				this.setStyle('repeat', true);
+			} else if (this.settings.autoplay) {
+				this.setStyle('autoplay', true);
 			}
 
-			if (origin === CommandOrigin.Voice) {
-				await sendMessageAndDelete(
-					this.textChannel,
-					`🎙️ Shuffle has been **${enabled ? 'enabled' : 'disabled'}**.`
-				);
-			}
-		} else if (interaction) {
-			interaction.deferUpdate({ fetchReply: false });
+			this.updateManagerData({ 'settings.shuffle': false });
+		}
+
+		this.updateEmbedMessage(interaction);
+
+		if (origin === CommandOrigin.Voice) {
+			await sendMessageAndDelete(
+				this.textChannel,
+				`🎙️ Shuffle has been **${enabled ? 'enabled' : 'disabled'}**.`
+			);
 		}
 	}
 
@@ -496,9 +487,19 @@ export default class Connection extends EventEmitter {
 
 			if (!this._playing) {
 				this.play();
+				
+				if (interaction) interaction.deferUpdate({ fetchReply: false });
 			} else if (
 				this.subscription.player.state.status !== AudioPlayerStatus.Idle
 			) {
+				if (interaction?.member) {
+					const member = interaction.member as GuildMember;
+
+					if (member.voice.channel && member.voice.channelId !== this.voiceChannel?.id) {
+						this.setVoiceChannel(member.voice.channel);
+					}
+				}
+
 				this.updateEmbedMessage(interaction);
 			} else if (interaction) {
 				interaction.deferUpdate({ fetchReply: false });
@@ -508,14 +509,14 @@ export default class Connection extends EventEmitter {
 		}
 	}
 
-	public togglePlayback() {
+	public togglePlayback(interaction: ButtonInteraction) {
 		if (
 			this.subscription?.player.state.status !== AudioPlayerStatus.Paused &&
 			this.subscription?.player.state.status !== AudioPlayerStatus.Idle
 		) {
-			this.pause();
+			this.pause(interaction);
 		} else {
-			this.resume();
+			this.resume(interaction);
 		}
 	}
 
@@ -778,10 +779,10 @@ export default class Connection extends EventEmitter {
 		}
 	}
 
-	public async nextResource(): Promise<Option<AudioResource<WithId<Song>>>> {
+	public async nextResource(first = false): Promise<Option<AudioResource<WithId<Song>>>> {
 		const previousResource = this.currentResource;
 
-		const song = await this.queue.next();
+		const song = await this.queue.next(first);
 		if (song === undefined) return;
 
 		// Create the audio stream
@@ -843,13 +844,13 @@ export default class Connection extends EventEmitter {
 		return resolveFn!;
 	}
 
-	public async playNextResource() {
+	public async playNextResource(first = false) {
 		if (!this.subscription)
 			return new Error('Cannot play music without an audio subscription');
 
 		this._playing = true;
 
-		const resource = await this.nextResource();
+		const resource = await this.nextResource(first);
 		if (!resource) {
 			this._playing = false;
 
@@ -894,6 +895,9 @@ export default class Connection extends EventEmitter {
 	}
 
 	public async play() {
+		const error = await this.playNextResource(true);
+		if (error) return;
+
 		while (this.queue.length > 0) {
 			const error = await this.playNextResource();
 

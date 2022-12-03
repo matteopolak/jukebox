@@ -102,7 +102,7 @@ export const DEFAULT_COMPONENTS = [
 			},
 			{
 				type: ComponentType.Button,
-				customId: 'remove_all',
+				customId: 'removeAll',
 				label: '💣',
 				style: ButtonStyle.Danger,
 			},
@@ -119,7 +119,7 @@ export const DEFAULT_COMPONENTS = [
 			},
 			{
 				type: ComponentType.Button,
-				customId: 'repeat_one',
+				customId: 'repeatOne',
 				label: '🔂',
 				style: ButtonStyle.Secondary,
 			},

@@ -33,7 +33,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 				},
 				{
 					type: ComponentType.Button,
-					customId: 'remove_all',
+					customId: 'removeAll',
 					label: '💣',
 					style: ButtonStyle.Danger,
 				},
@@ -52,7 +52,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 				},
 				{
 					type: ComponentType.Button,
-					customId: 'repeat_one',
+					customId: 'repeatOne',
 					label: '🔂',
 					style: settings.repeatOne
 						? ButtonStyle.Success
