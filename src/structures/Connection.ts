@@ -920,12 +920,13 @@ export default class Connection extends EventEmitter {
 
 	public async addSongByQuery(
 		query: string,
-		origin: CommandOrigin = CommandOrigin.Text
+		origin: CommandOrigin = CommandOrigin.Text,
+		playNext = false
 	) {
 		const result = await createQuery(query);
 
 		if (result.ok) {
-			this.addSongs(result.value.videos, true, false);
+			this.addSongs(result.value.videos, true, playNext);
 
 			await sendMessageAndDelete(
 				this.textChannel,

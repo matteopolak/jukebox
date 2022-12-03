@@ -96,7 +96,7 @@ export function joinVoiceChannelAndListen(
 						data.entities['wit$message_body:message_body']?.[0]?.value;
 
 					if (name) {
-						return void connection.addSongByQuery(name, CommandOrigin.Voice);
+						return void connection.addSongByQuery(name, CommandOrigin.Voice, true);
 					}
 
 					break;
