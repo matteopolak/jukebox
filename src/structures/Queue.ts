@@ -145,12 +145,15 @@ export class Queue {
 		// If the index would go out of bounds, wrap around to 0
 		// unless autoplay is enabled
 		if (this._index >= this._queueLength && (!this.settings.autoplay || this.settings.repeat)) {
-			this._index = 0;
+			if (this.settings.repeat) this._index = 0;
+			else this._index = -1;
 		} else if (this._index < 0) {
 			if (this.settings.autoplay && !this.settings.repeat) {
 				this._index = this._queueLength;
-			} else {
+			} else if (this.settings.repeat) {
 				this._index = this._queueLength - 1;
+			} else {
+				this._index = 0;
 			}
 		}
 
@@ -160,6 +163,11 @@ export class Queue {
 	public async next(first = false): Promise<Option<WithId<Song>>> {
 		const previousIndex = this.index;
 		const index = this._nextIndex(first);
+
+		if (index === -1) {
+			this._index = 0;
+			return this._current = undefined;
+		}
 
 		if (index >= this._queueLength && this.settings.autoplay) {
 			if (this._queueLengthWithRelated > 0) {
