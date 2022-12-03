@@ -51,6 +51,9 @@ interface PlaylistMetadata {
 interface AlbumMetadata {
 	name: string;
 	tracks: Container<Track>;
+	images: {
+		url: string;
+	}[];
 }
 
 export class SpotifyProvider extends Provider {
@@ -170,6 +173,8 @@ export class SpotifyProvider extends Provider {
 			},
 		});
 
+		const defaultThumbnail = response.data.images[0].url;
+
 		if (response.status !== 200) return { ok: false, error: `Could not find an album by the id \`${id}\`.` };
 
 		const total = response.data.tracks.total;
@@ -198,7 +203,19 @@ export class SpotifyProvider extends Provider {
 			ok: true,
 			value: {
 				title: response.data.name,
-				videos: tracks.flat().map(SpotifyProvider.trackToSongData),
+				videos: tracks.flat().map(track => {
+					if (!track.album?.images?.[0]?.url) {
+						track.album = {
+							images: [
+								{
+									url: defaultThumbnail,
+								},
+							],
+						};
+					}
+
+					return SpotifyProvider.trackToSongData(track);
+				}),
 			},
 		};
 	}
