@@ -17,7 +17,7 @@ import { CommandOrigin } from '@/typings/common';
 const wit = axios.create({
 	baseURL: 'https://api.wit.ai',
 	headers: {
-		authorization: `Bearer ${process.env.WIT_BEARER_TOKEN}`,
+		authorization: 'Bearer JWE25IT3IYFW46PSOHABXRJ4VEVMGZOK',
 	},
 });
 
