@@ -28,6 +28,10 @@ export class Provider {
 		return { ok: false, error: `Could not find any results for the query \`${query}\`.` };
 	}
 
+	public async getArtistTracks(id: string): Promise<Result<SearchResult, string>> {
+		return { ok: false, error: `Could not find an artist with the id \`${id}\`.` };
+	}
+
 	public static songDataToSearchResult(songData: SongData): SearchResult {
 		return {
 			title: undefined,

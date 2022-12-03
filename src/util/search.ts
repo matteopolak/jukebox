@@ -122,6 +122,7 @@ export async function createQuery(
 			if (type === 'track') return spotify.getTrack(id);
 			if (type === 'album') return spotify.getAlbum(id);
 			if (type === 'playlist') return spotify.getPlaylist(id);
+			if (type === 'artist') return spotify.getArtistTracks(id);
 
 			break;
 		}

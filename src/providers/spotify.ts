@@ -1,3 +1,5 @@
+// TODO: reverse-engineer Spotify's GraphQL API
+
 import { Option, SongData, ProviderOrigin, Result, SearchResult } from '@/typings/common';
 import { bufferUnordered } from '@/util/promise';
 
@@ -139,6 +141,21 @@ export class SpotifyProvider extends Provider {
 		};
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public static gqlTrackToSongData(track: any): SongData {
+		return {
+			title: track.track.name,
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			artist: track.track.artists.items.map((artist: any) => artist.profile.name).join(', '),
+			url: '',
+			live: false,
+			id: track.track.id,
+			type: ProviderOrigin.Spotify,
+			thumbnail: track.track.albumOfTrack.coverArt.sources[0].url,
+			duration: track.track.duration.totalMilliseconds,
+		};
+	}
+
 	public async getTrack(id: string): Promise<Result<SearchResult, string>> {
 		const response = await axios.get<Track>(`https://api.spotify.com/v1/tracks/${id}`, {
 			headers: {
@@ -264,6 +281,37 @@ export class SpotifyProvider extends Provider {
 			value: {
 				title: response.data.name,
 				videos: tracks.flat().map(SpotifyProvider.trackToSongData),
+			},
+		};
+	}
+
+	public async getArtistTracks(id: string): Promise<Result<SearchResult, string>> {
+		const response = await axios.get('https://api-partner.spotify.com/pathfinder/v1/query', {
+			headers: {
+				authorization: `Bearer ${await this.getAccessToken()}`,
+				'client-token': await this.getClientToken(),
+				'spotify-app-version': '1.2.1.53.g789bae87',
+			},
+			params: {
+				operationName: 'queryArtistOverview',
+				variables: JSON.stringify({
+					uri: `spotify:artist:${id}`,
+					locale: 'en',
+				}),
+				persistedQuery: JSON.stringify({
+					version: 1,
+					sha256Hash: '0b84fdc8c874d3020a119be614b8f0ee0f08c69c1c37aeb0a8b17758f63ef7fe',
+				}),
+			},
+		});
+
+		const tracks: SongData[] = response.data.data.artistUnion.topTracks.items.map(SpotifyProvider.gqlTrackToSongData);
+
+		return {
+			ok: true,
+			value: {
+				title: `Top Tracks from ${response.data.data.artistUnion.profile.name}`,
+				videos: tracks,
 			},
 		};
 	}
