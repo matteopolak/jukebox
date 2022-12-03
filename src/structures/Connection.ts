@@ -522,6 +522,9 @@ export default class Connection extends EventEmitter {
 	}
 
 	public skip() {
+		if (this.isEnabled('repeatOne'))
+			this.queue._index += 1;
+
 		this.settings.seek = 0;
 		this.endCurrentSong();
 	}
@@ -544,7 +547,7 @@ export default class Connection extends EventEmitter {
 	public previous() {
 		this.settings.seek = 0;
 
-		if (!this.isEnabled('repeatOne'))
+		if (this.isEnabled('repeatOne'))
 			this.queue._index -= 1;
 		else
 			this.queue._index -= 2;
