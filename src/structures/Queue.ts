@@ -105,7 +105,7 @@ export class Queue {
 	private async updateQueueMessage() {
 		const cursor = Database.queue
 			.find({ guildId: this.manager.guildId })
-			.sort({ addedAt: 1 });
+			.sort({ addedAt: 1, index: 1 });
 
 		if (this.index > 2) {
 			cursor.skip(this.index - 2);
@@ -244,7 +244,7 @@ export class Queue {
 
 		const [song] = await Database.queue
 			.find({ guildId: this.manager.guildId })
-			.sort({ addedAt: 1 })
+			.sort({ addedAt: 1, index: 1 })
 			.skip(index)
 			.limit(1)
 			.toArray();
@@ -292,8 +292,9 @@ export class Queue {
 			songs
 				.map((song, i) => ({
 					...song,
-					addedAt: now + i,
+					addedAt: now,
 					guildId: this.manager.guildId,
+					index: i,
 				}))
 		);
 

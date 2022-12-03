@@ -50,6 +50,7 @@ export interface SongData {
 export interface Song extends SongData {
 	addedAt: number;
 	guildId: string;
+	index?: number;
 }
 
 export const enum Effect {
