@@ -297,17 +297,16 @@ export default class Connection extends EventEmitter {
 	}
 
 	public setEffect(effect: Effect, interaction?: ButtonInteraction | StringSelectMenuInteraction): void {
-		if (this.settings.effect === effect) {
-			effect = Effect.None;
-		}
-
 		const old = this.settings.effect;
 		this.settings.effect = effect;
 
 		if (old !== effect) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.effect;
 			this._components[row].components[index].options![old].default = false;
-			this._components[row].components[index].options![effect].default = true;
+
+			if (effect !== Effect.None) {
+				this._components[row].components[index].options![effect].default = true;
+			}
 
 			this.updateManagerData({ 'settings.effect': effect });
 			this.updateEmbedMessage(interaction);

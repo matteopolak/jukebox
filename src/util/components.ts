@@ -87,7 +87,6 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 						{
 							label: 'None',
 							value: Effect.None.toString(),
-							default: settings.effect === Effect.None,
 						},
 						{
 							label: 'Bass',
