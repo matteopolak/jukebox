@@ -46,7 +46,7 @@ import {
 	CommandOrigin,
 } from '@/typings/common';
 import { joinVoiceChannelAndListen } from '@/util/voice';
-import { createQuery, setSongIds, youtube } from '@/util/search';
+import { createQuery, getCachedSong, setSongIds, youtube } from '@/util/search';
 import scdl from 'soundcloud-downloader/dist/index';
 import { enforceLength, sendMessageAndDelete } from '@/util/message';
 import {
@@ -731,47 +731,41 @@ export default class Connection extends EventEmitter {
 			case ProviderOrigin.YouTube:
 			case ProviderOrigin.Spotify: {
 				if (song.url === '') {
-					const result = await youtube.search(`${song.artist} - ${song.title}`, { type: SearchType.Video, limit: 1 });
-					if (!result.ok) return;
+					const cache = await getCachedSong(song.uid);
+					if (cache) song = cache;
+					else {
+						const result = await youtube.search(`${song.artist} - ${song.title}`, { type: SearchType.Video, limit: 1 });
+						if (!result.ok) return;
 
-					song.url = result.value.videos[0].url;
-					song.id = result.value.videos[0].id;
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const set: Record<string, any> = {};
 
-					if (result.value.videos[0].format) {
-						song.format = result.value.videos[0].format;
-					}
+						song.url = result.value.videos[0].url;
+						song.id = result.value.videos[0].id;
 
-					if (result.value.videos[0].related) {
-						song.related = result.value.videos[0].related;
-					}
+						set.id = song.id;
+						set.url = song.url;
 
-					if (song.thumbnail === '') {
-						song.thumbnail = result.value.videos[0].thumbnail;
-					}
-
-					await Database.addSongToCache(song);
-
-					{
-						const set: Record<string, unknown> = {
-							url: song.url,
-						};
-	
-						if (song.format) {
+						if (result.value.videos[0].format) {
+							song.format = result.value.videos[0].format;
 							set.format = song.format;
 						}
-	
-						if (song.related) {
+
+						if (result.value.videos[0].related) {
+							song.related = result.value.videos[0].related;
 							set.related = song.related;
 						}
-	
+
+						if (song.thumbnail === '') {
+							song.thumbnail = result.value.videos[0].thumbnail;
+							set.thumbnail = song.thumbnail;
+						}
+
+						await Database.addSongToCache(song);
 						await Database.queue.updateMany({
-							id: song.id,
-							type: song.type,
-							url: {
-								$ne: song.url,
-							},
+							uid: song.uid,
 						}, {
-							$set: set as UpdateFilter<Song>,
+							$set: set,
 						});
 					}
 				}
