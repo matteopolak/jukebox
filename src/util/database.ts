@@ -1,5 +1,5 @@
 import { Manager, Song, SongData } from '@/typings/common';
-import { MongoClient, Db, Collection } from 'mongodb';
+import { MongoClient, Db, Collection, UpdateFilter } from 'mongodb';
 
 export class Database {
 	public static client: MongoClient;
@@ -30,27 +30,41 @@ export class Database {
 	}
 
 	public static addSongToCache(data: SongData) {
+		const payload: Record<'$setOnInsert' | '$set', Record<string, unknown>> = {
+			$setOnInsert: {
+				url: data.url,
+				duration: data.duration,
+				type: data.type,
+			},
+			$set: {
+				title: data.title,
+				artist: data.artist,
+				thumbnail: data.thumbnail,
+				live: data.live,
+			},
+		};
+
+		if (data.musixmatchId) {
+			payload.$setOnInsert.musixmatchId = data.musixmatchId;
+		}
+
+		if (data.geniusId) {
+			payload.$setOnInsert.geniusId = data.geniusId;
+		}
+
+		if (data.format) {
+			payload.$set.format = data.format;
+		}
+
+		if (data.related) {
+			payload.$set.related = data.related;
+		}
+
 		return Database.cache.updateOne(
 			{
 				id: data.id,
 			},
-			{
-				$setOnInsert: {
-					url: data.url,
-					duration: data.duration,
-					type: data.type,
-					musixmatchId: data.musixmatchId,
-					geniusId: data.geniusId,
-				},
-				$set: {
-					title: data.title,
-					artist: data.artist,
-					thumbnail: data.thumbnail,
-					live: data.live,
-					format: data.format,
-					related: data.related,
-				},
-			},
+			payload as UpdateFilter<SongData>,
 			{
 				upsert: true,
 			}

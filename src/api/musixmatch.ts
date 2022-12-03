@@ -119,7 +119,7 @@ export async function getTrackFromSongData(
 	data: SongData
 ): Promise<Option<Track>> {
 	if (data.musixmatchId) return getTrackById(data.musixmatchId);
-	if (data.musixmatchId === null) return;
+	if (data.musixmatchId === undefined) return;
 
 	const clean = cleanTitle(data.title);
 

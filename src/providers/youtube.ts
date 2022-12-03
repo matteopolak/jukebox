@@ -137,7 +137,7 @@ export interface Metadata {
 }
 
 export class YouTubeProvider extends Provider {
-	private cookie?: string;
+	private cookie?: string | undefined;
 	private http: AxiosInstance;
 
 	private static INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});</;
@@ -148,6 +148,7 @@ export class YouTubeProvider extends Provider {
 		super();
 
 		this.cookie = cookie;
+		// @ts-expect-error - explicit undefined is allowed here
 		this.http = axios.create({
 			baseURL: 'https://www.youtube.com',
 			params: {
@@ -374,13 +375,16 @@ export class YouTubeProvider extends Provider {
 			duration: parseInt(info.lengthSeconds) * 1_000,
 			live: info.isLiveContent,
 			type: ProviderOrigin.YouTube,
-			format: info.isLiveContent
-				? ytdl.chooseFormat(data.formats, {})
-				: undefined,
-			// only provide an array of related videos if there is at least one
-			related: related.length > 0 ? related.map(v => v.id!) : undefined,
-		};
-	
+		} satisfies SongData as SongData;
+
+		if (!info.isLiveContent) {
+			song.format = ytdl.chooseFormat(data.formats, {});
+		}
+
+		if (related.length) {
+			song.related = related.map(v => v.id!);
+		}
+
 		const metadata =
 			// @ts-expect-error - ytdl does not have a typescript definition for this
 			data.response?.engagementPanels

@@ -26,7 +26,7 @@ import createAudioStream from 'discord-ytdl-core';
 import { opus as Opus, FFmpeg } from 'prism-media';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
-import { WithId } from 'mongodb';
+import { UpdateFilter, WithId } from 'mongodb';
 
 import { Database } from '@/util/database';
 import {
@@ -125,8 +125,8 @@ export default class Connection extends EventEmitter {
 			: undefined;
 
 		if (this.threadChannel === undefined) {
-			this.manager.lyricsId = undefined;
-			this.manager.threadId = undefined;
+			delete this.manager.lyricsId;
+			delete this.manager.threadId;
 		}
 
 		this._components = getDefaultComponents(this.settings);
@@ -278,8 +278,8 @@ export default class Connection extends EventEmitter {
 				this.threadChannel.delete().catch(() => {});
 
 				this.threadChannel = undefined;
-				this.manager.threadId = undefined;
-				this.manager.lyricsId = undefined;
+				delete this.manager.threadId;
+				delete this.manager.lyricsId;
 			}
 
 			this.updateEmbedMessage(interaction);
@@ -637,29 +637,47 @@ export default class Connection extends EventEmitter {
 					if (!result.ok) return;
 
 					song.url = result.value.videos[0].url;
-					song.format = result.value.videos[0].format;
-					song.related = result.value.videos[0].related;
+
+					if (result.value.videos[0].format) {
+						song.format = result.value.videos[0].format;
+					}
+
+					if (result.value.videos[0].related) {
+						song.related = result.value.videos[0].related;
+					}
 
 					if (song.thumbnail === '') {
 						song.thumbnail = result.value.videos[0].thumbnail;
 					}
 
 					await Database.addSongToCache(song);
-					await Database.queue.updateMany({
-						id: song.id,
-						type: song.type,
-						url: {
-							$ne: song.url,
-						},
-					}, {
-						$set: {
+
+					{
+						const set: Record<string, unknown> = {
 							url: song.url,
-							format: song.format,
-							related: song.related,
-						},
-					});
+						};
+	
+						if (song.format) {
+							set.format = song.format;
+						}
+	
+						if (song.related) {
+							set.related = song.related;
+						}
+	
+						await Database.queue.updateMany({
+							id: song.id,
+							type: song.type,
+							url: {
+								$ne: song.url,
+							},
+						}, {
+							$set: set as UpdateFilter<Song>,
+						});
+					}
 				}
 
+				// @ts-expect-error - explicit undefined is allowed here
 				return createAudioStream(song.url, {
 					seek: this.settings.seek || undefined,
 					highWaterMark: 1 << 25,

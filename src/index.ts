@@ -297,11 +297,17 @@ client.on('interactionCreate', async interaction => {
 				break;
 			}
 			case 'lyrics': {
-				const query: Partial<Record<QueryType, string>> = {
-					q_track: interaction.options.getString('title') ?? undefined,
-					q_artist: interaction.options.getString('artist') ?? undefined,
-					q_lyrics: interaction.options.getString('lyrics') ?? undefined,
-				};
+				const query: Partial<Record<QueryType, string>> = {};
+
+				{
+					const title = interaction.options.getString('title');
+					const artist = interaction.options.getString('artist');
+					const lyrics = interaction.options.getString('lyrics');
+
+					if (title) query.q_track = title;
+					if (artist) query.q_artist = artist;
+					if (lyrics) query.q_lyrics = lyrics;
+				}
 
 				const currentSong = connections.get(interaction.guildId!)
 					?.currentResource?.metadata;
