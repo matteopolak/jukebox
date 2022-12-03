@@ -118,22 +118,34 @@ export function joinVoiceChannelAndListen(
 
 					break;
 				case 'repeat':
-					connection.setRepeat(
-						!connection.settings.repeat,
-						CommandOrigin.Voice
-					);
+					if (connection.isEnabled('repeat')) {
+						connection.setRepeat(
+							false,
+							CommandOrigin.Voice
+						);
+					} else if (connection.isEnabled('repeatOne')) {
+						connection.setRepeat(
+							true,
+							CommandOrigin.Voice
+						);
+					} else {
+						connection.setRepeatOne(
+							true,
+							CommandOrigin.Voice
+						);
+					}
 
 					break;
 				case 'shuffle':
 					connection.setShuffle(
-						!connection.settings.shuffle,
+						!connection.isEnabled('shuffle'),
 						CommandOrigin.Voice
 					);
 
 					break;
 				case 'autoplay':
 					connection.setAutoplay(
-						!connection.settings.autoplay,
+						!connection.isEnabled('autoplay'),
 						CommandOrigin.Voice
 					);
 
