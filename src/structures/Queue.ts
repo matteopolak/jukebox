@@ -83,7 +83,7 @@ export class Queue {
 	}
 
 	public set index(value: number) {
-		this._index = value % this._queueLength;
+		this._index = this._queueLength === 0 ? 0 : value % this._queueLength;
 		if (this._index < 0) this._index = this._queueLength + this._index;
 
 		Database.manager.updateOne(
@@ -138,7 +138,7 @@ export class Queue {
 		if (this.settings.repeatOne) return this._index;
 		if (this.settings.shuffle)
 			return this._index = randomInteger(this._queueLength);
-		
+
 		// Increase the index by 1
 		if (!first) ++this._index;
 
@@ -268,10 +268,6 @@ export class Queue {
 			guildId: this.manager.guildId,
 		});
 
-		if (this._queueLength === 0) {
-			this._index = -1;
-		}
-
 		this._queueLength++;
 		if (song.related) this._queueLengthWithRelated += song.related.length;
 
@@ -303,10 +299,6 @@ export class Queue {
 			this.updateQueueMessage();
 		}
 
-		if (this._queueLength === 0) {
-			this._index = -1;
-		}
-
 		this._queueLength += songs.length;
 		this._queueLengthWithRelated += songs.reduce(
 			(a, b) => a + (b.related ? b.related.length : 0),
@@ -323,7 +315,7 @@ export class Queue {
 
 		this._queueLength = 0;
 		this._queueLengthWithRelated = 0;
-		this._index = -1;
+		this.index = 0;
 
 		this.updateQueueMessage();
 	}

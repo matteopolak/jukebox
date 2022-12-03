@@ -298,14 +298,18 @@ export class SpotifyProvider extends Provider {
 					uri: `spotify:artist:${id}`,
 					locale: 'en',
 				}),
-				persistedQuery: JSON.stringify({
-					version: 1,
-					sha256Hash: '0b84fdc8c874d3020a119be614b8f0ee0f08c69c1c37aeb0a8b17758f63ef7fe',
+				extensions: JSON.stringify({
+					persistedQuery: {
+						version: 1,
+						sha256Hash: '0b84fdc8c874d3020a119be614b8f0ee0f08c69c1c37aeb0a8b17758f63ef7fe',
+					},
 				}),
 			},
 		});
 
-		const tracks: SongData[] = response.data.data.artistUnion.topTracks.items.map(SpotifyProvider.gqlTrackToSongData);
+		if (response.status !== 200) return { ok: false, error: `Could not find an artist by the id \`${id}\`.` };
+
+		const tracks: SongData[] = response.data.data.artistUnion.discography.topTracks.items.map(SpotifyProvider.gqlTrackToSongData);
 
 		return {
 			ok: true,
