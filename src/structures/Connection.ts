@@ -46,7 +46,7 @@ import {
 	CommandOrigin,
 } from '@/typings/common';
 import { joinVoiceChannelAndListen } from '@/util/voice';
-import { createQuery, getCachedSong, setSongIds, songToData, youtube } from '@/util/search';
+import { createQuery, getCachedSong, setSongIds, youtube } from '@/util/search';
 import scdl from 'soundcloud-downloader/dist/index';
 import { enforceLength, sendMessageAndDelete } from '@/util/message';
 import {
