@@ -84,7 +84,7 @@ export default class Connection {
 	public manager: Manager;
 	public subscription: Option<PlayerSubscription>;
 	public currentResource: Option<AudioResource<WithId<Song>>>;
-	public recent: CircularBuffer<string> = new CircularBuffer(10);
+	public recent: CircularBuffer<string> = new CircularBuffer(25);
 	public settings: ConnectionSettings = {
 		effect: Effect.None,
 		repeat: false,
@@ -872,7 +872,7 @@ export default class Connection {
 
 		const resolve = this.createAudioCompletionPromise();
 
-		this.recent.push(resource.metadata.id);
+		this.recent.push(resource.metadata.uid);
 		this.subscription.player.play(resource);
 
 		this.subscription.player

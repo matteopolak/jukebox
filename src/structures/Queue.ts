@@ -184,9 +184,31 @@ export class Queue {
 							$project: {
 								heuristic: {
 									// avoid playing recent songs
-									$size: {
-										$setIntersection: ['$related', recent],
-									},
+									$multiply: [
+										{
+											$size: {
+												$setIntersection: ['$related', recent],
+											},
+										},
+										{
+											// prefer playing songs related to recent songs
+											$cond: {
+												if: { $in: ['$uid', recent] },
+												then: {
+													$add: [
+														{
+															$multiply: [
+																{ $indexOfArray: [recent, '$uid'] },
+																0.05,
+															],
+														},
+														1,
+													],
+												},
+												else: 0.5,
+											},
+										},
+									],
 								},
 								related: 1,
 							},
