@@ -1,7 +1,8 @@
-import { Provider } from '@/structures/Provider';
-import { Result, SearchResult, ProviderOrigin } from '@/typings/common';
-import { GutenbergBook, GutenbergResponse } from '@/typings/gutenberg';
 import axios from 'axios';
+
+import { Provider } from '@/structures/Provider';
+import { ProviderOrigin, Result, SearchResult } from '@/typings/common';
+import { GutenbergBook, GutenbergResponse } from '@/typings/gutenberg';
 
 export class GutenbergProvider extends Provider {
 	public async search(query: string): Promise<Result<SearchResult, string>> {
@@ -15,10 +16,10 @@ export class GutenbergProvider extends Provider {
 				},
 			}
 		);
-	
+
 		const book = data.results[0];
 		if (!book) return { ok: false, error: `No Gutenberg book matched the query \`${query}\`.` };
-	
+
 		return {
 			ok: true,
 			value: {

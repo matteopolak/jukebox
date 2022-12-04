@@ -1,12 +1,13 @@
-import {
-	SearchResult,
-	ProviderOrigin,
-	SongData,
-	Result,
-} from '@/typings/common';
 import scdl from 'soundcloud-downloader/dist/index';
 import { TrackInfo } from 'soundcloud-downloader/dist/index';
+
 import { Provider } from '@/structures/Provider';
+import {
+	ProviderOrigin,
+	Result,
+	SearchResult,
+	SongData,
+} from '@/typings/common';
 
 export class SoundCloudProvider extends Provider {
 	public static trackInfoToSongData(data: TrackInfo): SongData {

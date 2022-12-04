@@ -5,12 +5,11 @@ import {
 	JoinVoiceChannelOptions,
 	VoiceConnection,
 } from '@discordjs/voice';
-
+import axios from 'axios';
+import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import ffmpeg from 'fluent-ffmpeg';
 import prism from 'prism-media';
 
-import axios from 'axios';
-import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import Connection from '@/structures/Connection';
 import { CommandOrigin } from '@/typings/common';
 

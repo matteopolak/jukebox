@@ -1,14 +1,15 @@
 import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
 import { WithId } from 'mongodb';
+
 import { PROVIDER_TO_EMOJI } from '@/constants';
+import Connection from '@/structures/Connection';
 import { ConnectionSettings, Manager, Option, Song, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
+import { formatMilliseconds } from '@/util/duration';
 import { enforceLength } from '@/util/message';
 import { randomElement, randomInteger } from '@/util/random';
-import { getChannel, QUEUE_CLIENT } from '@/util/worker';
-import Connection from '@/structures/Connection';
-import { formatMilliseconds } from '@/util/duration';
 import { youtube } from '@/util/search';
+import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 
 export interface InsertSongOptions {
 	playNext?: boolean;
@@ -270,7 +271,6 @@ export class Queue {
 
 		this._queueLength++;
 		if (song.related) this._queueLengthWithRelated += song.related.length;
-
 
 		if (Math.abs(this.index - this._queueLength) < 3) {
 			this.updateQueueMessage();

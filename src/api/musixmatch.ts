@@ -1,5 +1,8 @@
-import axios from 'axios';
 import { createHmac } from 'node:crypto';
+
+import axios from 'axios';
+
+import { Option, SongData } from '@/typings/common';
 import {
 	MusixmatchResponse,
 	Track,
@@ -7,7 +10,6 @@ import {
 	TrackLyricsResponse,
 	TrackSearchResponse,
 } from '@/typings/musixmatch';
-import { Option, SongData } from '@/typings/common';
 import { cleanTitle } from '@/util/music';
 
 type ParamValueType = string | number | boolean | undefined;

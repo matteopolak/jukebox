@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream';
+
 import {
 	AudioPlayerStatus,
 	AudioResource,
@@ -10,63 +12,62 @@ import {
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
 import {
-	VoiceBasedChannel,
-	escapeMarkdown,
-	Message,
-	GuildMember,
-	ThreadChannel,
-	NewsChannel,
-	TextChannel,
-	Interaction,
-	ButtonStyle,
 	ButtonInteraction,
+	ButtonStyle,
+	escapeMarkdown,
+	GuildMember,
+	Interaction,
+	Message,
+	NewsChannel,
 	StringSelectMenuInteraction,
+	TextChannel,
+	ThreadChannel,
+	VoiceBasedChannel,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
-import { opus as Opus, FFmpeg } from 'prism-media';
-import { EventEmitter } from 'node:events';
-import { Readable } from 'node:stream';
 import { UpdateFilter, WithId } from 'mongodb';
-
-import { Database } from '@/util/database';
-import {
-	EFFECTS,
-	CUSTOM_ID_TO_INDEX_LIST,
-	EFFECT_TO_SPEED,
-} from '@/constants';
-import {
-	ConnectionSettings,
-	Effect,
-	Manager,
-	Song,
-	Option,
-	RawData,
-	SongData,
-	ProviderOrigin,
-	CommandOrigin,
-} from '@/typings/common';
-import { joinVoiceChannelAndListen } from '@/util/voice';
-import { createQuery, getCachedSong, setSongIds, youtube } from '@/util/search';
+import { FFmpeg, opus as Opus } from 'prism-media';
 import scdl from 'soundcloud-downloader/dist/index';
-import { enforceLength, sendMessageAndDelete } from '@/util/message';
-import {
-	getLyricsById as getMusixmatchLyricsById,
-	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
-} from '@/api/musixmatch';
+
 import {
 	getLyricsById as getGeniusLyricsById,
 	getTrackIdFromSongData as getGeniusTrackIdFromSongData,
 } from '@/api/genius';
+import { resolveText } from '@/api/gutenberg';
+import {
+	getLyricsById as getMusixmatchLyricsById,
+	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
+} from '@/api/musixmatch';
+import { textToAudioStream } from '@/api/tts';
+import {
+	CUSTOM_ID_TO_INDEX_LIST,
+	EFFECT_TO_SPEED,
+	EFFECTS,
+} from '@/constants';
+import { Queue } from '@/structures/Queue';
+import {
+	CommandOrigin,
+	ConnectionSettings,
+	Effect,
+	Manager,
+	Option,
+	ProviderOrigin,
+	RawData,
+	Song,
+	SongData,
+} from '@/typings/common';
+import { CircularBuffer } from '@/util/buffer';
+import { getDefaultComponents } from '@/util/components';
+import { Database } from '@/util/database';
+import { enforceLength, sendMessageAndDelete } from '@/util/message';
+import { createQuery, getCachedSong, setSongIds, youtube } from '@/util/search';
+import { joinVoiceChannelAndListen } from '@/util/voice';
 import {
 	getChannel,
 	LYRICS_CLIENT,
 	MAIN_CLIENT,
 } from '@/util/worker';
-import { resolveText } from '@/api/gutenberg';
-import { textToAudioStream } from '@/api/tts';
-import { CircularBuffer } from '@/util/buffer';
-import { Queue } from '@/structures/Queue';
-import { getDefaultComponents } from '@/util/components';
+
 import { SearchType } from './Provider';
 
 export const connections: Map<string, Connection> = new Map();
@@ -75,7 +76,7 @@ export const enum Events {
 	AddSongs = 'add_songs',
 }
 
-export default class Connection extends EventEmitter {
+export default class Connection {
 	public voiceChannel: Option<VoiceBasedChannel>;
 	public textChannel: TextChannel | NewsChannel;
 	public threadParentChannel: TextChannel | NewsChannel;
@@ -103,8 +104,6 @@ export default class Connection extends EventEmitter {
 	private _components;
 
 	constructor(manager: Manager) {
-		super();
-
 		this.manager = manager;
 		this.settings = this.manager.settings;
 		this.queue = new Queue(this);
@@ -431,8 +430,6 @@ export default class Connection extends EventEmitter {
 
 		await this.queue.insertMany(songs, { playNext });
 
-		this.emit(Events.AddSongs, songs);
-
 		if (!this._playing) {
 			if (autoplay) this.play();
 		} else if (playNext) {
@@ -446,8 +443,6 @@ export default class Connection extends EventEmitter {
 		playNext = false
 	) {
 		await this.queue.insertOne(song, { playNext });
-
-		this.emit(Events.AddSongs, [song]);
 
 		if (!this._playing) {
 			if (autoplay) this.play();
@@ -498,7 +493,7 @@ export default class Connection extends EventEmitter {
 
 			if (!this._playing) {
 				this.play();
-				
+
 				if (interaction) interaction.deferUpdate({ fetchReply: false });
 			} else if (
 				this.subscription.player.state.status !== AudioPlayerStatus.Idle
@@ -730,6 +725,7 @@ export default class Connection extends EventEmitter {
 		switch (song.type) {
 			case ProviderOrigin.YouTube:
 			case ProviderOrigin.Spotify: {
+				// if the url is empty, we need to get it from youtube
 				if (song.url === '') {
 					const cache = await getCachedSong(song.uid);
 					if (cache) song = cache;
@@ -916,7 +912,7 @@ export default class Connection extends EventEmitter {
 		if (!error) {
 			while (this.queue.length > 0) {
 				const error = await this.playNextResource();
-	
+
 				if (error) break;
 			}
 		}

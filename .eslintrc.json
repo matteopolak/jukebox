@@ -10,7 +10,7 @@
 		"ecmaVersion": "latest",
 		"sourceType": "module"
 	},
-	"plugins": ["@typescript-eslint"],
+	"plugins": ["@typescript-eslint", "simple-import-sort"],
 	"rules": {
 		"indent": [
 			"error",
@@ -55,6 +55,22 @@
 			{
 				"ignoreEOLComments": true
 			}
-		]
+		],
+		"no-multiple-empty-lines": [
+			"error",
+			{
+				"max": 1,
+				"maxEOF": 1,
+				"maxBOF": 0
+			}
+		],
+		"no-trailing-spaces": [
+			"error",
+			{
+				"skipBlankLines": false
+			}
+		],
+		"simple-import-sort/imports": "error",
+		"eol-last": ["error", "always"]
 	}
 }

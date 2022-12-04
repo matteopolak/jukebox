@@ -1,4 +1,5 @@
 import { ActionRowData, ButtonComponentData, ButtonStyle, ComponentType, StringSelectMenuComponentData } from 'discord.js';
+
 import { ConnectionSettings, Effect } from '@/typings/common';
 
 export function getDefaultComponents(settings: ConnectionSettings) {
@@ -24,7 +25,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 					label: '⏭️',
 					style: ButtonStyle.Primary,
 				},
-				
+
 				{
 					type: ComponentType.Button,
 					customId: 'remove',
@@ -174,7 +175,7 @@ export function getDefaultComponents(settings: ConnectionSettings) {
 							value: Effect.Underwater.toString(),
 							default: settings.effect === Effect.Underwater,
 						},
-						
+
 						{
 							label: 'Vaporwave',
 							emoji: '🌊',

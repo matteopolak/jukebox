@@ -1,7 +1,6 @@
-
 declare module 'soundcloud-downloader/dist/index' {
 	import type { Readable } from 'node:stream';
-	
+
 	const enum STREAMING_PROTOCOLS {
 		HLS = 'hls',
 		PROGRESSIVE = 'progressive'
@@ -68,7 +67,7 @@ declare module 'soundcloud-downloader/dist/index' {
 		user?: User,
 		playback_count?: number
 	}
-	
+
 	export interface SetInfo {
 		title: string,
 		duration: number,
@@ -104,7 +103,7 @@ declare module 'soundcloud-downloader/dist/index' {
 		published_at: string,
 		embeddable_by: string
 	}
-	
+
 	export interface Transcoding {
 		url: string,
 		preset: string,

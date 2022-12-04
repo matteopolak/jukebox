@@ -1,5 +1,6 @@
+import { Collection, Db, MongoClient, UpdateFilter } from 'mongodb';
+
 import { Manager, Option, Song, SongData } from '@/typings/common';
-import { MongoClient, Db, Collection, UpdateFilter } from 'mongodb';
 
 export class Database {
 	public static client: MongoClient;

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import {
 	ApplicationCommandOptionType,
 	ApplicationCommandType,
@@ -9,22 +10,20 @@ import {
 	MessageType,
 } from 'discord.js';
 
-import { createAudioManager } from '@/util/music';
-import Connection, { connections } from '@/structures/Connection';
 import {
 	getLyricsById,
 	getTrack,
 	getTrackFromSongData,
 	QueryType,
 } from '@/api/musixmatch';
-import { loginPromise, LYRICS_CLIENT, MAIN_CLIENT as client, QUEUE_CLIENT } from '@/util/worker';
-
-import axios from 'axios';
-import { Database } from '@/util/database';
+import Connection, { connections } from '@/structures/Connection';
+import { SearchType } from '@/structures/Provider';
 import { CommandOrigin, Effect } from '@/typings/common';
-import { createQuery, gutenberg, youtube } from './util/search';
-import { sendMessageAndDelete } from './util/message';
-import { SearchType } from './structures/Provider';
+import { Database } from '@/util/database';
+import { sendMessageAndDelete } from '@/util/message';
+import { createAudioManager } from '@/util/music';
+import { createQuery, gutenberg, youtube } from '@/util/search';
+import { loginPromise, LYRICS_CLIENT, MAIN_CLIENT as client, QUEUE_CLIENT } from '@/util/worker';
 
 axios.defaults.validateStatus = () => true;
 
@@ -214,7 +213,7 @@ client.on('interactionCreate', async interaction => {
 
 				if (result.ok) {
 					connection.addSongs(result.value.videos, true, playNext);
-		
+
 					await sendMessageAndDelete(
 						connection.textChannel,
 						`Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
@@ -244,7 +243,7 @@ client.on('interactionCreate', async interaction => {
 
 				if (result.ok) {
 					connection.addSongs(result.value.videos, true, true);
-		
+
 					await sendMessageAndDelete(
 						connection.textChannel,
 						result.value.title === undefined
@@ -281,7 +280,7 @@ client.on('interactionCreate', async interaction => {
 
 				if (result.ok) {
 					connection.addSongs(result.value.videos, true, playNext);
-		
+
 					await sendMessageAndDelete(
 						connection.textChannel,
 						`Added **${

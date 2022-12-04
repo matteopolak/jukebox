@@ -1,10 +1,10 @@
 // TODO: reverse-engineer Spotify's GraphQL API
 
-import { Option, SongData, ProviderOrigin, Result, SearchResult } from '@/typings/common';
-import { bufferUnordered } from '@/util/promise';
-
 import axios from 'axios';
+
 import { Provider } from '@/structures/Provider';
+import { Option, ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
+import { bufferUnordered } from '@/util/promise';
 import { getCachedSong } from '@/util/search';
 
 const MAX_BATCH_SIZE_PLAYLIST = 100;
@@ -95,7 +95,7 @@ export class SpotifyProvider extends Provider {
 
 		return this._clientTokenPromise = this._getClientToken();
 	}
-	
+
 	private async _getAccessToken() {
 		const response = await axios.get<TokenRefreshResponse>('https://open.spotify.com/get_access_token', {
 			headers: {
@@ -113,7 +113,7 @@ export class SpotifyProvider extends Provider {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param n The number of milliseconds that the token must be valid for in order to be considered valid
 	 */
 	private async getAccessToken(n = 10_000) {

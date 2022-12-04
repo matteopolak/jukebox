@@ -1,13 +1,13 @@
 import { URL } from 'node:url';
 
-import { YouTubeProvider } from '@/providers/youtube';
+import { ALLOWED_PROTOCOLS } from '@/constants';
+import { GutenbergProvider } from '@/providers/gutenberg';
 import { SoundCloudProvider } from '@/providers/soundcloud';
+import { SpotifyProvider } from '@/providers/spotify';
+import { YouTubeProvider } from '@/providers/youtube';
+import { SearchType } from '@/structures/Provider';
 import { Result, SearchResult, Song, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
-import { GutenbergProvider } from '@/providers/gutenberg';
-import { ALLOWED_PROTOCOLS } from '@/constants';
-import { SpotifyProvider } from '@/providers/spotify';
-import { SearchType } from '@/structures/Provider';
 
 export function getCachedSong(uid: string) {
 	return Database.cache.findOne({ uid });

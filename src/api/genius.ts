@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { parse } from 'node-html-parser';
+
 import { Option, SongData } from '@/typings/common';
 import { GeniusResponse, SearchResponse, Song } from '@/typings/genius';
 import { cleanTitle } from '@/util/music';

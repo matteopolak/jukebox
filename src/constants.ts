@@ -1,4 +1,5 @@
 import { ButtonStyle, ComponentType } from 'discord.js';
+
 import { Effect, ProviderOrigin } from '@/typings/common';
 
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
@@ -220,7 +221,7 @@ export const DEFAULT_COMPONENTS = [
 						emoji: '🐠',
 						value: Effect.Underwater.toString(),
 					},
-					
+
 					{
 						label: 'Vaporwave',
 						emoji: '🌊',

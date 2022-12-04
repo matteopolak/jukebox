@@ -1,7 +1,8 @@
 import { APIActionRowComponent, APIMessageActionRowComponent, CommandInteraction } from 'discord.js';
-import { Database } from '@/util/database';
+
 import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '@/constants';
 import { Effect } from '@/typings/common';
+import { Database } from '@/util/database';
 import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 
 export async function createAudioManager(interaction: CommandInteraction) {

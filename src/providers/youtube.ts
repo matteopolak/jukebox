@@ -1,9 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
-import { Option, Result, SearchResult, SongData, ProviderOrigin } from '@/typings/common';
-import { parseDurationString } from '@/util/duration';
 import ytdl, { videoInfo as VideoInfo } from 'ytdl-core';
+
+import { Provider, SearchOptions, SearchType } from '@/structures/Provider';
+import { Option, ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
-import { SearchOptions, SearchType, Provider } from '@/structures/Provider';
+import { parseDurationString } from '@/util/duration';
 import { getCachedSong } from '@/util/search';
 
 export type SearchItem<T extends SearchType> = T extends SearchType.Playlist ? PlaylistItem : T extends SearchType.Video ? VideoItem : never;
@@ -202,9 +203,9 @@ export class YouTubeProvider extends Provider {
 					},
 				})
 			);
-		
+
 			await Database.addSongToCache(data);
-		
+
 			return {
 				ok: true,
 				value: {
@@ -230,16 +231,16 @@ export class YouTubeProvider extends Provider {
 
 	public async getPlaylist(id: string): Promise<Result<SearchResult, string>> {
 		const { data: html } = await axios.get<string>(`https://www.youtube.com/playlist?list=${id}`);
-	
+
 		const dataString = html.match(YouTubeProvider.INITIAL_DATA_REGEX)?.[1];
 		if (!dataString) return { ok: false, error: `Could not find playlist data from the YouTube playlist \`${id}\`.` };
-	
+
 		const [data, metadata] = YouTubeProvider.parseInitialData(dataString);
 		if (!data) return { ok: false, error: `Could not parse playlist data from the YouTube playlist \`${id}\`.` };
-	
+
 		const videos = data[1];
 		let continuationToken = data[0];
-	
+
 		while (continuationToken) {
 			const { data } = await axios.post<InitialData>('https://www.youtube.com/youtubei/v1/browse', {
 				context: {
@@ -254,13 +255,13 @@ export class YouTubeProvider extends Provider {
 					key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
 				},
 			});
-	
+
 			const [token, parsedVideos] = YouTubeProvider.parsePlaylist(data);
-	
+
 			continuationToken = token;
 			videos.push(...parsedVideos);
 		}
-	
+
 		return {
 			ok: true,
 			value: {
@@ -311,7 +312,7 @@ export class YouTubeProvider extends Provider {
 	private static parseInitialData(initialData: string): [[undefined, SongData[]], undefined] | [[Option<string>, SongData[]], Metadata] {
 		try {
 			const data: InitialData = JSON.parse(initialData);
-			
+
 			const playlist = data.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
 			if (!playlist) return [[undefined, []], undefined];
 
@@ -333,7 +334,7 @@ export class YouTubeProvider extends Provider {
 					type: ProviderOrigin.YouTube,
 				} satisfies SongData as SongData;
 			});
-			
+
 			return [[continuationToken, videos], data.metadata];
 		} catch (e) {
 			return [[undefined, []], undefined];
@@ -343,13 +344,13 @@ export class YouTubeProvider extends Provider {
 	private static parsePlaylist(data: InitialData): [Option<string>, SongData[]] {
 		const playlist = data?.onResponseReceivedActions?.[0]?.appendContinuationItemsAction?.continuationItems;
 		if (!playlist) return [undefined, []];
-	
+
 		const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
 		if (continuationToken) playlist.pop();
-	
+
 		const videos = playlist.map(video => {
 			const info = video.playlistVideoRenderer!;
-	
+
 			return {
 				id: info.videoId,
 				uid: info.videoId,
@@ -362,14 +363,14 @@ export class YouTubeProvider extends Provider {
 				type: ProviderOrigin.YouTube,
 			} satisfies SongData as SongData;
 		});
-	
+
 		return [continuationToken, videos];
 	}
 
 	private static videoInfoToSongData(data: VideoInfo): SongData {
 		const info = data.videoDetails;
 		const related = data.related_videos.filter(v => v?.id);
-	
+
 		const song = {
 			id: info.videoId,
 			uid: info.videoId,
@@ -411,7 +412,7 @@ export class YouTubeProvider extends Provider {
 						i?.videoDescriptionMusicSectionRenderer?.sectionTitle?.simpleText ===
 						'Music'
 				);
-	
+
 		if (metadata) {
 			for (const item of metadata.videoDescriptionMusicSectionRenderer
 				?.carouselLockups[0]?.carouselLockupRenderer?.infoRows ?? []) {
@@ -419,20 +420,20 @@ export class YouTubeProvider extends Provider {
 					item.infoRowRenderer?.defaultMetadata?.simpleText ??
 					item.infoRowRenderer?.expandedMetadata?.simpleText ??
 					item.infoRowRenderer?.defaultMetadata?.runs[0]?.text;
-	
+
 				switch (item.infoRowRenderer.title.simpleText) {
 					case 'SONG':
 						song.title = content;
-	
+
 						break;
 					case 'ARTIST':
 						song.artist = content;
-	
+
 						break;
 				}
 			}
 		}
-	
+
 		return song;
 	}
 }
