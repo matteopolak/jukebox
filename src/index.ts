@@ -274,7 +274,7 @@ client.on('interactionCreate', async interaction => {
 							? `Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
 							: `Added **${
 								result.value.videos.length
-							}** songs from ${
+							}** song${result.value.videos.length === 1 ? '' : 's'} from ${
 								`the playlist **${escapeMarkdown(result.value.title)}**`
 							} to the queue.`
 					);
@@ -309,7 +309,7 @@ client.on('interactionCreate', async interaction => {
 						connection.textChannel,
 						`Added **${
 							result.value.videos.length
-						}** songs from ${
+						}** song${result.value.videos.length === 1 ? '' : 's'} from ${
 							`the playlist **${escapeMarkdown(result.value.title!)}**`
 						} to the queue.`
 					);
