@@ -136,6 +136,12 @@ client.once('ready', async () => {
 							required: true,
 							autocomplete: true,
 						},
+						{
+							name: 'play',
+							description: 'Whether to play the chart playlist immediately.',
+							type: ApplicationCommandOptionType.Boolean,
+							required: false,
+						},
 					],
 				},
 			]
@@ -203,7 +209,7 @@ client.on('interactionCreate', async interaction => {
 	if (interaction.isButton()) {
 		return void handleButton(interaction);
 	} else if (interaction.isAutocomplete()) {
-		if (interaction.commandId === 'chart') {
+		if (interaction.commandName === 'chart') {
 			return void handleChartAutocomplete(interaction);
 		}
 	} else if (interaction.isChatInputCommand()) {
@@ -370,13 +376,19 @@ client.on('interactionCreate', async interaction => {
 					content: `<https://discord.com/api/oauth2/authorize?client_id=${client.user!.id}&permissions=20196352&scope=bot%20applications.commands>`,
 				});
 			case 'chart': {
+				await interaction.deferReply();
+
 				const connection = await Connection.getOrCreate(interaction);
 				if (!connection) return;
 
 				const result = await spotify.getPlaylist(interaction.options.getString('name', true));
 				if (!result.ok) return;
 
-				connection.addSongs(result.value.videos, true);
+				const playNext = interaction.options.getBoolean('play', false) ?? false;
+
+				connection.addSongs(result.value.videos, true, playNext);
+
+				await interaction.deleteReply();
 
 				return void sendMessageAndDelete(connection.textChannel, {
 					content: `Added **${result.value.videos.length}** songs from the **${escapeMarkdown(result.value.title!)}** chart to the queue.`,

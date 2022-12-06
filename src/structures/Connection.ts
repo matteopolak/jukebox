@@ -724,6 +724,7 @@ export default class Connection {
 	): Promise<Option<Readable | Opus.Encoder | FFmpeg>> {
 		switch (song.type) {
 			case ProviderOrigin.YouTube:
+			case ProviderOrigin.Apple:
 			case ProviderOrigin.Spotify: {
 				// if the url is empty, we need to get it from youtube
 				if (song.url === '') {

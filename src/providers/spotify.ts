@@ -9,7 +9,7 @@ import { getCachedSong } from '@/util/search';
 
 const MAX_BATCH_SIZE_PLAYLIST = 100;
 const MAX_BATCH_SIZE_ALBUM = 50;
-const MAX_BATCH_SIZE_CHART = 50;
+const MAX_BATCH_SIZE_CHART_CATEGORY = 50;
 
 interface Token {
 	token: string;
@@ -90,10 +90,6 @@ export class SpotifyProvider extends Provider {
 
 		this.http = axios.create({
 			baseURL: 'https://api.spotify.com/v1',
-			/*
-			transformRequest: config => {
-
-			},*/
 		});
 	}
 
@@ -129,11 +125,7 @@ export class SpotifyProvider extends Provider {
 	}
 
 	private async _getAccessToken() {
-		const response = await axios.get<TokenRefreshResponse>('https://open.spotify.com/get_access_token', {
-			headers: {
-				// 'client-token': await this.getClientToken(),
-			},
-		});
+		const response = await axios.get<TokenRefreshResponse>('https://open.spotify.com/get_access_token');
 
 		this._accessToken = {
 			token: response.data.accessToken,
@@ -191,20 +183,20 @@ export class SpotifyProvider extends Provider {
 		};
 	}
 
-	private async _addChart(type: string, batches: number, start = 0) {
+	private async _addChartCategory(id: string, batches: number, start = 0) {
 		if (batches === 0) return;
 
 		return bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
-			const response = await this.http.get<Content<Container<Chart>>>(`/views/${type}`, {
+			const response = await this.http.get<Content<Container<Chart>>>(`/views/${id}`, {
 				headers: {
 					authorization: `Bearer ${await this.getAccessToken()}`,
 					'client-token': await this.getClientToken(),
-					'spotify-app-version': '1.2.1.53.g789bae87',
 				},
 				params: {
-					offset: index * MAX_BATCH_SIZE_CHART + MAX_BATCH_SIZE_CHART + start,
-					limit: MAX_BATCH_SIZE_CHART,
-					market: 'AX',
+					offset: index * MAX_BATCH_SIZE_CHART_CATEGORY + start,
+					limit: MAX_BATCH_SIZE_CHART_CATEGORY,
+					platform: 'web',
+					types: 'album,playlist',
 				},
 			});
 
@@ -215,24 +207,26 @@ export class SpotifyProvider extends Provider {
 	private async _getCharts(): Promise<Chart[]> {
 		this._charts.data = [];
 
+		// container of chart containers
 		const response = await this.http.get<Content<Container<Content<Container<Chart>>>>>('/views/browse-charts-tab', {
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,
 			},
 			params: {
+				platform: 'web',
 				content_limit: 25,
-				limit: 50,
+				limit: MAX_BATCH_SIZE_CHART_CATEGORY,
 				types: 'album,playlist',
 			},
 		});
 
-		for (const { content: container, id } of response.data.content.items) {
-			this._charts.data.push(...container.items);
+		for (const container of response.data.content.items) {
+			this._charts.data.push(...container.content.items);
 
-			await this._addChart(
-				id,
-				Math.ceil(container.total / MAX_BATCH_SIZE_CHART) - container.items.length,
-				container.items.length
+			await this._addChartCategory(
+				container.id,
+				Math.ceil((container.content.total - 25) / MAX_BATCH_SIZE_CHART_CATEGORY),
+				25
 			);
 		}
 

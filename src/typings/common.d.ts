@@ -30,6 +30,7 @@ export const enum ProviderOrigin {
 	Spotify,
 	SoundCloud,
 	Gutenberg,
+	Apple,
 }
 
 export interface SongData {

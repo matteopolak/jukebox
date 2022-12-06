@@ -1,6 +1,7 @@
 import { URL } from 'node:url';
 
 import { ALLOWED_PROTOCOLS } from '@/constants';
+import { AppleProvider } from '@/providers/apple';
 import { GutenbergProvider } from '@/providers/gutenberg';
 import { SoundCloudProvider } from '@/providers/soundcloud';
 import { SpotifyProvider } from '@/providers/spotify';
@@ -77,6 +78,7 @@ export const youtube = new YouTubeProvider(process.env.COOKIE);
 export const spotify = new SpotifyProvider();
 export const soundcloud = new SoundCloudProvider();
 export const gutenberg = new GutenbergProvider();
+export const apple = new AppleProvider();
 
 export async function createQuery(
 	query: string
@@ -87,18 +89,24 @@ export async function createQuery(
 
 	switch (parsed.hostname) {
 		// Handle direct YouTube video queries
+		case 'gaming.youtube.com':
+		case 'm.youtube.com':
 		case 'www.youtube.com':
+		case 'youtube.com':
 			// https://www.youtube.com/shorts/{id}
 			if (parsed.pathname.startsWith('/shorts/')) {
 				parsed.searchParams.set('v', parsed.pathname.slice(8));
 				parsed.pathname = '/watch';
+			} else if (parsed.pathname.startsWith('/embed/')) {
+				parsed.searchParams.set('v', parsed.pathname.slice(7));
+				parsed.pathname = '/watch';
 			}
 		case 'media.youtube.com':
 			// https://(www|media).youtube.com/playlist?list={id}
-			if (parsed.pathname === '/playlist' && parsed.searchParams.has('list') && parsed.searchParams.get('list').length === 34)
+			if (parsed.pathname === '/playlist' && parsed.searchParams.has('list'))
 				return youtube.getPlaylist(parsed.searchParams.get('list')!);
 			// Enforce using the `/watch` endpoint of YouTube
-			if (parsed.pathname !== '/watch') break;
+			if (parsed.pathname !== '/watch' || !parsed.searchParams.has('v')) break;
 		case 'youtu.be': {
 			const id = parsed.searchParams.get('v') ?? parsed.pathname.slice(1);
 			if (!YouTubeProvider.ID_REGEX.test(id)) break;
@@ -126,6 +134,13 @@ export async function createQuery(
 			if (type === 'artist') return spotify.getArtistTracks(id);
 
 			break;
+		}
+		case 'music.apple.com': {
+			const [, catalog, type, _, id] = parsed.pathname.split('/');
+			if (!catalog || !type || !id) break;
+
+			if (type === 'album') return apple.getAlbum(id, catalog);
+			if (type === 'playlist') return apple.getPlaylist(id, catalog);
 		}
 	}
 

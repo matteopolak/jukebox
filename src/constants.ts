@@ -11,6 +11,7 @@ export const PROVIDER_TO_EMOJI: Record<ProviderOrigin, string> = {
 	[ProviderOrigin.Spotify]: '<:spotify:1009952127512223834>',
 	[ProviderOrigin.YouTube]: '<:youtube:1009952565301096448>',
 	[ProviderOrigin.Gutenberg]: '<:gutenberg:1014252942230036601>',
+	[ProviderOrigin.Apple]: '<:apple:1049809008946589726>',
 };
 
 export const EFFECTS: Record<Effect, string[]> = {

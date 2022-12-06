@@ -4,7 +4,8 @@ import {
 	MessagePayload,
 	TextBasedChannel,
 } from 'discord.js';
-import similar from 'string-similarity';
+import { inPlaceSort } from 'fast-sort';
+import { levenshtein } from 'string-comparison';
 
 import { spotify } from './search';
 
@@ -25,13 +26,20 @@ export function enforceLength(text: string, maxLength: number) {
 }
 
 export async function handleChartAutocomplete(interaction: AutocompleteInteraction) {
+	const focused = interaction.options.getFocused(true);
+	if (focused.name !== 'name') return;
+
 	const charts = await spotify.getCharts();
 	if (!charts.ok) return;
 
-	const nameToChart = new Map(charts.value.map(c => [c.name.toLowerCase(), c]));
+	const name = interaction.options.getString('name', true).toLowerCase();
 
-	const closest = similar.findBestMatch(interaction.options.getString('chart', true).toLocaleLowerCase(), [...nameToChart.keys()]);
-	const best = closest.ratings.slice(0, 25).map(r => nameToChart.get(r.target)!);
+	inPlaceSort(charts.value)
+		.asc(c => levenshtein.distance(c.name.toLowerCase(), name));
 
-	return void interaction.respond(best.map(c => ({ name: c.name, value: c.id })));
+	return void interaction.respond(
+		charts.value
+			.slice(0, 10)
+			.map(c => ({ name: c.name, value: c.id }))
+	);
 }
