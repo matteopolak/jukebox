@@ -1,6 +1,6 @@
 // TODO: reverse-engineer Spotify's GraphQL API
 
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 
 import { Provider } from '@/structures/Provider';
 import { Option, ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
@@ -9,6 +9,7 @@ import { getCachedSong } from '@/util/search';
 
 const MAX_BATCH_SIZE_PLAYLIST = 100;
 const MAX_BATCH_SIZE_ALBUM = 50;
+const MAX_BATCH_SIZE_CHART = 50;
 
 interface Token {
 	token: string;
@@ -59,11 +60,42 @@ interface AlbumMetadata {
 	}[];
 }
 
+interface Chart {
+	name: string;
+	id: string;
+}
+
+interface Cached<T> {
+	data: T;
+	expires: number;
+}
+
+interface Content<T> {
+	content: T;
+	id: string;
+}
+
 export class SpotifyProvider extends Provider {
+	private http: AxiosInstance;
+
 	private _accessToken: Option<Token>;
 	private _accessTokenPromise: Option<Promise<string>>;
 	private _clientToken: Option<string>;
 	private _clientTokenPromise: Option<Promise<string>>;
+	private _charts: Cached<Chart[]> = { data: [], expires: 0 };
+	private _chartsPromise: Option<Promise<Chart[]>>;
+
+	constructor() {
+		super();
+
+		this.http = axios.create({
+			baseURL: 'https://api.spotify.com/v1',
+			/*
+			transformRequest: config => {
+
+			},*/
+		});
+	}
 
 	private async _getClientToken(): Promise<string> {
 		const response = await axios.post('https://clienttoken.spotify.com/v1/clienttoken', {
@@ -159,7 +191,68 @@ export class SpotifyProvider extends Provider {
 		};
 	}
 
-	public async getTrack(id: string): Promise<Result<SearchResult, string>> {
+	private async _addChart(type: string, batches: number, start = 0) {
+		if (batches === 0) return;
+
+		return bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
+			const response = await this.http.get<Content<Container<Chart>>>(`/views/${type}`, {
+				headers: {
+					authorization: `Bearer ${await this.getAccessToken()}`,
+					'client-token': await this.getClientToken(),
+					'spotify-app-version': '1.2.1.53.g789bae87',
+				},
+				params: {
+					offset: index * MAX_BATCH_SIZE_CHART + MAX_BATCH_SIZE_CHART + start,
+					limit: MAX_BATCH_SIZE_CHART,
+					market: 'AX',
+				},
+			});
+
+			this._charts.data.push(...response.data.content.items);
+		});
+	}
+
+	private async _getCharts(): Promise<Chart[]> {
+		this._charts.data = [];
+
+		const response = await this.http.get<Content<Container<Content<Container<Chart>>>>>('/views/browse-charts-tab', {
+			headers: {
+				authorization: `Bearer ${await this.getAccessToken()}`,
+			},
+			params: {
+				content_limit: 25,
+				limit: 50,
+				types: 'album,playlist',
+			},
+		});
+
+		for (const { content: container, id } of response.data.content.items) {
+			this._charts.data.push(...container.items);
+
+			await this._addChart(
+				id,
+				Math.ceil(container.total / MAX_BATCH_SIZE_CHART) - container.items.length,
+				container.items.length
+			);
+		}
+
+		return this._charts.data;
+	}
+
+	public async getCharts(): Promise<Result<Chart[]>> {
+		if (this._charts?.expires !== undefined && this._charts.expires > Date.now()) {
+			return { ok: true, value: this._charts.data };
+		}
+
+		this._chartsPromise = this._getCharts();
+
+		const response = await this._chartsPromise;
+		this._chartsPromise = undefined;
+
+		return { ok: true, value: response };
+	}
+
+	public async getTrack(id: string): Promise<Result<SearchResult>> {
 		const cached = await getCachedSong(id);
 		if (cached) {
 			// Remove the unique id
@@ -175,7 +268,7 @@ export class SpotifyProvider extends Provider {
 			};
 		}
 
-		const response = await axios.get<Track>(`https://api.spotify.com/v1/tracks/${id}`, {
+		const response = await this.http.get<Track>(`/tracks/${id}`, {
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,
 				'client-token': await this.getClientToken(),
@@ -194,8 +287,8 @@ export class SpotifyProvider extends Provider {
 		};
 	}
 
-	public async getAlbum(id: string): Promise<Result<SearchResult, string>> {
-		const response = await axios.get<AlbumMetadata>(`https://api.spotify.com/v1/albums/${id}`, {
+	public async getAlbum(id: string): Promise<Result<SearchResult>> {
+		const response = await this.http.get<AlbumMetadata>(`/albums/${id}`, {
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,
 				'client-token': await this.getClientToken(),
@@ -216,7 +309,7 @@ export class SpotifyProvider extends Provider {
 		const batches = Math.ceil(total / MAX_BATCH_SIZE_ALBUM) - 1;
 
 		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
-			const response = await axios.get<Container<Track>>(`https://api.spotify.com/v1/albums/${id}/tracks`, {
+			const response = await this.http.get<Container<Track>>(`/albums/${id}/tracks`, {
 				headers: {
 					authorization: `Bearer ${await this.getAccessToken()}`,
 					'client-token': await this.getClientToken(),
@@ -255,8 +348,8 @@ export class SpotifyProvider extends Provider {
 		};
 	}
 
-	public async getPlaylist(id: string): Promise<Result<SearchResult, string>> {
-		const response = await axios.get<PlaylistMetadata>(`https://api.spotify.com/v1/playlists/${id}`, {
+	public async getPlaylist(id: string): Promise<Result<SearchResult>> {
+		const response = await this.http.get<PlaylistMetadata>(`/playlists/${id}`, {
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,
 				'client-token': await this.getClientToken(),
@@ -275,7 +368,7 @@ export class SpotifyProvider extends Provider {
 		const batches = Math.ceil(total / MAX_BATCH_SIZE_PLAYLIST) - 1;
 
 		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
-			const response = await axios.get<Container<PaginatedTrack>>(`https://api.spotify.com/v1/playlists/${id}/tracks`, {
+			const response = await this.http.get<Container<PaginatedTrack>>(`/playlists/${id}/tracks`, {
 				headers: {
 					authorization: `Bearer ${await this.getAccessToken()}`,
 					'client-token': await this.getClientToken(),
@@ -303,7 +396,7 @@ export class SpotifyProvider extends Provider {
 		};
 	}
 
-	public async getArtistTracks(id: string): Promise<Result<SearchResult, string>> {
+	public async getArtistTracks(id: string): Promise<Result<SearchResult>> {
 		const response = await axios.get('https://api-partner.spotify.com/pathfinder/v1/query', {
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,

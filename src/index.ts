@@ -20,9 +20,9 @@ import Connection, { connections } from '@/structures/Connection';
 import { SearchType } from '@/structures/Provider';
 import { CommandOrigin, Effect } from '@/typings/common';
 import { Database } from '@/util/database';
-import { sendMessageAndDelete } from '@/util/message';
+import { handleChartAutocomplete, sendMessageAndDelete } from '@/util/message';
 import { createAudioManager } from '@/util/music';
-import { createQuery, gutenberg, youtube } from '@/util/search';
+import { createQuery, gutenberg, spotify, youtube } from '@/util/search';
 import { loginPromise, LYRICS_CLIENT, MAIN_CLIENT as client, QUEUE_CLIENT } from '@/util/worker';
 
 axios.defaults.validateStatus = () => true;
@@ -124,6 +124,20 @@ client.once('ready', async () => {
 						},
 					],
 				},
+				{
+					name: 'chart',
+					description: 'Adds a chart to the queue.',
+					type: ApplicationCommandType.ChatInput,
+					options: [
+						{
+							name: 'name',
+							description: 'The name of the chart to add.',
+							type: ApplicationCommandOptionType.String,
+							required: true,
+							autocomplete: true,
+						},
+					],
+				},
 			]
 		)
 		.catch(() => {});
@@ -188,6 +202,10 @@ async function handleButton(interaction: ButtonInteraction) {
 client.on('interactionCreate', async interaction => {
 	if (interaction.isButton()) {
 		return void handleButton(interaction);
+	} else if (interaction.isAutocomplete()) {
+		if (interaction.commandId === 'chart') {
+			return void handleChartAutocomplete(interaction);
+		}
 	} else if (interaction.isChatInputCommand()) {
 		switch (interaction.commandName) {
 			case 'create':
@@ -351,6 +369,19 @@ client.on('interactionCreate', async interaction => {
 				return void interaction.reply({
 					content: `<https://discord.com/api/oauth2/authorize?client_id=${client.user!.id}&permissions=20196352&scope=bot%20applications.commands>`,
 				});
+			case 'chart': {
+				const connection = await Connection.getOrCreate(interaction);
+				if (!connection) return;
+
+				const result = await spotify.getPlaylist(interaction.options.getString('name', true));
+				if (!result.ok) return;
+
+				connection.addSongs(result.value.videos, true);
+
+				return void sendMessageAndDelete(connection.textChannel, {
+					content: `Added **${result.value.videos.length}** songs from the **${escapeMarkdown(result.value.title!)}** chart to the queue.`,
+				});
+			}
 		}
 	} else if (interaction.isStringSelectMenu()) {
 		const voiceChannelId = (interaction.member! as GuildMember).voice.channelId;

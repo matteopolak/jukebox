@@ -1,7 +1,7 @@
 import { Guild, GuildMember, TextBasedChannel } from 'discord.js';
 import { videoFormat } from 'ytdl-core';
 
-type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
+type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export interface Manager {
 	_id: string;
