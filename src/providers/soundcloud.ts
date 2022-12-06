@@ -28,7 +28,7 @@ export class SoundCloudProvider extends Provider {
 		};
 	}
 
-	public async getTrack(url: string): Promise<Result<SearchResult, string>> {
+	public async getTrack(url: string): Promise<Result<SearchResult>> {
 		try {
 			const raw = await scdl.getInfo(url);
 
@@ -48,7 +48,7 @@ export class SoundCloudProvider extends Provider {
 		}
 	}
 
-	public async getAlbum(url: string): Promise<Result<SearchResult, string>> {
+	public async getAlbum(url: string): Promise<Result<SearchResult>> {
 		try {
 			const set = await scdl.getSetInfo(url);
 

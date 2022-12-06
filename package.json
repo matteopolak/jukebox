@@ -6,7 +6,7 @@
 	"scripts": {
 		"start": "npx tsc --project tsconfig.json && npx tsc-alias -p tsconfig.json && node build/index.js",
 		"build": "npx tsc --project tsconfig.json && npx tsc-alias -p tsconfig.json",
-		"check": "npx tsc --project tsconfig.json --noEmit",
+		"check": "npx tsc --project tsconfig.json --noEmit && npx eslint --ext .ts src",
 		"eslint": "eslint --ext .ts src"
 	},
 	"repository": {

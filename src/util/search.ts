@@ -80,7 +80,7 @@ export const gutenberg = new GutenbergProvider();
 
 export async function createQuery(
 	query: string
-): Promise<Result<SearchResult, string>> {
+): Promise<Result<SearchResult>> {
 	const parsed = parseUrlWrapper(query);
 
 	if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return { ok: false, error: `Invalid protocol: **${parsed.protocol}**` };

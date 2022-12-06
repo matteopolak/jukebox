@@ -11,24 +11,24 @@ export interface SearchOptions {
 }
 
 export class Provider {
-	public async getTrack(id: string): Promise<Result<SearchResult, string>> {
+	public async getTrack(id: string): Promise<Result<SearchResult>> {
 		return { ok: false, error: `Could not find a track with the id \`${id}\`.` };
 	}
 
-	public async getPlaylist(id: string): Promise<Result<SearchResult, string>> {
+	public async getPlaylist(id: string): Promise<Result<SearchResult>> {
 		return { ok: false, error: `Could not find a playlist with the id \`${id}\`.` };
 	}
 
-	public async getAlbum(id: string): Promise<Result<SearchResult, string>> {
+	public async getAlbum(id: string): Promise<Result<SearchResult>> {
 		return { ok: false, error: `Could not find a album with the id \`${id}\`.` };
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	public async search(query: string, options: SearchOptions): Promise<Result<SearchResult, string>> {
+	public async search(query: string, options: SearchOptions): Promise<Result<SearchResult>> {
 		return { ok: false, error: `Could not find any results for the query \`${query}\`.` };
 	}
 
-	public async getArtistTracks(id: string): Promise<Result<SearchResult, string>> {
+	public async getArtistTracks(id: string): Promise<Result<SearchResult>> {
 		return { ok: false, error: `Could not find an artist with the id \`${id}\`.` };
 	}
 

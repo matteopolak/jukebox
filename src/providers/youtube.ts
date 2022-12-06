@@ -177,7 +177,7 @@ export class YouTubeProvider extends Provider {
 		};
 	}
 
-	public async getTrack(id: string): Promise<Result<SearchResult, string>> {
+	public async getTrack(id: string): Promise<Result<SearchResult>> {
 		const cached = await getCachedSong(id);
 		if (cached) {
 			// Remove the unique id
@@ -221,7 +221,7 @@ export class YouTubeProvider extends Provider {
 		}
 	}
 
-	public async search(query: string, filter: SearchOptions): Promise<Result<SearchResult, string>> {
+	public async search(query: string, filter: SearchOptions): Promise<Result<SearchResult>> {
 		if (filter.type === SearchType.Video) {
 			return this._searchVideo(query, filter);
 		}
@@ -229,7 +229,7 @@ export class YouTubeProvider extends Provider {
 		return this._searchPlaylist(query, filter);
 	}
 
-	public async getPlaylist(id: string): Promise<Result<SearchResult, string>> {
+	public async getPlaylist(id: string): Promise<Result<SearchResult>> {
 		const { data: html } = await axios.get<string>(`https://www.youtube.com/playlist?list=${id}`);
 
 		const dataString = html.match(YouTubeProvider.INITIAL_DATA_REGEX)?.[1];
@@ -271,14 +271,14 @@ export class YouTubeProvider extends Provider {
 		};
 	}
 
-	private async _searchVideo(query: string, _filter: SearchOptions): Promise<Result<SearchResult, string>> {
+	private async _searchVideo(query: string, _filter: SearchOptions): Promise<Result<SearchResult>> {
 		const videos = await this._search(query, SearchType.Video);
 		if (!videos?.length) return { ok: false, error: `No videos found with the query \`${query}\`.` };
 
 		return this.getTrack(videos[0].videoRenderer.videoId);
 	}
 
-	private async _searchPlaylist(query: string, _filter: SearchOptions): Promise<Result<SearchResult, string>> {
+	private async _searchPlaylist(query: string, _filter: SearchOptions): Promise<Result<SearchResult>> {
 		const playlists = await this._search(query, SearchType.Playlist);
 		if (!playlists) return { ok: false, error: `No playlists found with the query \`${query}\`.` };
 

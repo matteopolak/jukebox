@@ -5,7 +5,7 @@ import { ProviderOrigin, Result, SearchResult } from '@/typings/common';
 import { GutenbergBook, GutenbergResponse } from '@/typings/gutenberg';
 
 export class GutenbergProvider extends Provider {
-	public async search(query: string): Promise<Result<SearchResult, string>> {
+	public async search(query: string): Promise<Result<SearchResult>> {
 		const { data } = await axios.get<GutenbergResponse<GutenbergBook>>(
 			'http://gutendex.com/books/',
 			{
