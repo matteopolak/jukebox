@@ -67,6 +67,7 @@ export class AppleProvider extends Provider {
 			baseURL: 'https://amp-api.music.apple.com/v1',
 			headers: {
 				origin: 'https://music.apple.com',
+				// use the default bearer token from the web player
 				authorization: 'Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IldlYlBsYXlLaWQifQ.eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNjY4ODAwNDE0LCJleHAiOjE2NzYwNTgwMTQsInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ.lU7UBXnRH7LGMnCu2q9x99yBTE0OAHRtzA1h31eyrzlOl8W-1JDxnk74GnRoXxmnRpyYebGCNtt3bphRHQ-mEg',
 			},
 		});
