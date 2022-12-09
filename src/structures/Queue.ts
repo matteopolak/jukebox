@@ -11,6 +11,9 @@ import { randomElement, randomInteger } from '@/util/random';
 import { youtube } from '@/util/search';
 import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 
+const QUEUE_DISPLAY_SIZE = 5;
+const QUEUE_DISPLAY_BUFFER = 2;
+
 export interface InsertSongOptions {
 	playNext?: boolean;
 }
@@ -108,14 +111,16 @@ export class Queue {
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1, index: 1 });
 
-		if (this.index > 2) {
-			cursor.skip(this.index - 2);
+		if (this.index > QUEUE_DISPLAY_SIZE) {
+			cursor.skip(this.index - QUEUE_DISPLAY_BUFFER);
+		} else if (this._queueLength - this.index < QUEUE_DISPLAY_BUFFER) {
+			cursor.skip(this._queueLength - QUEUE_DISPLAY_SIZE);
 		}
 
-		const songs = await cursor.limit(5).toArray();
+		const songs = await cursor.limit(QUEUE_DISPLAY_SIZE).toArray();
 
-		const lower = Math.max(0, this.index - 2);
-		const upper = Math.min(this._queueLength, this.index + 3);
+		const lower = Math.max(0, this.index - QUEUE_DISPLAY_BUFFER);
+		const upper = Math.min(this._queueLength, this.index + QUEUE_DISPLAY_BUFFER + 1);
 		const length = Math.ceil(Math.log10(upper));
 
 		const content = songs.map(
@@ -294,7 +299,7 @@ export class Queue {
 		this._queueLength++;
 		if (song.related) this._queueLengthWithRelated += song.related.length;
 
-		if (Math.abs(this.index - this._queueLength) < 3) {
+		if (Math.abs(this.index - this._queueLength) <= QUEUE_DISPLAY_BUFFER + 1) {
 			this.updateQueueMessage();
 		}
 
@@ -317,7 +322,7 @@ export class Queue {
 				}))
 		);
 
-		if (Math.abs(this.index - this._queueLength) < 3) {
+		if (Math.abs(this.index - this._queueLength) < QUEUE_DISPLAY_BUFFER + 1) {
 			this.updateQueueMessage();
 		}
 

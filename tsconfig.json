@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
-		"target": "es2020",
-		"module": "commonjs",
+		"target": "es2022",
+		"module": "es2022",
 		"baseUrl": "./src",
 		"paths": {
 			"@/*": ["*"]
@@ -12,7 +12,8 @@
 		"forceConsistentCasingInFileNames": true,
 		"strict": true,
 		"skipLibCheck": true,
-		"exactOptionalPropertyTypes": true
+		"exactOptionalPropertyTypes": true,
+		"moduleResolution": "node"
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules", "build"]

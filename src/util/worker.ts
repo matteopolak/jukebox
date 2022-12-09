@@ -8,7 +8,11 @@ import {
 } from 'discord.js';
 import dotenv from 'dotenv';
 
+import { Database } from './database';
+
 dotenv.config({ override: true });
+
+await Database.login();
 
 export const MAIN_CLIENT = new Client({
 	partials: [Partials.GuildMember, Partials.User, Partials.Channel],
