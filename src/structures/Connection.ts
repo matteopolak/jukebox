@@ -44,7 +44,7 @@ import {
 	EFFECT_TO_SPEED,
 	EFFECTS,
 } from '@/constants';
-import { Queue } from '@/structures/Queue';
+import { Queue } from '@/structures/queue';
 import {
 	CommandOrigin,
 	ConnectionSettings,
@@ -68,7 +68,7 @@ import {
 	MAIN_CLIENT,
 } from '@/util/worker';
 
-import { SearchType } from './Provider';
+import { SearchType } from './provider';
 
 export const connections: Map<string, Connection> = new Map();
 

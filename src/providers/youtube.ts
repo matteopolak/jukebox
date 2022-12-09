@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import ytdl, { videoInfo as VideoInfo } from 'ytdl-core';
 
-import { Provider, SearchOptions, SearchType } from '@/structures/Provider';
+import { Provider, SearchOptions, SearchType } from '@/structures/provider';
 import { Option, ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
 import { parseDurationString } from '@/util/duration';

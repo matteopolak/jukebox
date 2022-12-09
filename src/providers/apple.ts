@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 
-import { Provider } from '@/structures/Provider';
+import { Provider } from '@/structures/provider';
 import { ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
 import { bufferUnordered } from '@/util/promise';
 

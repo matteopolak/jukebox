@@ -2,7 +2,7 @@ import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
 import { WithId } from 'mongodb';
 
 import { PROVIDER_TO_EMOJI } from '@/constants';
-import Connection from '@/structures/Connection';
+import Connection from '@/structures/connection';
 import { ConnectionSettings, Manager, Option, Song, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
 import { formatMilliseconds } from '@/util/duration';

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import { Provider } from '@/structures/Provider';
+import { Provider } from '@/structures/provider';
 import { ProviderOrigin, Result, SearchResult } from '@/typings/common';
 import { GutenbergBook, GutenbergResponse } from '@/typings/gutenberg';
 

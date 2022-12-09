@@ -10,7 +10,7 @@ import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import ffmpeg from 'fluent-ffmpeg';
 import prism from 'prism-media';
 
-import Connection from '@/structures/Connection';
+import Connection from '@/structures/connection';
 import { CommandOrigin } from '@/typings/common';
 
 const wit = axios.create({

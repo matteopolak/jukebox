@@ -1,7 +1,7 @@
 import { TrackInfo } from 'soundcloud-downloader/dist/index.js';
 import scdl from 'soundcloud-downloader/dist/index.js';
 
-import { Provider } from '@/structures/Provider';
+import { Provider } from '@/structures/provider';
 import {
 	ProviderOrigin,
 	Result,

@@ -6,7 +6,7 @@ import { GutenbergProvider } from '@/providers/gutenberg';
 import { SoundCloudProvider } from '@/providers/soundcloud';
 import { SpotifyProvider } from '@/providers/spotify';
 import { YouTubeProvider } from '@/providers/youtube';
-import { SearchType } from '@/structures/Provider';
+import { SearchType } from '@/structures/provider';
 import { Result, SearchResult, Song, SongData } from '@/typings/common';
 import { Database } from '@/util/database';
 

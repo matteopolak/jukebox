@@ -2,7 +2,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 
-import { Provider } from '@/structures/Provider';
+import { Provider } from '@/structures/provider';
 import { Option, ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
 import { bufferUnordered } from '@/util/promise';
 import { getCachedSong } from '@/util/search';
