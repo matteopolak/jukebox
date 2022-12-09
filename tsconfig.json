@@ -15,6 +15,9 @@
 		"exactOptionalPropertyTypes": true,
 		"moduleResolution": "node"
 	},
+	"tsc-alias": {
+		"resolveFullPaths": true
+	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules", "build"]
 }

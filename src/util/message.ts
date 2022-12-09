@@ -4,7 +4,7 @@ import {
 	MessagePayload,
 	TextBasedChannel,
 } from 'discord.js';
-import { inPlaceSort } from 'fast-sort';
+import fast from 'fast-sort';
 import { levenshtein } from 'string-comparison';
 
 import { spotify } from './search';
@@ -34,7 +34,7 @@ export async function handleChartAutocomplete(interaction: AutocompleteInteracti
 
 	const name = interaction.options.getString('name', true).toLowerCase();
 
-	inPlaceSort(charts.value)
+	fast.inPlaceSort(charts.value)
 		.asc(c => levenshtein.distance(c.name.toLowerCase(), name));
 
 	return void interaction.respond(

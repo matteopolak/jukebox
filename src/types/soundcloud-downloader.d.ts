@@ -1,4 +1,4 @@
-declare module 'soundcloud-downloader/dist/index' {
+declare module 'soundcloud-downloader/dist/index.js' {
 	import type { Readable } from 'node:stream';
 
 	const enum STREAMING_PROTOCOLS {

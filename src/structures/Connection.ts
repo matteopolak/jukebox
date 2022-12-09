@@ -27,7 +27,7 @@ import {
 import createAudioStream from 'discord-ytdl-core';
 import { UpdateFilter, WithId } from 'mongodb';
 import { FFmpeg, opus as Opus } from 'prism-media';
-import scdl from 'soundcloud-downloader/dist/index';
+import scdl from 'soundcloud-downloader/dist/index.js';
 
 import {
 	getLyricsById as getGeniusLyricsById,
