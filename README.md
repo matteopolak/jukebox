@@ -20,6 +20,7 @@ To abide by Discord and YouTube ToS, playing copyrighted content from YouTube is
   * **SoundCloud** albums, playlists, and singles
 * Dedicated channel to request and control music
 * Support for playing restricted YouTube content
+* Voice commands with Wit.ai
 
 ## Installation and usage
 
