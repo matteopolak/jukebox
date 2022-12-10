@@ -111,16 +111,24 @@ export class Queue {
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1, index: 1 });
 
+		let lower = 0;
+		let upper = 0;
+
 		if (this._queueLength - this.index <= QUEUE_DISPLAY_BUFFER && this._queueLength > QUEUE_DISPLAY_SIZE) {
 			cursor.skip(this._queueLength - QUEUE_DISPLAY_SIZE);
+
+			lower = this._queueLength - QUEUE_DISPLAY_SIZE;
+			upper = this._queueLength;
 		} else if (this.index > QUEUE_DISPLAY_BUFFER) {
 			cursor.skip(this.index - QUEUE_DISPLAY_BUFFER);
+
+			lower = this.index - QUEUE_DISPLAY_BUFFER;
+			upper = this.index + QUEUE_DISPLAY_BUFFER + 1;
+		} else {
+			upper = Math.min(this._queueLength, QUEUE_DISPLAY_SIZE);
 		}
 
 		const songs = await cursor.limit(QUEUE_DISPLAY_SIZE).toArray();
-
-		const lower = Math.max(0, this.index - QUEUE_DISPLAY_BUFFER);
-		const upper = Math.min(this._queueLength, this.index + QUEUE_DISPLAY_BUFFER + 1);
 		const length = Math.ceil(Math.log10(upper));
 
 		const content = songs.map(
