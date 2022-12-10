@@ -111,7 +111,7 @@ export class Queue {
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1, index: 1 });
 
-		if (this._queueLength - this.index < QUEUE_DISPLAY_BUFFER && this._queueLength > QUEUE_DISPLAY_SIZE) {
+		if (this._queueLength - this.index <= QUEUE_DISPLAY_BUFFER && this._queueLength > QUEUE_DISPLAY_SIZE) {
 			cursor.skip(this._queueLength - QUEUE_DISPLAY_SIZE);
 		} else if (this.index > QUEUE_DISPLAY_BUFFER) {
 			cursor.skip(this.index - QUEUE_DISPLAY_BUFFER);
