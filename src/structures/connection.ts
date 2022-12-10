@@ -23,6 +23,7 @@ import {
 	TextChannel,
 	ThreadChannel,
 	VoiceBasedChannel,
+	VoiceState,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { UpdateFilter, WithId } from 'mongodb';
@@ -145,7 +146,7 @@ export default class Connection {
 	}
 
 	public static async getOrCreate(
-		data: Interaction | Message | RawData
+		data: Interaction | Message | RawData | VoiceState
 	): Promise<Option<Connection>> {
 		const manager = await Database.manager.findOne({
 			channelId: data.channel!.id,
