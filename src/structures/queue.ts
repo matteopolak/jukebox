@@ -111,10 +111,10 @@ export class Queue {
 			.find({ guildId: this.manager.guildId })
 			.sort({ addedAt: 1, index: 1 });
 
-		if (this.index > QUEUE_DISPLAY_SIZE) {
-			cursor.skip(this.index - QUEUE_DISPLAY_BUFFER);
-		} else if (this._queueLength - this.index < QUEUE_DISPLAY_BUFFER) {
+		if (this._queueLength - this.index < QUEUE_DISPLAY_BUFFER && this._queueLength > QUEUE_DISPLAY_SIZE) {
 			cursor.skip(this._queueLength - QUEUE_DISPLAY_SIZE);
+		} else if (this.index > QUEUE_DISPLAY_BUFFER) {
+			cursor.skip(this.index - QUEUE_DISPLAY_BUFFER);
 		}
 
 		const songs = await cursor.limit(QUEUE_DISPLAY_SIZE).toArray();
