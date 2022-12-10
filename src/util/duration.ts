@@ -13,9 +13,9 @@ export function parseDurationString(duration: string): number {
 
 export function formatSeconds(seconds: number) {
 	const minutes = Math.floor(seconds / 60);
-	const secondsLeft = seconds % 60;
+	const secondsLeft = Math.round(seconds % 60);
 
-	return `${minutes}:${secondsLeft < 10 ? '0' : ''}${Math.round(secondsLeft)}`;
+	return `${minutes}:${secondsLeft < 10 ? '0' : ''}${secondsLeft}`;
 }
 
 export function formatMilliseconds(ms: number) {
