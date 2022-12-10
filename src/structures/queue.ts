@@ -299,7 +299,7 @@ export class Queue {
 		this._queueLength++;
 		if (song.related) this._queueLengthWithRelated += song.related.length;
 
-		if (Math.abs(this.index - this._queueLength) <= QUEUE_DISPLAY_BUFFER + 1) {
+		if ((this.index < QUEUE_DISPLAY_BUFFER && this._queueLength <= QUEUE_DISPLAY_SIZE) || Math.abs(this.index - this._queueLength) <= QUEUE_DISPLAY_BUFFER + 1) {
 			this.updateQueueMessage();
 		}
 
