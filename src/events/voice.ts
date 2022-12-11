@@ -10,16 +10,16 @@ export function register(client: Client) {
 
 		// if there is only one person in the channel and it's the bot, pause the connection
 		if (oldState && oldState.channel?.members.size === 1 && oldState.channel?.members.has(MAIN_CLIENT.user!.id)) {
-			const connection = await Connection.getOrCreate(oldState);
+			const connection = await Connection.getOrCreateFromVoice(oldState);
 			if (!connection) return;
 
-			return connection.pause();
+			return connection.pause(undefined, true);
 		}
 
 		// if there are 2 people in the channel and it's the bot and the other person, resume the connection
 		if (newState && newState.channel?.members.size === 2 && newState.channel?.members.has(MAIN_CLIENT.user!.id)) {
-			const connection = await Connection.getOrCreate(newState);
-			if (!connection) return;
+			const connection = await Connection.getOrCreateFromVoice(newState);
+			if (!connection || !connection.autopaused) return;
 
 			return connection.resume();
 		}

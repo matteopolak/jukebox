@@ -9,6 +9,7 @@ export interface Manager {
 	queueId: string;
 	channelId: string;
 	guildId: string;
+	voiceId?: string;
 	threadId?: string;
 	lyricsId?: string;
 	settings: ConnectionSettings;

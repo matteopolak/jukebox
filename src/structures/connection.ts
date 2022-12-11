@@ -97,6 +97,7 @@ export default class Connection {
 	};
 
 	public queue: Queue;
+	public autopaused = false;
 	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable>;
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
 	private _playing = false;
@@ -145,11 +146,36 @@ export default class Connection {
 		return this._components[row].components[index].style === ButtonStyle.Success;
 	}
 
+	public static async getOrCreateFromVoice(data: VoiceState) {
+		const manager = await Database.manager.findOne({
+			voiceId: data.channelId!,
+			guildId: data.guild.id,
+		});
+		if (!manager) return;
+
+		const cachedConnection = connections.get(data.guild.id);
+
+		if (cachedConnection) {
+			return cachedConnection;
+		}
+
+		const connection = new Connection(manager);
+		const member = data.member as GuildMember;
+
+		await connection.init();
+
+		if (member.voice.channel !== null) {
+			await connection.setVoiceChannel(member.voice.channel);
+		}
+
+		return connection;
+	}
+
 	public static async getOrCreate(
-		data: Interaction | Message | RawData | VoiceState
+		data: Interaction | Message | RawData
 	): Promise<Option<Connection>> {
 		const manager = await Database.manager.findOne({
-			channelId: data.channel!.id,
+			channelId: 'channelId' in data ? data.channelId! : data.channel.id,
 		});
 		if (!manager) return;
 
@@ -196,6 +222,11 @@ export default class Connection {
 
 	public async setVoiceChannel(voiceChannel: VoiceBasedChannel) {
 		if (this.voiceChannel === voiceChannel) return;
+
+		await this.updateManagerData({
+			voiceId: voiceChannel.id,
+		});
+
 		if (this.voiceChannel) {
 			const me = await voiceChannel.guild.members.fetchMe();
 			return void me.voice.setChannel(voiceChannel);
@@ -464,12 +495,14 @@ export default class Connection {
 		this.restartCurrentSong();
 	}
 
-	public pause(interaction?: ButtonInteraction) {
+	public pause(interaction?: ButtonInteraction, autopaused = false) {
 		if (
 			this.subscription !== undefined &&
 			this.subscription.player.state.status !== AudioPlayerStatus.Paused &&
 			this.subscription.player.state.status !== AudioPlayerStatus.Idle
 		) {
+			this.autopaused = autopaused;
+
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
 			this._components[row].components[index].label = '▶️';
 
