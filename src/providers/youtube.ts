@@ -169,28 +169,29 @@ export class YouTubeProvider extends TrackProvider {
 	}
 
 	public static async itemToTrack(item: VideoItem): Promise<TrackWithArtist> {
-		const videoId = `youtube:track:${item.videoRenderer.videoId}`;
+		const trackId = `youtube:track:${item.videoRenderer.videoId}`;
+		const artistId = `youtube:artist:${item.videoRenderer.ownerText.runs[0].navigationEndpoint.browseEndpoint.browseId}`;
 
 		return prisma.track.upsert({
 			where: {
-				uid: videoId,
+				uid: trackId,
 			},
 			update: {
 				title: item.videoRenderer.title.runs[0].text,
 				source: TrackSource.YouTube,
 			},
 			create: {
-				uid: videoId,
+				uid: trackId,
 				title: item.videoRenderer.title.runs[0].text,
 				thumbnail: `https://i.ytimg.com/vi/${item.videoRenderer.videoId}/hqdefault.jpg`,
 				artist: {
 					connectOrCreate: {
 						where: {
-							uid: item.videoRenderer.ownerText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+							uid: artistId,
 						},
 						create: {
 							name: item.videoRenderer.ownerText.runs[0].text,
-							uid: item.videoRenderer.ownerText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+							uid: artistId,
 						},
 					},
 				},
@@ -222,21 +223,21 @@ export class YouTubeProvider extends TrackProvider {
 			''
 		);
 
-		const videoId = `youtube:track:${info.videoId}`;
-		const authorId = `youtube:artist:${info.channelId}`;
+		const trackId = `youtube:track:${info.videoId}`;
+		const artistId = `youtube:artist:${info.channelId}`;
 
 		const track: Prisma.TrackCreateInput = {
-			uid: videoId,
+			uid: trackId,
 			url: info.video_url,
 			title: info.title,
 			artist: {
 				connectOrCreate: {
 					where: {
-						uid: authorId,
+						uid: artistId,
 					},
 					create: {
 						name: authorName,
-						uid: authorId,
+						uid: artistId,
 					},
 				},
 			},
@@ -317,7 +318,7 @@ export class YouTubeProvider extends TrackProvider {
 			);
 
 			return trackToOkSearchResult(track);
-		} catch {
+		} catch (e) {
 			return {
 				ok: false,
 				error: `A YouTube video by the id of \`${id}\` does not exist.`,
@@ -427,17 +428,18 @@ export class YouTubeProvider extends TrackProvider {
 
 			const tracks = playlist.map(video => {
 				const info = video.playlistVideoRenderer!;
-				const videoId = `youtube:track:${info.videoId}`;
+				const trackId = `youtube:track:${info.videoId}`;
+				const artistId = `youtube:artist:${info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId}`;
 
 				return {
 					where: {
-						uid: videoId,
+						uid: trackId,
 					},
 					update: {
 						title: info.title.runs[0].text,
 					},
 					create: {
-						uid: videoId,
+						uid: trackId,
 						title: info.title.runs[0].text,
 						url: `https://www.youtube.com/watch?v=${info.videoId}`,
 						thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
@@ -445,11 +447,11 @@ export class YouTubeProvider extends TrackProvider {
 						artist: {
 							connectOrCreate: {
 								where: {
-									uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+									uid: artistId,
 								},
 								create: {
 									name: info.shortBylineText.runs[0].text,
-									uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+									uid: artistId,
 								},
 							},
 						},
@@ -474,17 +476,18 @@ export class YouTubeProvider extends TrackProvider {
 
 		const tracks = playlist.map(video => {
 			const info = video.playlistVideoRenderer!;
-			const videoId = `youtube:track:${info.videoId}`;
+			const trackId = `youtube:track:${info.videoId}`;
+			const artistId = `youtube:artist:${info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId}`;
 
 			return {
 				where: {
-					uid: videoId,
+					uid: trackId,
 				},
 				update: {
 					title: info.title.runs[0].text,
 				},
 				create: {
-					uid: videoId,
+					uid: trackId,
 					title: info.title.runs[0].text,
 					url: `https://www.youtube.com/watch?v=${info.videoId}`,
 					thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
@@ -492,11 +495,11 @@ export class YouTubeProvider extends TrackProvider {
 					artist: {
 						connectOrCreate: {
 							where: {
-								uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+								uid: artistId,
 							},
 							create: {
 								name: info.shortBylineText.runs[0].text,
-								uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+								uid: artistId,
 							},
 						},
 					},

@@ -194,9 +194,12 @@ export class SpotifyProvider extends TrackProvider {
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public static async gqlTrackDataToTrack(track: any): Promise<TrackWithArtist> {
+		const trackId = `spotify:track:${track.track.id}`;
+		const artistId = `spotify:artist:${track.track.artists[0].id}`;
+
 		return prisma.track.upsert({
 			where: {
-				uid: track.track.uid,
+				uid: trackId,
 			},
 			update: {
 				title: track.track.name,
@@ -206,15 +209,15 @@ export class SpotifyProvider extends TrackProvider {
 				artist: {
 					connectOrCreate: {
 						where: {
-							uid: track.track.artists[0].id,
+							uid: artistId,
 						},
 						create: {
-							name: track.track.artists.items.map((artist: { profile: ArtistData }) => artist.profile.name)[0],
-							uid: track.track.artists[0].id,
+							name: track.track.artists.items[0].profile.name,
+							uid: artistId,
 						},
 					},
 				},
-				uid: track.track.uid,
+				uid: trackId,
 				source: TrackSource.Spotify,
 				thumbnail: track.track.albumOfTrack.coverArt.sources[0].url,
 				duration: track.track.duration.totalMilliseconds,
