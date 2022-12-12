@@ -1,6 +1,6 @@
 // TODO: reverse-engineer Spotify's GraphQL API
 
-import { Track } from '@prisma/client';
+import { PrismaPromise, Track } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
 import { TrackProvider } from '@/structures/provider';
@@ -156,7 +156,7 @@ export class SpotifyProvider extends TrackProvider {
 		return response;
 	}
 
-	public static async trackDataToTrack(track: TrackData): Promise<TrackWithArtist> {
+	public static trackDataToTrack(track: TrackData): PrismaPromise<TrackWithArtist> {
 		const trackId = `spotify:track:${track.id}`;
 		const artistId = `spotify:artist:${track.artists[0].id}`;
 
@@ -359,7 +359,7 @@ export class SpotifyProvider extends TrackProvider {
 			ok: true,
 			value: {
 				title: response.data.name,
-				tracks: await Promise.all(tracks.flat().map(track => {
+				tracks: await prisma.$transaction(tracks.flat().map(track => {
 					if (!track.album?.images?.[0]?.url) {
 						track.album = {
 							images: [
@@ -419,7 +419,7 @@ export class SpotifyProvider extends TrackProvider {
 			ok: true,
 			value: {
 				title: response.data.name,
-				tracks: await Promise.all(tracks.flat().map(SpotifyProvider.trackDataToTrack)),
+				tracks: await prisma.$transaction(tracks.flat().map(SpotifyProvider.trackDataToTrack)),
 			},
 		};
 	}
@@ -448,7 +448,7 @@ export class SpotifyProvider extends TrackProvider {
 
 		if (response.status !== 200) return { ok: false, error: `Could not find an artist by the id \`${id}\`.` };
 
-		const tracks: Track[] = await Promise.all(response.data.data.artistUnion.discography.topTracks.items.map(SpotifyProvider.gqlTrackDataToTrack));
+		const tracks: Track[] = await prisma.$transaction(response.data.data.artistUnion.discography.topTracks.items.map(SpotifyProvider.gqlTrackDataToTrack));
 
 		return {
 			ok: true,

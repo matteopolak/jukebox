@@ -1,13 +1,15 @@
-import { Track } from '@prisma/client';
+import { PrismaPromise, Track } from '@prisma/client';
 import { TrackInfo } from 'soundcloud-downloader/dist/index.js';
-import scdl from 'soundcloud-downloader/dist/index.js';
+import { create } from 'soundcloud-downloader/dist/index.js';
 
 import { TrackProvider } from '@/structures/provider';
 import { Result, SearchResult, TrackSource } from '@/typings/common';
 import { prisma } from '@/util/database';
 
+export const scdl = create();
+
 export class SoundCloudProvider extends TrackProvider {
-	public static trackInfoToTrack(track: TrackInfo): Promise<Track> {
+	public static trackInfoToTrack(track: TrackInfo): PrismaPromise<Track> {
 		const artistName = track?.user?.full_name ?? 'Anonymous Artist';
 		const artistId = `soundcloud:artist:${track.user?.id ?? 0}`;
 		const trackId = `soundcloud:track:${track.id}`;
@@ -77,10 +79,10 @@ export class SoundCloudProvider extends TrackProvider {
 				ok: true,
 				value: {
 					title: set.title,
-					tracks: await Promise.all(set.tracks.map(SoundCloudProvider.trackInfoToTrack)),
+					tracks: await prisma.$transaction(set.tracks.map(SoundCloudProvider.trackInfoToTrack)),
 				},
 			};
-		} catch {
+		} catch (e) {
 			return {
 				ok: false,
 				error: `Unknown SoundCloud album or playlist \`${url}\`.`,

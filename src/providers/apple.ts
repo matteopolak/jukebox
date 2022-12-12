@@ -1,3 +1,4 @@
+import { PrismaPromise } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
 import { TrackProvider } from '@/structures/provider';
@@ -74,7 +75,7 @@ export class AppleProvider extends TrackProvider {
 		});
 	}
 
-	public static trackDataToTrack(track: TrackData): Promise<TrackWithArtist> {
+	public static trackDataToTrack(track: TrackData): PrismaPromise<TrackWithArtist> {
 		const trackId = `apple:track:${track.id}`;
 		const artistId = `apple:artist:${track.attributes.artistName}`;
 
@@ -163,7 +164,7 @@ export class AppleProvider extends TrackProvider {
 			ok: true,
 			value: {
 				title: album.attributes.name,
-				tracks: await Promise.all(tracks.map(AppleProvider.trackDataToTrack)),
+				tracks: await prisma.$transaction(tracks.map(AppleProvider.trackDataToTrack)),
 			},
 		};
 	}
@@ -182,7 +183,7 @@ export class AppleProvider extends TrackProvider {
 			ok: true,
 			value: {
 				title: playlist.attributes.name,
-				tracks: await Promise.all(tracks.map(AppleProvider.trackDataToTrack)),
+				tracks: await prisma.$transaction(tracks.map(AppleProvider.trackDataToTrack)),
 			},
 		};
 	}

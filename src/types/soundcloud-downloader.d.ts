@@ -111,7 +111,11 @@ declare module 'soundcloud-downloader/dist/index.js' {
 		format: { protocol: STREAMING_PROTOCOLS, mime_type: FORMATS }
 	}
 
-	export function getSetInfo(url: string): Promise<SetInfo>;
-	export function getInfo(url: string): Promise<TrackInfo>;
-	export function download(url: string, useDirectLink?: boolean): Promise<Readable>;
+	export interface SCDL {
+		getSetInfo(url: string): Promise<SetInfo>;
+		getInfo(url: string): Promise<TrackInfo>;
+		download(url: string, useDirectLink?: boolean): Promise<Readable>;
+	}
+
+	export function create(): SCDL;
 }

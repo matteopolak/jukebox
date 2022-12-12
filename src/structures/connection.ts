@@ -28,7 +28,6 @@ import {
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
 import { FFmpeg, opus as Opus } from 'prism-media';
-import scdl from 'soundcloud-downloader/dist/index.js';
 
 import {
 	getLyricsById as getGeniusLyricsById,
@@ -45,6 +44,7 @@ import {
 	EFFECT_TO_SPEED,
 	EFFECTS,
 } from '@/constants';
+import { scdl } from '@/providers/soundcloud';
 import { Queue } from '@/structures/queue';
 import {
 	CommandSource,
@@ -96,7 +96,7 @@ export default class Connection {
 	public autopaused = false;
 	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable> = null;
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
-	private _playing = false;
+	public _playing = false;
 	private _threadChannelPromise: Option<Promise<ThreadChannel>> = null;
 	private _currentLyrics: Option<string> = null;
 	private _components;

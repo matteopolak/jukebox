@@ -344,7 +344,13 @@ class _Queue {
 		this._queueLength += tracks.length;
 		this._queueLengthWithRelated += tracks.filter(t => t.relatedCount > 0).length;
 
-		if (options?.playNext) this._index = this._queueLength - tracks.length - 1;
+		if (options?.playNext) {
+			if (!this.connection._playing) {
+				this._index = this._queueLength - tracks.length;
+			} else {
+				this._index = this._queueLength - tracks.length - 1;
+			}
+		}
 	}
 
 	public async clear() {
