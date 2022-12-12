@@ -1,9 +1,11 @@
 import { Client, MessageType } from 'discord.js';
 
 import Connection from '@/structures/connection';
+import { LYRICS_CLIENT } from '@/util/worker';
 
 export function register(client: Client) {
 	client.on('messageCreate', async message => {
+		if (message.type === MessageType.ThreadCreated && message.author.id === LYRICS_CLIENT.user!.id) return void message.delete().catch(() => {});
 		if (message.author.bot || !message.inGuild() || message.type !== MessageType.Default) return;
 
 		const connection = await Connection.getOrCreate(message);

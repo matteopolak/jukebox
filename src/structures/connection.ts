@@ -670,16 +670,30 @@ export default class Connection {
 
 		if (this.threadChannel) {
 			if (this.manager.lyricsId) {
-				return void this.threadChannel.messages.edit(
-					this.manager.lyricsId,
-					content
-				);
+				try {
+					return void await this.threadChannel.messages.edit(
+						this.manager.lyricsId,
+						content
+					);
+				} catch {
+					// If the lyrics message was deleted, create a new one
+					this.threadChannel = null;
+
+					return this.updateOrCreateLyricsMessage(content);
+				}
 			}
 
-			const lyricsMessage = await this.threadChannel.send(content);
-			this.manager.lyricsId = lyricsMessage.id;
+			try {
+				const lyricsMessage = await this.threadChannel.send(content);
+				this.manager.lyricsId = lyricsMessage.id;
 
-			return void this.updateManagerData({ lyricsId: lyricsMessage.id });
+				return await this.updateManagerData({ lyricsId: lyricsMessage.id });
+			} catch {
+				// If the lyrics message was deleted, create a new one
+				this.threadChannel = null;
+
+				return this.updateOrCreateLyricsMessage(content);
+			}
 		}
 
 		this._threadChannelPromise = this.threadParentChannel.threads.create({
@@ -688,6 +702,7 @@ export default class Connection {
 		});
 
 		this.threadChannel = await this._threadChannelPromise;
+		this._threadChannelPromise = null;
 
 		const lyricsMessage = await this.threadChannel.send(content);
 		this.manager.lyricsId = lyricsMessage.id;
