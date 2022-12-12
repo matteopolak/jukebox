@@ -49,8 +49,7 @@ export async function getLyricsById(id: number): Promise<Option<string>> {
 export async function getTrackIdFromTrack(
 	data: TrackWithArtist
 ): Promise<Option<number>> {
-	if (data.geniusId === undefined) return null;
-	if (data.geniusId) return data.geniusId;
+	if (data.geniusId !== null) return data.geniusId;
 
 	const clean = cleanTitle(data.title).replace(
 		/[\u0000-\u001F\u007F-\u009F]/g,

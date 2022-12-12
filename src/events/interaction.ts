@@ -210,7 +210,7 @@ export function register(client: Client) {
 
 					const lyrics = await getLyricsById(track.track_id);
 
-					if (lyrics === undefined) {
+					if (lyrics === null) {
 						return void interaction.reply({
 							ephemeral: true,
 							content: `**${escapeMarkdown(

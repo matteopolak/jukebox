@@ -121,8 +121,8 @@ export async function getLyricsById(trackId: number): Promise<Option<string>> {
 export async function getTrackDataFromTrack(
 	data: TrackWithArtist
 ): Promise<Option<TrackData>> {
+	if (data.musixmatchId === -1) return null;
 	if (data.musixmatchId) return getTrackDataById(data.musixmatchId);
-	if (data.musixmatchId === undefined) return null;
 
 	const clean = cleanTitle(data.title);
 
@@ -147,7 +147,7 @@ export async function getTrackDataFromTrack(
 export async function getTrackIdFromTrack(
 	data: TrackWithArtist
 ): Promise<Option<number>> {
-	if (data.musixmatchId !== undefined) return data.musixmatchId;
+	if (data.musixmatchId !== null) return data.musixmatchId;
 
 	const clean = cleanTitle(data.title).replace(
 		/[\u0000-\u001F\u007F-\u009F]/g,

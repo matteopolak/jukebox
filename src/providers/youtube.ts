@@ -145,7 +145,7 @@ export interface Metadata {
 }
 
 export class YouTubeProvider extends TrackProvider {
-	private cookie?: string | undefined;
+	private cookie?: string;
 	private http: AxiosInstance;
 
 	private static INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});</;
@@ -416,12 +416,12 @@ export class YouTubeProvider extends TrackProvider {
 		return items?.length ? items : null;
 	}
 
-	private static parseInitialData(initialData: string): [[undefined, Prisma.TrackUpsertArgs[]], undefined] | [[Option<string>, Prisma.TrackUpsertArgs[]], Metadata] {
+	private static parseInitialData(initialData: string): [[null, Prisma.TrackUpsertArgs[]], null] | [[Option<string>, Prisma.TrackUpsertArgs[]], Metadata] {
 		try {
 			const data: InitialData = JSON.parse(initialData);
 
 			const playlist = data.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
-			if (!playlist) return [[undefined, []], undefined];
+			if (!playlist) return [[null, []], null];
 
 			const continuationToken: Option<string> = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ?? null;
 			if (continuationToken) playlist.pop();
@@ -463,7 +463,7 @@ export class YouTubeProvider extends TrackProvider {
 
 			return [[continuationToken, tracks], data.metadata];
 		} catch (e) {
-			return [[undefined, []], undefined];
+			return [[null, []], null];
 		}
 	}
 

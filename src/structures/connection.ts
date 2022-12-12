@@ -706,19 +706,19 @@ export default class Connection {
 
 		if (
 			track.source === TrackSource.Gutenberg ||
-			(track.musixmatchId === null && track.geniusId === null)
+			(track.musixmatchId === -1 && track.geniusId === -1)
 		)
 			return this.updateOrCreateLyricsMessage('Track not found.');
 
 		const updated = {
-			musixmatchId: await getMusixmatchTrackIdFromTrack(track),
-			geniusId: undefined as Option<number> | undefined,
+			musixmatchId: (await getMusixmatchTrackIdFromTrack(track) ?? -1) satisfies Option<number> as Option<number>,
+			geniusId: null satisfies Option<number> as Option<number>,
 		};
 
-		if (updated.musixmatchId === undefined) {
-			updated.geniusId = await getGeniusTrackIdFromTrack(track);
+		if (updated.musixmatchId === -1) {
+			updated.geniusId = await getGeniusTrackIdFromTrack(track) ?? -1;
 
-			if (updated.geniusId === undefined) {
+			if (updated.geniusId === -1) {
 				if (
 					updated.geniusId !== track.geniusId ||
 					updated.musixmatchId !== track.musixmatchId
@@ -732,12 +732,12 @@ export default class Connection {
 			}
 		}
 
-		const lyrics = updated.musixmatchId
+		const lyrics = updated.musixmatchId && updated.musixmatchId !== -1
 			? await getMusixmatchLyricsById(updated.musixmatchId)
 			: await getGeniusLyricsById(updated.geniusId!);
 
-		if (lyrics === '' && updated.musixmatchId !== null) {
-			updated.musixmatchId = null;
+		if (lyrics === '' && updated.musixmatchId !== -1) {
+			updated.musixmatchId = -1;
 
 			if (
 				updated.geniusId !== track.geniusId ||
@@ -745,7 +745,7 @@ export default class Connection {
 			)
 				await setTrackIds(track, updated.musixmatchId, updated.geniusId);
 
-			track.geniusId = updated.geniusId ?? null;
+			track.geniusId = updated.geniusId;
 			track.musixmatchId = updated.musixmatchId;
 
 			return this.updateLyricsMessage();
@@ -757,10 +757,10 @@ export default class Connection {
 		)
 			await setTrackIds(track, updated.musixmatchId, updated.geniusId);
 
-		track.geniusId = updated.geniusId ?? null;
+		track.geniusId = updated.geniusId;
 		track.musixmatchId = updated.musixmatchId;
 
-		if (lyrics === undefined)
+		if (lyrics === null)
 			return this.updateOrCreateLyricsMessage('Track does not support lyrics.');
 
 		this.updateOrCreateLyricsMessage(
