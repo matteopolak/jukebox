@@ -23,6 +23,9 @@ model Artist {
   name   String
   tracks Track[]
 
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
   @@map("artists")
 }
 
@@ -60,6 +63,7 @@ model Manager {
   threadId  String?
   index     Int
   settings  Settings
+  createdAt DateTime @default(now())
 
   @@unique([guildId, channelId])
   @@map("managers")
