@@ -386,7 +386,7 @@ export class SpotifyProvider extends TrackProvider {
 			params: {
 				limit: MAX_BATCH_SIZE_PLAYLIST,
 				additional_types: 'track',
-				fields: 'name,owner(display_name),public,tracks(total,offset,limit,items(track(album(images),name,duration_ms,id,artists(name))))',
+				fields: 'name,owner(display_name),public,tracks(total,offset,limit,items(track(album(images),name,duration_ms,id,artists(name,id))))',
 			},
 		});
 
@@ -406,7 +406,7 @@ export class SpotifyProvider extends TrackProvider {
 					offset: index * MAX_BATCH_SIZE_PLAYLIST + MAX_BATCH_SIZE_PLAYLIST,
 					limit: MAX_BATCH_SIZE_PLAYLIST,
 					additional_types: 'track',
-					fields: 'items(track(album(images),id,name,duration_ms,artists(name)))',
+					fields: 'items(track(album(images),id,name,duration_ms,artists(name,id)))',
 				},
 			});
 

@@ -10,7 +10,7 @@ export const scdl = create();
 
 export class SoundCloudProvider extends TrackProvider {
 	public static trackInfoToTrack(track: TrackInfo): PrismaPromise<Track> {
-		const artistName = track?.user?.full_name ?? 'Anonymous Artist';
+		const artistName = track?.user?.username ?? 'Anonymous Artist';
 		const artistId = `soundcloud:artist:${track.user?.id ?? 0}`;
 		const trackId = `soundcloud:track:${track.id}`;
 
