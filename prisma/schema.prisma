@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+type Settings {
+  autoplay  Boolean
+  effect    Int
+  lyrics    Boolean
+  repeat    Boolean
+  repeatOne Boolean
+  seek      Int
+  shuffle   Boolean
+}
+
+enum Provider {
+  YouTube
+  Spotify
+  SoundCloud
+  Gutenberg
+  Apple
+}
+
+model Artist {
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
+  uid    String  @unique
+  name   String
+  tracks Track[]
+}
+
+model Track {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  uid          String   @unique
+  type         Provider
+  title        String
+  artist       Artist   @relation(fields: [artistId], references: [uid])
+  duration     Int
+  thumbnail    String
+  url          String?
+  related      String[]
+  relatedCount Int
+  artistId     String
+  queue        Queue[]
+
+  musixmatchId Int?
+  geniusId     Int?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Manager {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  guildId   String
+  channelId String
+  messageId String
+  queueId   String
+  voiceId   String?
+  lyricsId  String?
+  threadId  String?
+  index     Int
+  settings  Settings
+
+  @@unique([guildId, channelId])
+}
+
+model Queue {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  guildId   String
+  index     Int?
+  track     Track    @relation(fields: [trackId], references: [uid])
+  trackId   String
+  createdAt DateTime @default(now())
+
+  @@index([guildId, createdAt(sort: Asc), index(sort: Asc)])
+}

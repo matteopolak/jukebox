@@ -1,4 +1,6 @@
-import { Result, SearchResult, SongData } from '@/typings/common';
+import { Track } from '@prisma/client';
+
+import { Result, SearchResult } from '@/typings/common';
 
 export const enum SearchType {
 	Video = 'EgIQAQ%3D%3D',
@@ -10,7 +12,7 @@ export interface SearchOptions {
 	limit?: number;
 }
 
-export class Provider {
+export class TrackProvider {
 	public async getTrack(id: string): Promise<Result<SearchResult>> {
 		return { ok: false, error: `Could not find a track with the id \`${id}\`.` };
 	}
@@ -32,10 +34,10 @@ export class Provider {
 		return { ok: false, error: `Could not find an artist with the id \`${id}\`.` };
 	}
 
-	public static songDataToSearchResult(songData: SongData): SearchResult {
+	public static trackToSearchResult(track: Track): SearchResult {
 		return {
-			title: undefined,
-			videos: [songData],
+			title: null,
+			tracks: [track],
 		};
 	}
 }

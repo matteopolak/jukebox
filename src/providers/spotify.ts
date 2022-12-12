@@ -1,11 +1,13 @@
 // TODO: reverse-engineer Spotify's GraphQL API
 
+import { Provider, Track } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
-import { Provider } from '@/structures/provider';
-import { Option, ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
+import { TrackProvider } from '@/structures/provider';
+import { Option, Result, SearchResult } from '@/typings/common';
+import { prisma, TrackWithArtist } from '@/util/database';
 import { bufferUnordered } from '@/util/promise';
-import { getCachedSong } from '@/util/search';
+import { getCachedTrack, trackToOkSearchResult } from '@/util/search';
 
 const MAX_BATCH_SIZE_PLAYLIST = 100;
 const MAX_BATCH_SIZE_ALBUM = 50;
@@ -27,15 +29,16 @@ interface Container<T> {
 	total: number;
 }
 
-interface Artist {
+interface ArtistData {
 	name: string;
+	id: string;
 }
 
-interface Track {
+interface TrackData {
 	id: string;
 	name: string;
 	duration_ms: number;
-	artists: Artist[];
+	artists: ArtistData[];
 	album: {
 		images: {
 			url: string;
@@ -44,7 +47,7 @@ interface Track {
 }
 
 interface PaginatedTrack {
-	track: Track;
+	track: TrackData;
 }
 
 interface PlaylistMetadata {
@@ -54,7 +57,7 @@ interface PlaylistMetadata {
 
 interface AlbumMetadata {
 	name: string;
-	tracks: Container<Track>;
+	tracks: Container<TrackData>;
 	images: {
 		url: string;
 	}[];
@@ -75,15 +78,15 @@ interface Content<T> {
 	id: string;
 }
 
-export class SpotifyProvider extends Provider {
+export class SpotifyProvider extends TrackProvider {
 	private http: AxiosInstance;
 
-	private _accessToken: Option<Token>;
-	private _accessTokenPromise: Option<Promise<string>>;
-	private _clientToken: Option<string>;
-	private _clientTokenPromise: Option<Promise<string>>;
+	private _accessToken: Option<Token> = null;
+	private _accessTokenPromise: Option<Promise<string>> = null;
+	private _clientToken: Option<string> = null;
+	private _clientTokenPromise: Option<Promise<string>> = null;
 	private _charts: Cached<Chart[]> = { data: [], expires: 0 };
-	private _chartsPromise: Option<Promise<Chart[]>>;
+	private _chartsPromise: Option<Promise<Chart[]>> = null;
 
 	constructor() {
 		super();
@@ -112,7 +115,7 @@ export class SpotifyProvider extends Provider {
 		});
 
 		this._clientToken = response.data.granted_token.token as string;
-		this._clientTokenPromise = undefined;
+		this._clientTokenPromise = null;
 
 		return this._clientToken;
 	}
@@ -131,7 +134,7 @@ export class SpotifyProvider extends Provider {
 			token: response.data.accessToken,
 			expires: response.data.accessTokenExpirationTimestampMs,
 		};
-		this._accessTokenPromise = undefined;
+		this._accessTokenPromise = null;
 
 		return this._accessToken.token;
 	}
@@ -153,34 +156,74 @@ export class SpotifyProvider extends Provider {
 		return response;
 	}
 
-	public static trackToSongData(track: Track): SongData {
-		return {
-			title: track.name,
-			artist: track.artists.map(artist => artist.name).join(', '),
-			duration: track.duration_ms,
-			url: '',
-			live: false,
-			id: track.id,
-			uid: track.id,
-			type: ProviderOrigin.Spotify,
-			thumbnail: track.album?.images?.[0]?.url ?? '',
-		};
+	public static async trackDataToTrack(track: TrackData): Promise<TrackWithArtist> {
+		const trackId = `spotify:track:${track.id}`;
+		const artistId = `spotify:artist:${track.artists[0].id}`;
+
+		return prisma.track.upsert({
+			where: {
+				uid: trackId,
+			},
+			update: {
+				title: track.name,
+			},
+			create: {
+				title: track.name,
+				artist: {
+					connectOrCreate: {
+						where: {
+							uid: artistId,
+						},
+						create: {
+							name: track.artists[0].name,
+							uid: artistId,
+						},
+					},
+				},
+				duration: track.duration_ms,
+				uid: trackId,
+				type: Provider.Spotify,
+				thumbnail: track.album?.images?.[0]?.url ?? '',
+				relatedCount: 0,
+			},
+			include: {
+				artist: true,
+			},
+		});
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public static gqlTrackToSongData(track: any): SongData {
-		return {
-			title: track.track.name,
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			artist: track.track.artists.items.map((artist: any) => artist.profile.name).join(', '),
-			url: '',
-			live: false,
-			id: track.track.id,
-			uid: track.track.id,
-			type: ProviderOrigin.Spotify,
-			thumbnail: track.track.albumOfTrack.coverArt.sources[0].url,
-			duration: track.track.duration.totalMilliseconds,
-		};
+	public static async gqlTrackDataToTrack(track: any): Promise<TrackWithArtist> {
+		return prisma.track.upsert({
+			where: {
+				uid: track.track.uid,
+			},
+			update: {
+				title: track.track.name,
+			},
+			create: {
+				title: track.track.name,
+				artist: {
+					connectOrCreate: {
+						where: {
+							uid: track.track.artists[0].id,
+						},
+						create: {
+							name: track.track.artists.items.map((artist: { profile: ArtistData }) => artist.profile.name)[0],
+							uid: track.track.artists[0].id,
+						},
+					},
+				},
+				uid: track.track.uid,
+				type: Provider.Spotify,
+				thumbnail: track.track.albumOfTrack.coverArt.sources[0].url,
+				duration: track.track.duration.totalMilliseconds,
+				relatedCount: 0,
+			},
+			include: {
+				artist: true,
+			},
+		});
 	}
 
 	private async _addChartCategory(id: string, batches: number, start = 0) {
@@ -241,28 +284,16 @@ export class SpotifyProvider extends Provider {
 		this._chartsPromise = this._getCharts();
 
 		const response = await this._chartsPromise;
-		this._chartsPromise = undefined;
+		this._chartsPromise = null;
 
 		return { ok: true, value: response };
 	}
 
 	public async getTrack(id: string): Promise<Result<SearchResult>> {
-		const cached = await getCachedSong(id);
-		if (cached) {
-			// Remove the unique id
-			// @ts-expect-error - _id is not a property of SongData
-			cached._id = undefined;
+		const cached = await getCachedTrack(`spotify:track:${id}`);
+		if (cached) return trackToOkSearchResult(cached);
 
-			return {
-				ok: true,
-				value: {
-					videos: [cached],
-					title: undefined,
-				},
-			};
-		}
-
-		const response = await this.http.get<Track>(`/tracks/${id}`, {
+		const response = await this.http.get<TrackData>(`/tracks/${id}`, {
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,
 				'client-token': await this.getClientToken(),
@@ -277,7 +308,7 @@ export class SpotifyProvider extends Provider {
 
 		return {
 			ok: true,
-			value: Provider.songDataToSearchResult(SpotifyProvider.trackToSongData(response.data)),
+			value: TrackProvider.trackToSearchResult(await SpotifyProvider.trackDataToTrack(response.data)),
 		};
 	}
 
@@ -303,7 +334,7 @@ export class SpotifyProvider extends Provider {
 		const batches = Math.ceil(total / MAX_BATCH_SIZE_ALBUM) - 1;
 
 		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
-			const response = await this.http.get<Container<Track>>(`/albums/${id}/tracks`, {
+			const response = await this.http.get<Container<TrackData>>(`/albums/${id}/tracks`, {
 				headers: {
 					authorization: `Bearer ${await this.getAccessToken()}`,
 					'client-token': await this.getClientToken(),
@@ -325,7 +356,7 @@ export class SpotifyProvider extends Provider {
 			ok: true,
 			value: {
 				title: response.data.name,
-				videos: tracks.flat().map(track => {
+				tracks: await Promise.all(tracks.flat().map(track => {
 					if (!track.album?.images?.[0]?.url) {
 						track.album = {
 							images: [
@@ -336,8 +367,8 @@ export class SpotifyProvider extends Provider {
 						};
 					}
 
-					return SpotifyProvider.trackToSongData(track);
-				}),
+					return SpotifyProvider.trackDataToTrack(track);
+				})),
 			},
 		};
 	}
@@ -385,7 +416,7 @@ export class SpotifyProvider extends Provider {
 			ok: true,
 			value: {
 				title: response.data.name,
-				videos: tracks.flat().map(SpotifyProvider.trackToSongData),
+				tracks: await Promise.all(tracks.flat().map(SpotifyProvider.trackDataToTrack)),
 			},
 		};
 	}
@@ -414,13 +445,13 @@ export class SpotifyProvider extends Provider {
 
 		if (response.status !== 200) return { ok: false, error: `Could not find an artist by the id \`${id}\`.` };
 
-		const tracks: SongData[] = response.data.data.artistUnion.discography.topTracks.items.map(SpotifyProvider.gqlTrackToSongData);
+		const tracks: Track[] = await Promise.all(response.data.data.artistUnion.discography.topTracks.items.map(SpotifyProvider.gqlTrackDataToTrack));
 
 		return {
 			ok: true,
 			value: {
 				title: `Top Tracks from ${response.data.data.artistUnion.profile.name}`,
-				videos: tracks,
+				tracks,
 			},
 		};
 	}

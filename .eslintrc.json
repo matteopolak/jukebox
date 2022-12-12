@@ -56,6 +56,13 @@
 				"ignoreEOLComments": true
 			}
 		],
+		"keyword-spacing": [
+			"error",
+			{
+				"before": true,
+				"after": true
+			}
+		],
 		"no-multiple-empty-lines": [
 			"error",
 			{
@@ -71,6 +78,13 @@
 			}
 		],
 		"simple-import-sort/imports": "error",
-		"eol-last": ["error", "always"]
+		"eol-last": ["error", "always"],
+		"comma-spacing": [
+			"error",
+			{
+				"before": false,
+				"after": true
+			}
+		]
 	}
 }

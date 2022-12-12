@@ -1,11 +1,9 @@
 import { ApplicationCommandOptionType, ApplicationCommandType, Client } from 'discord.js';
 
-import { Database } from '@/util/database';
 import { loginPromise } from '@/util/worker';
 
 export function register(client: Client) {
 	client.once('ready', async () => {
-		await Database.login();
 		await loginPromise;
 
 		console.log(`Logged in as ${client.user!.username}`);

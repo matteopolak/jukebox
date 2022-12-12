@@ -11,6 +11,7 @@ import {
 	StreamType,
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
+import { Manager, Prisma, Provider, Settings, Track } from '@prisma/client';
 import {
 	ButtonInteraction,
 	ButtonStyle,
@@ -26,18 +27,17 @@ import {
 	VoiceState,
 } from 'discord.js';
 import createAudioStream from 'discord-ytdl-core';
-import { UpdateFilter, WithId } from 'mongodb';
 import { FFmpeg, opus as Opus } from 'prism-media';
 import scdl from 'soundcloud-downloader/dist/index.js';
 
 import {
 	getLyricsById as getGeniusLyricsById,
-	getTrackIdFromSongData as getGeniusTrackIdFromSongData,
+	getTrackIdFromTrack as getGeniusTrackIdFromTrack,
 } from '@/api/genius';
 import { resolveText } from '@/api/gutenberg';
 import {
 	getLyricsById as getMusixmatchLyricsById,
-	getTrackIdFromSongData as getMusixmatchTrackIdFromSongData,
+	getTrackIdFromTrack as getMusixmatchTrackIdFromTrack,
 } from '@/api/musixmatch';
 import { textToAudioStream } from '@/api/tts';
 import {
@@ -48,20 +48,15 @@ import {
 import { Queue } from '@/structures/queue';
 import {
 	CommandOrigin,
-	ConnectionSettings,
 	Effect,
-	Manager,
 	Option,
-	ProviderOrigin,
 	RawData,
-	Song,
-	SongData,
 } from '@/typings/common';
 import { CircularBuffer } from '@/util/buffer';
 import { getDefaultComponents } from '@/util/components';
-import { Database } from '@/util/database';
+import { prisma, TrackWithArtist, updateTrack } from '@/util/database';
 import { enforceLength, sendMessageAndDelete } from '@/util/message';
-import { createQuery, getCachedSong, setSongIds, youtube } from '@/util/search';
+import { createQuery, setTrackIds, youtube } from '@/util/search';
 import { joinVoiceChannelAndListen } from '@/util/voice';
 import {
 	getChannel,
@@ -78,15 +73,15 @@ export const enum Events {
 }
 
 export default class Connection {
-	public voiceChannel: Option<VoiceBasedChannel>;
+	public voiceChannel: Option<VoiceBasedChannel> = null;
 	public textChannel: TextChannel | NewsChannel;
 	public threadParentChannel: TextChannel | NewsChannel;
 	public threadChannel: Option<ThreadChannel>;
 	public manager: Manager;
-	public subscription: Option<PlayerSubscription>;
-	public currentResource: Option<AudioResource<WithId<Song>>>;
+	public subscription: Option<PlayerSubscription> = null;
+	public currentResource: Option<AudioResource<TrackWithArtist>> = null;
 	public recent: CircularBuffer<string> = new CircularBuffer(25);
-	public settings: ConnectionSettings = {
+	public settings: Settings = {
 		effect: Effect.None,
 		repeat: false,
 		repeatOne: false,
@@ -98,11 +93,11 @@ export default class Connection {
 
 	public queue: Queue;
 	public autopaused = false;
-	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable>;
+	private _currentStream: Option<Opus.Encoder | FFmpeg | Readable> = null;
 	private _audioCompletionPromise: Promise<boolean> = Promise.resolve(true);
 	private _playing = false;
-	private _threadChannelPromise: Option<Promise<ThreadChannel>>;
-	private _currentLyrics: Option<string>;
+	private _threadChannelPromise: Option<Promise<ThreadChannel>> = null;
+	private _currentLyrics: Option<string> = null;
 	private _components;
 
 	constructor(manager: Manager) {
@@ -123,13 +118,8 @@ export default class Connection {
 		);
 
 		this.threadChannel = this.manager.threadId
-			? this.threadParentChannel.threads.cache.get(this.manager.threadId)
-			: undefined;
-
-		if (this.threadChannel === undefined) {
-			delete this.manager.lyricsId;
-			delete this.manager.threadId;
-		}
+			? this.threadParentChannel.threads.cache.get(this.manager.threadId) ?? null
+			: null;
 
 		this._components = getDefaultComponents(this.settings);
 
@@ -147,9 +137,11 @@ export default class Connection {
 	}
 
 	public static async getOrCreateFromVoice(data: VoiceState) {
-		const manager = await Database.manager.findOne({
-			voiceId: data.channelId!,
-			guildId: data.guild.id,
+		const manager = await prisma.manager.findFirst({
+			where: {
+				voiceId: data.channelId!,
+				guildId: data.guild.id,
+			},
 		});
 		if (!manager) return;
 
@@ -174,10 +166,12 @@ export default class Connection {
 	public static async getOrCreate(
 		data: Interaction | Message | RawData
 	): Promise<Option<Connection>> {
-		const manager = await Database.manager.findOne({
-			channelId: 'channelId' in data ? data.channelId! : data.channel.id,
+		const manager = await prisma.manager.findFirst({
+			where: {
+				channelId: 'channelId' in data ? data.channelId! : data.channel.id,
+			},
 		});
-		if (!manager) return;
+		if (!manager) return null;
 
 		const cachedConnection = connections.get(data.guild!.id);
 
@@ -209,15 +203,16 @@ export default class Connection {
 		this.subscription?.connection.destroy();
 	}
 
-	private updateManagerData(update: UpdateFilter<Manager>) {
-		return Database.manager.updateMany(
-			{
-				_id: this.manager._id,
+	private async updateManagerData(update: Prisma.ManagerUpdateInput) {
+		await prisma.manager.update({
+			where: {
+				guildId_channelId: {
+					guildId: this.manager.guildId,
+					channelId: this.manager.channelId,
+				},
 			},
-			{
-				$set: update,
-			}
-		);
+			data: update,
+		});
 	}
 
 	public async setVoiceChannel(voiceChannel: VoiceBasedChannel) {
@@ -268,16 +263,26 @@ export default class Connection {
 			this.setStyle('autoplay', false);
 
 			this.updateManagerData({
-				'settings.repeatOne': false,
-				'settings.shuffle': false,
-				'settings.repeat': true,
+				settings: {
+					update: {
+						repeatOne: false,
+						shuffle: false,
+						repeat: true,
+					},
+				},
 			});
 
 			this.settings.repeatOne = false;
 			this.settings.shuffle = false;
 		} else if (this.settings.autoplay) {
 			this.setStyle('autoplay', true);
-			this.updateManagerData({ 'settings.repeat': false });
+			this.updateManagerData({
+				settings: {
+					update: {
+						repeat: false,
+					},
+				},
+			});
 		}
 
 		this.updateEmbedMessage(interaction);
@@ -311,7 +316,13 @@ export default class Connection {
 		}
 
 		this.updateEmbedMessage(interaction);
-		this.updateManagerData({ 'settings.repeatOne': enabled });
+		this.updateManagerData({
+			settings: {
+				update: {
+					repeatOne: enabled,
+				},
+			},
+		});
 
 		if (origin === CommandOrigin.Voice) {
 			await sendMessageAndDelete(
@@ -334,17 +345,27 @@ export default class Connection {
 			this.setStyle('shuffle', false);
 			this.setStyle('repeat', false);
 			this.updateManagerData({
-				'settings.repeatOne': false,
-				'settings.shuffle': false,
-				'settings.repeat': false,
-				'settings.autoplay': true,
+				settings: {
+					update: {
+						repeatOne: false,
+						shuffle: false,
+						repeat: false,
+						autoplay: true,
+					},
+				},
 			});
 
 			this.settings.repeatOne = false;
 			this.settings.shuffle = false;
 			this.settings.repeat = false;
 		} else {
-			this.updateManagerData({ 'settings.autoplay': false });
+			this.updateManagerData({
+				settings: {
+					update: {
+						autoplay: false,
+					},
+				},
+			});
 		}
 
 		this.updateEmbedMessage(interaction);
@@ -367,24 +388,27 @@ export default class Connection {
 
 		if (!enabled && this.threadChannel) {
 			this.threadChannel.delete().catch(() => {});
+			this.threadChannel = null;
+			this.manager.threadId = null;
+			this.manager.lyricsId = null;
 
-			this.threadChannel = undefined;
-			delete this.manager.threadId;
-			delete this.manager.lyricsId;
-
-			Database.manager.updateOne({
-				_id: this.manager._id,
-			}, {
-				$set: {
-					'settings.lyrics': enabled,
+			this.updateManagerData({
+				settings: {
+					update: {
+						lyrics: enabled,
+					},
 				},
-				$unset: {
-					threadId: true,
-					lyricsId: true,
-				},
+				threadId: null,
+				lyricsId: null,
 			});
 		} else {
-			this.updateManagerData({ 'settings.lyrics': enabled });
+			this.updateManagerData({
+				settings: {
+					update: {
+						lyrics: enabled,
+					},
+				},
+			});
 		}
 
 		this.updateEmbedMessage(interaction);
@@ -408,11 +432,15 @@ export default class Connection {
 			this._components[row].components[index].options![effect].default = true;
 		}
 
-		this.updateManagerData({ 'settings.effect': effect });
+		this.updateManagerData({
+			settings: {
+				update: {
+					effect,
+				},
+			},
+		});
 		this.updateEmbedMessage(interaction);
-
 		this.applyEffectChanges(old);
-
 	}
 
 	public async setShuffle(
@@ -428,8 +456,12 @@ export default class Connection {
 			this.setStyle('repeat', false);
 			this.setStyle('autoplay', false);
 			this.updateManagerData({
-				'settings.repeatOne': false,
-				'settings.shuffle': true,
+				settings: {
+					update: {
+						repeatOne: false,
+						shuffle: true,
+					},
+				},
 			});
 
 			this.settings.repeatOne = false;
@@ -440,7 +472,13 @@ export default class Connection {
 				this.setStyle('autoplay', true);
 			}
 
-			this.updateManagerData({ 'settings.shuffle': false });
+			this.updateManagerData({
+				settings: {
+					update: {
+						shuffle: false,
+					},
+				},
+			});
 		}
 
 		this.updateEmbedMessage(interaction);
@@ -453,14 +491,14 @@ export default class Connection {
 		}
 	}
 
-	public async addSongs(
-		songs: SongData[],
+	public async addTracks(
+		tracks: Track[],
 		autoplay = true,
 		playNext = false
 	) {
-		if (songs.length === 0) return;
+		if (tracks.length === 0) return;
 
-		await this.queue.insertMany(songs, { playNext });
+		await this.queue.insertMany(tracks, { playNext });
 
 		if (!this._playing) {
 			if (autoplay) this.play();
@@ -469,12 +507,12 @@ export default class Connection {
 		}
 	}
 
-	public async addSong(
-		song: SongData,
+	public async addTrack(
+		track: Track,
 		autoplay = true,
 		playNext = false
 	) {
-		await this.queue.insertOne(song, { playNext });
+		await this.queue.insertOne(track, { playNext });
 
 		if (!this._playing) {
 			if (autoplay) this.play();
@@ -497,7 +535,7 @@ export default class Connection {
 
 	public pause(interaction?: ButtonInteraction, autopaused = false) {
 		if (
-			this.subscription !== undefined &&
+			this.subscription !== null &&
 			this.subscription.player.state.status !== AudioPlayerStatus.Paused &&
 			this.subscription.player.state.status !== AudioPlayerStatus.Idle
 		) {
@@ -515,7 +553,7 @@ export default class Connection {
 
 	public resume(interaction?: ButtonInteraction) {
 		if (
-			this.subscription !== undefined &&
+			this.subscription !== null &&
 			this.queue.length > 0 &&
 			(this.subscription.player.state.status === AudioPlayerStatus.Paused ||
 				this.subscription.player.state.status === AudioPlayerStatus.Idle)
@@ -596,7 +634,7 @@ export default class Connection {
 
 	public async removeAllSongs(interaction?: ButtonInteraction) {
 		// Forcefully remove the current resource
-		this.currentResource = undefined;
+		this.currentResource = null;
 
 		await this.queue.clear();
 		await Promise.all([this.updateEmbedMessage(interaction)]);
@@ -613,7 +651,7 @@ export default class Connection {
 		this.endCurrentSong();
 
 		if (this.queue.length === 0) {
-			this.currentResource = undefined;
+			this.currentResource = null;
 			this.updateEmbedMessage(interaction);
 		} else if (interaction) {
 			interaction.deferUpdate({ fetchReply: false });
@@ -661,33 +699,33 @@ export default class Connection {
 	}
 
 	public async updateLyricsMessage(): Promise<void> {
-		const song = this.currentResource?.metadata;
-		if (!song)
-			return this.updateOrCreateLyricsMessage('No song is currently playing.');
+		const track = this.currentResource?.metadata;
+		if (!track)
+			return this.updateOrCreateLyricsMessage('No track is currently playing.');
 
 		if (
-			song.type === ProviderOrigin.Gutenberg ||
-			(song.musixmatchId === undefined && song.geniusId === undefined)
+			track.type === Provider.Gutenberg ||
+			(track.musixmatchId === null && track.geniusId === null)
 		)
 			return this.updateOrCreateLyricsMessage('Track not found.');
 
 		const updated = {
-			musixmatchId: await getMusixmatchTrackIdFromSongData(song),
+			musixmatchId: await getMusixmatchTrackIdFromTrack(track),
 			geniusId: undefined as Option<number> | undefined,
 		};
 
 		if (updated.musixmatchId === undefined) {
-			updated.geniusId = await getGeniusTrackIdFromSongData(song);
+			updated.geniusId = await getGeniusTrackIdFromTrack(track);
 
 			if (updated.geniusId === undefined) {
 				if (
-					updated.geniusId !== song.geniusId ||
-					updated.musixmatchId !== song.musixmatchId
+					updated.geniusId !== track.geniusId ||
+					updated.musixmatchId !== track.musixmatchId
 				)
-					await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
+					await setTrackIds(track, updated.musixmatchId, updated.geniusId);
 
-				song.geniusId = updated.geniusId;
-				song.musixmatchId = updated.musixmatchId;
+				track.geniusId = updated.geniusId;
+				track.musixmatchId = updated.musixmatchId;
 
 				return this.updateOrCreateLyricsMessage('Track not found.');
 			}
@@ -697,29 +735,29 @@ export default class Connection {
 			? await getMusixmatchLyricsById(updated.musixmatchId)
 			: await getGeniusLyricsById(updated.geniusId!);
 
-		if (lyrics === '' && updated.musixmatchId !== undefined) {
-			updated.musixmatchId = undefined;
+		if (lyrics === '' && updated.musixmatchId !== null) {
+			updated.musixmatchId = null;
 
 			if (
-				updated.geniusId !== song.geniusId ||
-				updated.musixmatchId !== song.musixmatchId
+				updated.geniusId !== track.geniusId ||
+				updated.musixmatchId !== track.musixmatchId
 			)
-				await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
+				await setTrackIds(track, updated.musixmatchId, updated.geniusId);
 
-			song.geniusId = updated.geniusId;
-			song.musixmatchId = updated.musixmatchId;
+			track.geniusId = updated.geniusId ?? null;
+			track.musixmatchId = updated.musixmatchId;
 
 			return this.updateLyricsMessage();
 		}
 
 		if (
-			updated.geniusId !== song.geniusId ||
-			updated.musixmatchId !== song.musixmatchId
+			updated.geniusId !== track.geniusId ||
+			updated.musixmatchId !== track.musixmatchId
 		)
-			await setSongIds(song.id, updated.musixmatchId, updated.geniusId);
+			await setTrackIds(track, updated.musixmatchId, updated.geniusId);
 
-		song.geniusId = updated.geniusId;
-		song.musixmatchId = updated.musixmatchId;
+		track.geniusId = updated.geniusId ?? null;
+		track.musixmatchId = updated.musixmatchId;
 
 		if (lyrics === undefined)
 			return this.updateOrCreateLyricsMessage('Track does not support lyrics.');
@@ -730,12 +768,12 @@ export default class Connection {
 	}
 
 	public async updateEmbedMessage(interaction?: ButtonInteraction | StringSelectMenuInteraction) {
-		const song = this.currentResource?.metadata;
+		const track = this.currentResource?.metadata;
 		const payload = {
-			content: song ? `**${enforceLength(escapeMarkdown(song.title), 32)}** by **${escapeMarkdown(song?.artist)}**` : '',
+			content: track ? `**${enforceLength(escapeMarkdown(track.title), 32)}** by **${escapeMarkdown(track.artist.name)}**` : '',
 			files: [
 				{
-					attachment: song ? song.thumbnail : 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
+					attachment: track ? track.thumbnail : 'https://i.ytimg.com/vi/mfycQJrzXCA/hqdefault.jpg',
 					name: 'thumbnail.png',
 				},
 			],
@@ -754,63 +792,42 @@ export default class Connection {
 	}
 
 	private async createStream(
-		song: WithId<SongData>
+		track: TrackWithArtist
 	): Promise<Option<Readable | Opus.Encoder | FFmpeg>> {
-		switch (song.type) {
-			case ProviderOrigin.YouTube:
-			case ProviderOrigin.Apple:
-			case ProviderOrigin.Spotify: {
+		switch (track.type) {
+			case Provider.YouTube:
+			case Provider.Apple:
+			case Provider.Spotify: {
 				// if the url is empty, we need to get it from youtube
-				if (song.url === '') {
-					const cache = await getCachedSong(song.uid);
-					if (cache) song = cache;
-					else {
-						const result = await youtube.search(`${song.artist} - ${song.title}`, { type: SearchType.Video, limit: 1 });
-						if (!result.ok) return;
+				if (track.url === null) {
+					const result = await youtube.search(`${track.artist.name} - ${track.title}`, { type: SearchType.Video, limit: 1 });
+					if (!result.ok) return null;
 
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const set: Record<string, any> = {};
+					track.url = result.value.tracks[0].url;
+					track.related = result.value.tracks[0].related;
+					track.relatedCount = result.value.tracks[0].relatedCount;
 
-						song.url = result.value.videos[0].url;
-						song.id = result.value.videos[0].id;
-
-						set.id = song.id;
-						set.url = song.url;
-
-						if (result.value.videos[0].format) {
-							song.format = result.value.videos[0].format;
-							set.format = song.format;
-						}
-
-						if (result.value.videos[0].related) {
-							song.related = result.value.videos[0].related;
-							set.related = song.related;
-						}
-
-						if (song.thumbnail === '') {
-							song.thumbnail = result.value.videos[0].thumbnail;
-							set.thumbnail = song.thumbnail;
-						}
-
-						await Database.addSongToCache(song);
-						await Database.queue.updateOne({
-							_id: song._id,
-						}, {
-							$set: set,
-						});
-
-						this.queue._queueLengthWithRelated += song.related?.length ?? 0;
+					if (result.value.tracks[0].related) {
+						track.related = result.value.tracks[0].related;
 					}
+
+					if (track.thumbnail === '') {
+						track.thumbnail = result.value.tracks[0].thumbnail;
+					}
+
+					await updateTrack(track);
+
+					if (track.relatedCount)
+						this.queue._queueLengthWithRelated++;
 				}
 
-				// @ts-expect-error - explicit undefined is allowed here
-				return createAudioStream(song.url, {
+				return createAudioStream(track.url!, {
 					seek: this.settings.seek || undefined,
 					highWaterMark: 1 << 25,
-					filter: song.live ? undefined : 'audioonly',
-					quality: song.live ? undefined : 'highestaudio',
+					filter: 'audioonly',
+					quality: 'highestaudio',
 					opusEncoded: true,
-					encoderArgs: EFFECTS[this.settings.effect],
+					encoderArgs: EFFECTS[this.settings.effect as Effect],
 					requestOptions: {
 						headers: {
 							Cookie: process.env.COOKIE,
@@ -820,25 +837,29 @@ export default class Connection {
 				});
 			}
 
-			case ProviderOrigin.SoundCloud:
-				return scdl.download(song.url) as Promise<Readable>;
-			case ProviderOrigin.Gutenberg:
-				return textToAudioStream(await resolveText(song.url));
+			case Provider.SoundCloud:
+				return scdl.download(track.url!) as Promise<Readable>;
+			case Provider.Gutenberg:
+				return textToAudioStream(await resolveText(track.url!));
 		}
 	}
 
-	public async nextResource(first = false): Promise<Option<AudioResource<WithId<Song>>>> {
+	public async nextResource(first = false): Promise<Option<AudioResource<TrackWithArtist>>> {
 		const previousResource = this.currentResource;
 
-		const song = await this.queue.next(first);
-		if (song === undefined) return;
+		const track = await this.queue.next(first);
+		if (track === null) return null;
 
 		// Create the audio stream
-		const stream = await this.createStream(song);
+		const stream = await this.createStream(track);
 		if (!stream) {
-			await Database.queue.deleteMany({
-				guildId: this.manager.guildId,
-				id: song.id,
+			await prisma.queue.deleteMany({
+				where: {
+					guildId: this.manager.guildId,
+					track: {
+						uid: track.uid,
+					},
+				},
 			});
 
 			return this.nextResource();
@@ -851,24 +872,24 @@ export default class Connection {
 		const resource = createAudioResource(stream, {
 			inlineVolume: true,
 			inputType:
-				song.type === ProviderOrigin.SoundCloud ||
-				song.type === ProviderOrigin.Gutenberg
+				track.type === Provider.SoundCloud ||
+				track.type === Provider.Gutenberg
 					? StreamType.Arbitrary
 					: StreamType.Opus,
-			metadata: song,
+			metadata: track,
 		});
 
 		// Set the current resource
 		this.currentResource = resource;
 
-		if (previousResource?.metadata.id !== song.id) {
+		if (previousResource?.metadata.uid !== track.uid) {
 			const [row, index] = CUSTOM_ID_TO_INDEX_LIST.toggle;
 			this._components[row].components[index].label = '⏸️';
 
 			const [effectRow, effectIndex] = CUSTOM_ID_TO_INDEX_LIST.effect;
 			const effects = this._components[effectRow].components[effectIndex];
 
-			effects.disabled = song.type === ProviderOrigin.SoundCloud;
+			effects.disabled = track.type === Provider.SoundCloud;
 
 			// Different song
 			this.updateEmbedMessage();
@@ -939,7 +960,7 @@ export default class Connection {
 
 		// Set the _playing flag to false
 		this._playing = false;
-		this.currentResource = undefined;
+		this.currentResource = null;
 	}
 
 	public async play() {
@@ -966,17 +987,17 @@ export default class Connection {
 		const result = await createQuery(query);
 
 		if (result.ok) {
-			this.addSongs(result.value.videos, true, playNext);
+			this.addTracks(result.value.tracks, true, playNext);
 
 			await sendMessageAndDelete(
 				this.textChannel,
-				result.value.title === undefined
+				result.value.title === null
 					? `${
 						origin === CommandOrigin.Voice ? '🎙️ ' : ''
-					}Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
+					}Added **${escapeMarkdown(result.value.tracks[0].title)}** to the queue.`
 					: `${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Added **${
-						result.value.videos.length
-					}** song${result.value.videos.length === 1 ? '' : 's'} from ${
+						result.value.tracks.length
+					}** song${result.value.tracks.length === 1 ? '' : 's'} from ${
 						`the playlist **${escapeMarkdown(result.value.title)}**`
 					} to the queue.`
 			);

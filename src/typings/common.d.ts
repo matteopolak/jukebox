@@ -1,61 +1,6 @@
-import { Guild, GuildMember, TextBasedChannel } from 'discord.js';
-import { videoFormat } from 'ytdl-core';
+import { Track } from '@prisma/client';
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
-
-export interface Manager {
-	_id: string;
-	messageId: string;
-	queueId: string;
-	channelId: string;
-	guildId: string;
-	voiceId?: string;
-	threadId?: string;
-	lyricsId?: string;
-	settings: ConnectionSettings;
-	index: number;
-}
-
-export interface ConnectionSettings {
-	effect: Effect;
-	repeat: boolean;
-	repeatOne: boolean;
-	autoplay: boolean;
-	seek: number;
-	shuffle: boolean;
-	lyrics: boolean;
-}
-
-export const enum ProviderOrigin {
-	YouTube,
-	Spotify,
-	SoundCloud,
-	Gutenberg,
-	Apple,
-}
-
-export interface SongData {
-	url: string;
-	id: string;
-	uid: string;
-	title: string;
-	artist: string;
-	// duration in milliseconds
-	duration: number;
-	thumbnail: string;
-	live: boolean;
-	type: ProviderOrigin;
-	format?: Option<videoFormat>;
-	related?: string[];
-	musixmatchId?: Option<number>;
-	geniusId?: Option<number>;
-}
-
-export interface Song extends SongData {
-	addedAt: number;
-	guildId: string;
-	index?: number;
-}
 
 export const enum Effect {
 	None,
@@ -84,11 +29,11 @@ export interface RawData {
 }
 
 export interface SearchResult {
-	videos: SongData[];
+	tracks: Track[];
 	title: Option<string>;
 }
 
-export type Option<T> = T | undefined;
+export type Option<T> = T | null;
 
 export const enum CommandOrigin {
 	Text,

@@ -1,0 +1,51 @@
+{
+	"id": "1591536583",
+	"type": "songs",
+	"href": "/v1/catalog/us/songs/1591536583",
+	"attributes": {
+		"albumName": "Lets Ball - Single",
+		"hasTimeSyncedLyrics": false,
+		"genreNames": [
+			"Pop",
+			"Music"
+		],
+		"trackNumber": 1,
+		"releaseDate": "2021-10-21",
+		"durationInMillis": 151116,
+		"isVocalAttenuationAllowed": false,
+		"isMasteredForItunes": false,
+		"isrc": "QZNWV2102419",
+		"artwork": {
+			"width": 3000,
+			"url": "https://is3-ssl.mzstatic.com/image/thumb/Music126/v4/e5/13/f4/e513f47a-db85-a7be-0a43-f684b18cdb6f/artwork.jpg/{w}x{h}bb.jpg",
+			"height": 3000,
+			"textColor3": "d4d1d2",
+			"textColor2": "dfdfdf",
+			"textColor4": "bcbcbc",
+			"textColor1": "fdf9fa",
+			"bgColor": "313131",
+			"hasP3": false
+		},
+		"audioLocale": "en-US",
+		"composerName": "opallo collins",
+		"url": "https://music.apple.com/us/album/lets-ball/1591536582?i=1591536583",
+		"playParams": {
+			"id": "1591536583",
+			"kind": "song"
+		},
+		"discNumber": 1,
+		"isAppleDigitalMaster": false,
+		"hasLyrics": true,
+		"audioTraits": [
+			"lossless",
+			"lossy-stereo"
+		],
+		"name": "Lets Ball",
+		"previews": [
+			{
+				"url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/c2/2d/3a/c22d3a07-58c4-1945-6fdb-6c1f6b7661eb/mzaf_2152824110433540491.plus.aac.ep.m4a"
+			}
+		],
+		"artistName": "dreamcache"
+	}
+}

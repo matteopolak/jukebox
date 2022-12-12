@@ -1,8 +1,9 @@
+import { Settings } from '@prisma/client';
 import { ActionRowData, ButtonComponentData, ButtonStyle, ComponentType, StringSelectMenuComponentData } from 'discord.js';
 
-import { ConnectionSettings, Effect } from '@/typings/common';
+import { Effect } from '@/typings/common';
 
-export function getDefaultComponents(settings: ConnectionSettings) {
+export function getDefaultComponents(settings: Settings) {
 	const components: [ActionRowData<ButtonComponentData>, ActionRowData<ButtonComponentData>, ActionRowData<StringSelectMenuComponentData>] = [
 		{
 			type: ComponentType.ActionRow,

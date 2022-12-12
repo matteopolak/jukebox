@@ -1,12 +1,12 @@
-import { ButtonInteraction, Client, escapeMarkdown,GuildMember } from 'discord.js';
+import { ButtonInteraction, Client, escapeMarkdown, GuildMember } from 'discord.js';
 
-import { getLyricsById,getTrack, getTrackFromSongData, QueryType } from '@/api/musixmatch';
+import { getLyricsById, getTrackData, getTrackDataFromTrack, QueryType } from '@/api/musixmatch';
 import Connection, { connections } from '@/structures/connection';
 import { SearchType } from '@/structures/provider';
 import { CommandOrigin, Effect } from '@/typings/common';
 import { handleChartAutocomplete, sendMessageAndDelete } from '@/util/message';
 import { createAudioManager } from '@/util/music';
-import { createQuery, gutenberg, spotify,youtube } from '@/util/search';
+import { createQuery, gutenberg, spotify, youtube } from '@/util/search';
 
 async function handleButton(interaction: ButtonInteraction) {
 	const voiceChannelId = (interaction.member! as GuildMember).voice.channelId;
@@ -96,11 +96,11 @@ export function register(client: Client) {
 					const result = await gutenberg.search(title);
 
 					if (result.ok) {
-						connection.addSongs(result.value.videos, true, playNext);
+						connection.addTracks(result.value.tracks, true, playNext);
 
 						await sendMessageAndDelete(
 							connection.textChannel,
-							`Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
+							`Added **${escapeMarkdown(result.value.tracks[0].title)}** to the queue.`
 						);
 					} else {
 						await sendMessageAndDelete(
@@ -126,14 +126,14 @@ export function register(client: Client) {
 					const result = await createQuery(query);
 
 					if (result.ok) {
-						connection.addSongs(result.value.videos, true, true);
+						connection.addTracks(result.value.tracks, true, true);
 
 						await sendMessageAndDelete(
 							connection.textChannel,
-							result.value.title === undefined
-								? `Added **${escapeMarkdown(result.value.videos[0].title)}** to the queue.`
-								: `Added **${result.value.videos.length
-								}** song${result.value.videos.length === 1 ? '' : 's'} from ${`the playlist **${escapeMarkdown(result.value.title)}**`
+							result.value.title === null
+								? `Added **${escapeMarkdown(result.value.tracks[0].title)}** to the queue.`
+								: `Added **${result.value.tracks.length
+								}** song${result.value.tracks.length === 1 ? '' : 's'} from ${`the playlist **${escapeMarkdown(result.value.title)}**`
 								} to the queue.`
 						);
 					} else {
@@ -161,12 +161,12 @@ export function register(client: Client) {
 					const result = await youtube.search(title, { type: SearchType.Playlist });
 
 					if (result.ok) {
-						connection.addSongs(result.value.videos, true, playNext);
+						connection.addTracks(result.value.tracks, true, playNext);
 
 						await sendMessageAndDelete(
 							connection.textChannel,
-							`Added **${result.value.videos.length
-							}** song${result.value.videos.length === 1 ? '' : 's'} from ${`the playlist **${escapeMarkdown(result.value.title!)}**`
+							`Added **${result.value.tracks.length
+							}** song${result.value.tracks.length === 1 ? '' : 's'} from ${`the playlist **${escapeMarkdown(result.value.title!)}**`
 							} to the queue.`
 						);
 					} else {
@@ -196,15 +196,15 @@ export function register(client: Client) {
 
 					const track =
 						query.q_track || query.q_artist || query.q_lyrics
-							? await getTrack(query, true)
+							? await getTrackData(query, true)
 							: currentSong
-								? await getTrackFromSongData(currentSong)
-								: undefined;
+								? await getTrackDataFromTrack(currentSong)
+								: null;
 
-					if (track === undefined) {
+					if (track === null) {
 						return void interaction.reply({
 							ephemeral: true,
-							content: 'A song could not be found with that query.',
+							content: 'A track could not be found with that query.',
 						});
 					}
 
@@ -242,12 +242,12 @@ export function register(client: Client) {
 
 					const playNext = interaction.options.getBoolean('play', false) ?? false;
 
-					connection.addSongs(result.value.videos, true, playNext);
+					connection.addTracks(result.value.tracks, true, playNext);
 
 					await interaction.deleteReply();
 
 					return void sendMessageAndDelete(connection.textChannel, {
-						content: `Added **${result.value.videos.length}** songs from the **${escapeMarkdown(result.value.title!)}** chart to the queue.`,
+						content: `Added **${result.value.tracks.length}** songs from the **${escapeMarkdown(result.value.title!)}** chart to the queue.`,
 					});
 				}
 			}

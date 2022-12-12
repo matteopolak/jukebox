@@ -2,14 +2,15 @@ import { createHmac } from 'node:crypto';
 
 import axios from 'axios';
 
-import { Option, SongData } from '@/typings/common';
+import { Option } from '@/typings/common';
 import {
 	MusixmatchResponse,
-	Track,
+	Track as TrackData,
 	TrackGetResponse,
 	TrackLyricsResponse,
 	TrackSearchResponse,
 } from '@/typings/musixmatch';
+import { TrackWithArtist } from '@/util/database';
 import { cleanTitle } from '@/util/music';
 
 type ParamValueType = string | number | boolean | undefined;
@@ -64,7 +65,7 @@ export const enum QueryType {
 	TitleOrArtist = 'q_track_artist',
 }
 
-export async function getTrackById(trackId: number): Promise<Option<Track>> {
+export async function getTrackDataById(trackId: number): Promise<Option<TrackData>> {
 	const url = createSignedUrl('https://www.musixmatch.com/ws/1.1/track.get', {
 		track_id: trackId,
 	});
@@ -74,14 +75,14 @@ export async function getTrackById(trackId: number): Promise<Option<Track>> {
 	>(url);
 
 	return data.message.header.status_code === 404
-		? undefined
-		: data.message.body?.track;
+		? null
+		: data.message.body?.track ?? null;
 }
 
-export async function getTrack(
+export async function getTrackData(
 	query: Partial<Record<QueryType, string>>,
 	lyrics = true
-): Promise<Option<Track>> {
+): Promise<Option<TrackData>> {
 	const url = createSignedUrl(
 		'https://www.musixmatch.com/ws/1.1/track.search',
 		{
@@ -96,8 +97,8 @@ export async function getTrack(
 		url
 	);
 
-	if (data.message?.header?.status_code !== 200) return;
-	return data.message.body?.track_list[0]?.track;
+	if (data.message?.header?.status_code !== 200) return null;
+	return data.message.body?.track_list[0]?.track ?? null;
 }
 
 export async function getLyricsById(trackId: number): Promise<Option<string>> {
@@ -112,22 +113,22 @@ export async function getLyricsById(trackId: number): Promise<Option<string>> {
 		url
 	);
 
-	if (data.message?.header?.status_code !== 200) return;
+	if (data.message?.header?.status_code !== 200) return null;
 
 	return data.message.body!.lyrics.lyrics_body;
 }
 
-export async function getTrackFromSongData(
-	data: SongData
-): Promise<Option<Track>> {
-	if (data.musixmatchId) return getTrackById(data.musixmatchId);
-	if (data.musixmatchId === undefined) return;
+export async function getTrackDataFromTrack(
+	data: TrackWithArtist
+): Promise<Option<TrackData>> {
+	if (data.musixmatchId) return getTrackDataById(data.musixmatchId);
+	if (data.musixmatchId === undefined) return null;
 
 	const clean = cleanTitle(data.title);
 
 	{
-		const track = await getTrack(
-			{ q_track: clean, q_artist: data.artist },
+		const track = await getTrackData(
+			{ q_track: clean, q_artist: data.artist.name },
 			true
 		);
 
@@ -135,14 +136,16 @@ export async function getTrackFromSongData(
 	}
 
 	{
-		const track = await getTrack({ q_track_artist: clean }, true);
+		const track = await getTrackData({ q_track_artist: clean }, true);
 
 		if (track) return track;
 	}
+
+	return null;
 }
 
-export async function getTrackIdFromSongData(
-	data: SongData
+export async function getTrackIdFromTrack(
+	data: TrackWithArtist
 ): Promise<Option<number>> {
 	if (data.musixmatchId !== undefined) return data.musixmatchId;
 
@@ -152,10 +155,10 @@ export async function getTrackIdFromSongData(
 	);
 
 	{
-		const track = await getTrack(
+		const track = await getTrackData(
 			{
 				q_track: clean,
-				q_artist: data.artist.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
+				q_artist: data.artist.name.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''),
 			},
 			true
 		);
@@ -164,8 +167,10 @@ export async function getTrackIdFromSongData(
 	}
 
 	{
-		const track = await getTrack({ q_track_artist: clean }, true);
+		const track = await getTrackData({ q_track_artist: clean }, true);
 
 		if (track) return track.track_id;
 	}
+
+	return null;
 }

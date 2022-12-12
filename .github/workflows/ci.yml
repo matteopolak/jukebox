@@ -3,8 +3,8 @@ name: ci
 on:
   push:
     paths:
-    - '**.ts'
-    - '**.yml'
+      - "**.ts"
+      - "**.yml"
 
 jobs:
   eslint:
@@ -19,6 +19,9 @@ jobs:
 
       - name: Install modules
         run: yarn
+
+      - name: Generate Prisma client
+        run: npx prisma generate
 
       - name: Run ESLint
         run: yarn run eslint src/**/*.ts

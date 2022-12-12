@@ -1,11 +1,12 @@
+import { Prisma, Provider } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 import ytdl, { videoInfo as VideoInfo } from 'ytdl-core';
 
-import { Provider, SearchOptions, SearchType } from '@/structures/provider';
-import { Option, ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
-import { Database } from '@/util/database';
+import { SearchOptions, SearchType, TrackProvider } from '@/structures/provider';
+import { Option, Result, SearchResult } from '@/typings/common';
+import { prisma, TrackWithArtist } from '@/util/database';
 import { parseDurationString } from '@/util/duration';
-import { getCachedSong } from '@/util/search';
+import { getCachedTrack, trackToOkSearchResult } from '@/util/search';
 
 export type SearchItem<T extends SearchType> = T extends SearchType.Playlist ? PlaylistItem : T extends SearchType.Video ? VideoItem : never;
 
@@ -44,6 +45,11 @@ export interface SimpleText {
 
 export interface Text {
 	text: string;
+	navigationEndpoint: {
+		browseEndpoint: {
+			browseId: string;
+		}
+	}
 }
 
 export interface Run<T> {
@@ -138,7 +144,7 @@ export interface Metadata {
 	};
 }
 
-export class YouTubeProvider extends Provider {
+export class YouTubeProvider extends TrackProvider {
 	private cookie?: string | undefined;
 	private http: AxiosInstance;
 
@@ -150,7 +156,6 @@ export class YouTubeProvider extends Provider {
 		super();
 
 		this.cookie = cookie;
-		// @ts-expect-error - explicit undefined is allowed here
 		this.http = axios.create({
 			baseURL: 'https://www.youtube.com',
 			params: {
@@ -163,38 +168,145 @@ export class YouTubeProvider extends Provider {
 		});
 	}
 
-	public static itemToSong(item: VideoItem): SongData {
-		return {
-			id: item.videoRenderer.videoId,
-			uid: item.videoRenderer.videoId,
-			title: item.videoRenderer.title.runs[0].text,
-			url: `https://www.youtube.com/watch?v=${item.videoRenderer.videoId}`,
-			thumbnail: `https://i.ytimg.com/vi/${item.videoRenderer.videoId}/hqdefault.jpg`,
-			artist: item.videoRenderer.ownerText.runs[0].text,
-			live: false,
-			duration: parseDurationString(item.videoRenderer.lengthText.simpleText),
-			type: ProviderOrigin.YouTube,
+	public static async itemToTrack(item: VideoItem): Promise<TrackWithArtist> {
+		const videoId = `youtube:track:${item.videoRenderer.videoId}`;
+
+		return prisma.track.upsert({
+			where: {
+				uid: videoId,
+			},
+			update: {
+				title: item.videoRenderer.title.runs[0].text,
+				type: Provider.YouTube,
+			},
+			create: {
+				uid: videoId,
+				title: item.videoRenderer.title.runs[0].text,
+				thumbnail: `https://i.ytimg.com/vi/${item.videoRenderer.videoId}/hqdefault.jpg`,
+				artist: {
+					connectOrCreate: {
+						where: {
+							uid: item.videoRenderer.ownerText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+						},
+						create: {
+							name: item.videoRenderer.ownerText.runs[0].text,
+							uid: item.videoRenderer.ownerText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+						},
+					},
+				},
+				relatedCount: 0,
+				duration: parseDurationString(item.videoRenderer.lengthText.simpleText),
+				type: Provider.YouTube,
+				url: `https://www.youtube.com/watch?v=${item.videoRenderer.videoId}`,
+			},
+			include: {
+				artist: true,
+			},
+		});
+	}
+
+	private static async videoInfoToTrack(data: VideoInfo): Promise<TrackWithArtist> {
+		const cached = await getCachedTrack(`youtube:track:${data.videoDetails.videoId}`);
+		if (cached) return cached;
+
+		const info = data.videoDetails;
+		const related = data.related_videos.filter(v => v?.id);
+
+		const authorName = // @ts-expect-error - ytdl doesn't have a type for author but it exists
+		(data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			(c: any) => c.videoSecondaryInfoRenderer
+		)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
+			?.text ?? data.videoDetails.author.name).replace(
+			' - Topic',
+			''
+		);
+
+		const videoId = `youtube:track:${info.videoId}`;
+		const authorId = `youtube:artist:${info.channelId}`;
+
+		const track: Prisma.TrackCreateInput = {
+			uid: videoId,
+			url: info.video_url,
+			title: info.title,
+			artist: {
+				connectOrCreate: {
+					where: {
+						uid: authorId,
+					},
+					create: {
+						name: authorName,
+						uid: authorId,
+					},
+				},
+			},
+			thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
+			duration: parseInt(info.lengthSeconds) * 1_000,
+			type: Provider.YouTube,
+			related: related.length > 0 ? related.map(v => v.id!) : undefined,
+			relatedCount: related.length,
 		};
+
+		const metadata =
+			// @ts-expect-error - ytdl does not have a typescript definition for this
+			data.response?.engagementPanels
+				.find(
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(i: any) =>
+						i.engagementPanelSectionListRenderer?.header
+							?.engagementPanelTitleHeaderRenderer?.title?.simpleText ===
+						'Description'
+				)
+				?.engagementPanelSectionListRenderer.content.structuredDescriptionContentRenderer.items.find(
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(i: any) =>
+						i?.videoDescriptionMusicSectionRenderer?.sectionTitle?.simpleText ===
+						'Music'
+				);
+
+		if (metadata) {
+			for (const item of metadata.videoDescriptionMusicSectionRenderer
+				?.carouselLockups[0]?.carouselLockupRenderer?.infoRows ?? []) {
+				const content =
+					item.infoRowRenderer?.defaultMetadata?.simpleText ??
+					item.infoRowRenderer?.expandedMetadata?.simpleText ??
+					item.infoRowRenderer?.defaultMetadata?.runs[0]?.text;
+
+				switch (item.infoRowRenderer.title.simpleText) {
+					case 'SONG':
+						track.title = content;
+
+						break;
+					case 'ARTIST':
+						track.artist = content;
+
+						break;
+				}
+			}
+		}
+
+		return prisma.track.upsert({
+			where: {
+				uid: track.uid,
+			},
+			update: {
+				relatedCount: track.relatedCount,
+				related: track.related,
+				title: track.title,
+			},
+			create: track,
+			include: {
+				artist: true,
+			},
+		});
 	}
 
 	public async getTrack(id: string): Promise<Result<SearchResult>> {
-		const cached = await getCachedSong(id);
-		if (cached) {
-			// Remove the unique id
-			// @ts-expect-error - _id is not a property of SongData
-			cached._id = undefined;
-
-			return {
-				ok: true,
-				value: {
-					videos: [cached],
-					title: undefined,
-				},
-			};
-		}
+		const cached = await getCachedTrack(`youtube:track:${id}`);
+		if (cached) return trackToOkSearchResult(cached);
 
 		try {
-			const data = YouTubeProvider.videoInfoToSongData(
+			const track = await YouTubeProvider.videoInfoToTrack(
 				await ytdl.getBasicInfo(`https://www.youtube.com/watch?v=${id}`, {
 					requestOptions: {
 						headers: {
@@ -204,15 +316,7 @@ export class YouTubeProvider extends Provider {
 				})
 			);
 
-			await Database.addSongToCache(data);
-
-			return {
-				ok: true,
-				value: {
-					videos: [data],
-					title: undefined,
-				},
-			};
+			return trackToOkSearchResult(track);
 		} catch {
 			return {
 				ok: false,
@@ -238,7 +342,7 @@ export class YouTubeProvider extends Provider {
 		const [data, metadata] = YouTubeProvider.parseInitialData(dataString);
 		if (!data) return { ok: false, error: `Could not parse playlist data from the YouTube playlist \`${id}\`.` };
 
-		const videos = data[1];
+		const trackData = data[1];
 		let continuationToken = data[0];
 
 		while (continuationToken) {
@@ -259,14 +363,16 @@ export class YouTubeProvider extends Provider {
 			const [token, parsedVideos] = YouTubeProvider.parsePlaylist(data);
 
 			continuationToken = token;
-			videos.push(...parsedVideos);
+			trackData.push(...parsedVideos);
 		}
+
+		const tracks = await prisma.$transaction(trackData.map(t => prisma.track.upsert(t)));
 
 		return {
 			ok: true,
 			value: {
-				title: metadata?.playlistMetadataRenderer?.title,
-				videos,
+				title: metadata?.playlistMetadataRenderer?.title ?? null,
+				tracks,
 			},
 		};
 	}
@@ -297,7 +403,7 @@ export class YouTubeProvider extends Provider {
 			query,
 		});
 
-		if (response.status !== 200) return undefined;
+		if (response.status !== 200) return null;
 
 		const items = response.data.contents
 			?.twoColumnSearchResultsRenderer?.primaryContents
@@ -306,134 +412,100 @@ export class YouTubeProvider extends Provider {
 				?.contents?.filter(s => SEARCH_TYPE_TO_KEY[type] in s) ?? []
 			);
 
-		return items?.length ? items : undefined;
+		return items?.length ? items : null;
 	}
 
-	private static parseInitialData(initialData: string): [[undefined, SongData[]], undefined] | [[Option<string>, SongData[]], Metadata] {
+	private static parseInitialData(initialData: string): [[undefined, Prisma.TrackUpsertArgs[]], undefined] | [[Option<string>, Prisma.TrackUpsertArgs[]], Metadata] {
 		try {
 			const data: InitialData = JSON.parse(initialData);
 
 			const playlist = data.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.playlistVideoListRenderer?.contents;
 			if (!playlist) return [[undefined, []], undefined];
 
-			const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+			const continuationToken: Option<string> = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ?? null;
 			if (continuationToken) playlist.pop();
 
-			const videos = playlist.map(video => {
+			const tracks = playlist.map(video => {
 				const info = video.playlistVideoRenderer!;
+				const videoId = `youtube:track:${info.videoId}`;
 
 				return {
-					id: info.videoId,
-					uid: info.videoId,
-					title: info.title.runs[0].text,
-					url: `https://www.youtube.com/watch?v=${info.videoId}`,
-					thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
-					duration: parseInt(info.lengthSeconds) * 1_000,
-					artist: info.shortBylineText.runs[0].text,
-					live: false,
-					type: ProviderOrigin.YouTube,
-				} satisfies SongData as SongData;
+					where: {
+						uid: videoId,
+					},
+					update: {
+						title: info.title.runs[0].text,
+					},
+					create: {
+						uid: videoId,
+						title: info.title.runs[0].text,
+						url: `https://www.youtube.com/watch?v=${info.videoId}`,
+						thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
+						duration: parseInt(info.lengthSeconds) * 1_000,
+						artist: {
+							connectOrCreate: {
+								where: {
+									uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+								},
+								create: {
+									name: info.shortBylineText.runs[0].text,
+									uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+								},
+							},
+						},
+						type: Provider.YouTube,
+						relatedCount: 0,
+					},
+				} satisfies Prisma.TrackUpsertArgs as Prisma.TrackUpsertArgs;
 			});
 
-			return [[continuationToken, videos], data.metadata];
+			return [[continuationToken, tracks], data.metadata];
 		} catch (e) {
 			return [[undefined, []], undefined];
 		}
 	}
 
-	private static parsePlaylist(data: InitialData): [Option<string>, SongData[]] {
+	private static parsePlaylist(data: InitialData): [Option<string>, Prisma.TrackUpsertArgs[]] {
 		const playlist = data?.onResponseReceivedActions?.[0]?.appendContinuationItemsAction?.continuationItems;
-		if (!playlist) return [undefined, []];
+		if (!playlist) return [null, []];
 
-		const continuationToken = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+		const continuationToken: Option<string> = playlist.at(-1)?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ?? null;
 		if (continuationToken) playlist.pop();
 
-		const videos = playlist.map(video => {
+		const tracks = playlist.map(video => {
 			const info = video.playlistVideoRenderer!;
+			const videoId = `youtube:track:${info.videoId}`;
 
 			return {
-				id: info.videoId,
-				uid: info.videoId,
-				title: info.title.runs[0].text,
-				url: `https://www.youtube.com/watch?v=${info.videoId}`,
-				thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
-				duration: parseInt(info.lengthSeconds) * 1_000,
-				artist: info.shortBylineText.runs[0].text,
-				live: false,
-				type: ProviderOrigin.YouTube,
-			} satisfies SongData as SongData;
+				where: {
+					uid: videoId,
+				},
+				update: {
+					title: info.title.runs[0].text,
+				},
+				create: {
+					uid: videoId,
+					title: info.title.runs[0].text,
+					url: `https://www.youtube.com/watch?v=${info.videoId}`,
+					thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
+					duration: parseInt(info.lengthSeconds) * 1_000,
+					artist: {
+						connectOrCreate: {
+							where: {
+								uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+							},
+							create: {
+								name: info.shortBylineText.runs[0].text,
+								uid: info.shortBylineText.runs[0].navigationEndpoint.browseEndpoint.browseId,
+							},
+						},
+					},
+					type: Provider.YouTube,
+					relatedCount: 0,
+				},
+			} satisfies Prisma.TrackUpsertArgs as Prisma.TrackUpsertArgs;
 		});
 
-		return [continuationToken, videos];
-	}
-
-	private static videoInfoToSongData(data: VideoInfo): SongData {
-		const info = data.videoDetails;
-		const related = data.related_videos.filter(v => v?.id);
-
-		const song = {
-			id: info.videoId,
-			uid: info.videoId,
-			url: info.video_url,
-			title: info.title,
-			artist: // prettier-ignore
-			// @ts-expect-error - ytdl doesn't have a type for author but it exists
-			(data.response?.contents?.twoColumnWatchNextResults?.results?.results?.contents?.find(
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(c: any) => c.videoSecondaryInfoRenderer
-			)?.videoSecondaryInfoRenderer?.owner?.videoOwnerRenderer?.title.runs[0]
-				?.text ?? data.videoDetails.author.name).replace(
-				' - Topic',
-				''
-			),
-			thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
-			duration: parseInt(info.lengthSeconds) * 1_000,
-			live: info.isLiveContent,
-			type: ProviderOrigin.YouTube,
-		} satisfies SongData as SongData;
-
-		if (related.length) {
-			song.related = related.map(v => v.id!);
-		}
-
-		const metadata =
-			// @ts-expect-error - ytdl does not have a typescript definition for this
-			data.response?.engagementPanels
-				.find(
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(i: any) =>
-						i.engagementPanelSectionListRenderer?.header
-							?.engagementPanelTitleHeaderRenderer?.title?.simpleText ===
-						'Description'
-				)
-				?.engagementPanelSectionListRenderer.content.structuredDescriptionContentRenderer.items.find(
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(i: any) =>
-						i?.videoDescriptionMusicSectionRenderer?.sectionTitle?.simpleText ===
-						'Music'
-				);
-
-		if (metadata) {
-			for (const item of metadata.videoDescriptionMusicSectionRenderer
-				?.carouselLockups[0]?.carouselLockupRenderer?.infoRows ?? []) {
-				const content =
-					item.infoRowRenderer?.defaultMetadata?.simpleText ??
-					item.infoRowRenderer?.expandedMetadata?.simpleText ??
-					item.infoRowRenderer?.defaultMetadata?.runs[0]?.text;
-
-				switch (item.infoRowRenderer.title.simpleText) {
-					case 'SONG':
-						song.title = content;
-
-						break;
-					case 'ARTIST':
-						song.artist = content;
-
-						break;
-				}
-			}
-		}
-
-		return song;
+		return [continuationToken, tracks];
 	}
 }

@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { parse } from 'node-html-parser';
 
-import { Option, SongData } from '@/typings/common';
+import { Option } from '@/typings/common';
 import { GeniusResponse, SearchResponse, Song } from '@/typings/genius';
+import { TrackWithArtist } from '@/util/database';
 import { cleanTitle } from '@/util/music';
 
 export async function getTrack(query: string): Promise<Option<Song>> {
@@ -15,7 +16,7 @@ export async function getTrack(query: string): Promise<Option<Song>> {
 		}
 	);
 
-	if (status !== 200 && status !== 304) return;
+	if (status !== 200 && status !== 304) return null;
 
 	for (const section of data.response.sections) {
 		for (const hit of section.hits) {
@@ -24,6 +25,8 @@ export async function getTrack(query: string): Promise<Option<Song>> {
 				return hit;
 		}
 	}
+
+	return null;
 }
 
 export async function getLyricsById(id: number): Promise<Option<string>> {
@@ -34,19 +37,19 @@ export async function getLyricsById(id: number): Promise<Option<string>> {
 		},
 	});
 
-	if (status !== 200 && status !== 304) return;
+	if (status !== 200 && status !== 304) return null;
 
 	const modified = data.replaceAll('<br>', '\n');
 	const document = parse(modified, {});
 	const raw = document.querySelector('div[data-lyrics-container="true"]');
 
-	return raw?.structuredText.replace(/^\[/gm, '\n[');
+	return raw?.structuredText.replace(/^\[/gm, '\n[') ?? null;
 }
 
-export async function getTrackIdFromSongData(
-	data: SongData
+export async function getTrackIdFromTrack(
+	data: TrackWithArtist
 ): Promise<Option<number>> {
-	if (data.geniusId === undefined) return;
+	if (data.geniusId === undefined) return null;
 	if (data.geniusId) return data.geniusId;
 
 	const clean = cleanTitle(data.title).replace(
@@ -54,12 +57,12 @@ export async function getTrackIdFromSongData(
 		''
 	);
 
-	const cleanArtist = data.artist.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+	const cleanArtist = data.artist.name.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
 	const track = await getTrack(
 		clean.includes(cleanArtist) ? clean : `${cleanArtist} ${clean}`
 	);
-	if (track === undefined) return;
+	if (track === null) return null;
 
 	return track.result.id;
 }

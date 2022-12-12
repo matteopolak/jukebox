@@ -7,12 +7,9 @@ import { SoundCloudProvider } from '@/providers/soundcloud';
 import { SpotifyProvider } from '@/providers/spotify';
 import { YouTubeProvider } from '@/providers/youtube';
 import { SearchType } from '@/structures/provider';
-import { Result, SearchResult, Song, SongData } from '@/typings/common';
-import { Database } from '@/util/database';
+import { Option, Result, SearchResult } from '@/typings/common';
 
-export function getCachedSong(uid: string) {
-	return Database.cache.findOne({ uid });
-}
+import { prisma, TrackWithArtist } from './database';
 
 function parseUrlWrapper(query: string) {
 	try {
@@ -28,50 +25,6 @@ function parseUrlWrapper(query: string) {
 			href: '',
 		};
 	}
-}
-
-export async function setSongIds(
-	songId: string,
-	musixmatchId?: number,
-	geniusId?: number
-) {
-	await Database.cache.updateMany(
-		{
-			id: songId,
-		},
-		{
-			$set: {
-				musixmatchId,
-				geniusId,
-			},
-		}
-	);
-
-	await Database.queue.updateMany(
-		{
-			id: songId,
-		},
-		{
-			$set: {
-				musixmatchId,
-				geniusId,
-			},
-		}
-	);
-}
-
-export function songToData(song: Song): SongData {
-	return {
-		id: song.id,
-		uid: song.id,
-		url: song.url,
-		title: song.title,
-		artist: song.artist,
-		duration: song.duration,
-		thumbnail: song.thumbnail,
-		live: song.live,
-		type: song.type,
-	};
 }
 
 export const youtube = new YouTubeProvider(process.env.COOKIE);
@@ -145,4 +98,37 @@ export async function createQuery(
 	}
 
 	return youtube.search(query, { type: SearchType.Video });
+}
+
+export function getCachedTrack(uid: string): Promise<Option<TrackWithArtist>> {
+	return prisma.track.findFirst({
+		where: {
+			uid,
+		},
+		include: {
+			artist: true,
+		},
+	});
+}
+
+export function trackToOkSearchResult(track: TrackWithArtist): Result<SearchResult> {
+	return {
+		ok: true,
+		value: {
+			title: null,
+			tracks: [track],
+		},
+	};
+}
+
+export function setTrackIds(track: TrackWithArtist, musixmatchId?: Option<number>, geniusId?: Option<number>) {
+	return prisma.track.update({
+		where: {
+			id: track.id,
+		},
+		data: {
+			musixmatchId,
+			geniusId,
+		},
+	});
 }

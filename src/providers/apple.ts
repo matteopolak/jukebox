@@ -1,12 +1,14 @@
+import { Provider } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
-import { Provider } from '@/structures/provider';
-import { ProviderOrigin, Result, SearchResult, SongData } from '@/typings/common';
+import { TrackProvider } from '@/structures/provider';
+import { Result, SearchResult } from '@/typings/common';
+import { prisma, TrackWithArtist } from '@/util/database';
 import { bufferUnordered } from '@/util/promise';
 
 const MAX_BATCH_SIZE_TRACK = 300;
 
-export interface Track {
+export interface TrackData {
 	id: string;
 	attributes: {
 		trackNumber: number;
@@ -30,7 +32,7 @@ export interface Album {
 		trackCount: number;
 	};
 	relationships: {
-		tracks: Paginated<Track>;
+		tracks: Paginated<TrackData>;
 	};
 }
 
@@ -44,7 +46,7 @@ export interface Playlist {
 		trackCount: number;
 	};
 	relationships: {
-		tracks: Paginated<Track>;
+		tracks: Paginated<TrackData>;
 	};
 }
 
@@ -57,7 +59,7 @@ export interface Response<T> {
 	data: [T];
 }
 
-export class AppleProvider extends Provider {
+export class AppleProvider extends TrackProvider {
 	private http: AxiosInstance;
 
 	constructor() {
@@ -73,25 +75,47 @@ export class AppleProvider extends Provider {
 		});
 	}
 
-	public static trackToSongData(track: Track): SongData {
-		return {
-			id: track.id,
-			uid: track.id,
-			title: track.attributes.name,
-			artist: track.attributes.artistName,
-			duration: track.attributes.durationInMillis,
-			thumbnail: track.attributes.artwork.url.replace('{w}', '500').replace('{h}', '500'),
-			url: '',
-			live: false,
-			type: ProviderOrigin.Apple,
-		};
+	public static trackDataToTrack(track: TrackData): Promise<TrackWithArtist> {
+		const trackId = `apple:track:${track.id}`;
+		const artistId = `apple:artist:${track.attributes.artistName}`;
+
+		return prisma.track.upsert({
+			where: {
+				uid: trackId,
+			},
+			update: {
+				title: track.attributes.name,
+			},
+			create: {
+				uid: trackId,
+				title: track.attributes.name,
+				artist: {
+					connectOrCreate: {
+						where: {
+							uid: artistId,
+						},
+						create: {
+							uid: artistId,
+							name: track.attributes.artistName,
+						},
+					},
+				},
+				duration: track.attributes.durationInMillis,
+				thumbnail: track.attributes.artwork.url.replace('{w}', '500').replace('{h}', '500'),
+				type: Provider.Apple,
+				relatedCount: 0,
+			},
+			include: {
+				artist: true,
+			},
+		});
 	}
 
 	private async _getTracks(type: string, id: string, catalog: string, batches: number, start = 0) {
-		const tracks: Track[] = [];
+		const tracks: TrackData[] = [];
 
 		await bufferUnordered(Array.from({ length: batches }, () => undefined), async (_, index) => {
-			const response = await this.http.get<Paginated<Track>>(`/catalog/${catalog}/${type}/${id}/tracks`, {
+			const response = await this.http.get<Paginated<TrackData>>(`/catalog/${catalog}/${type}/${id}/tracks`, {
 				params: {
 					limit: MAX_BATCH_SIZE_TRACK,
 					offset: start + index * MAX_BATCH_SIZE_TRACK,
@@ -105,10 +129,10 @@ export class AppleProvider extends Provider {
 	}
 
 	private async _getTracksPaginated(next?: string) {
-		const tracks: Track[] = [];
+		const tracks: TrackData[] = [];
 
 		while (next) {
-			const response = await this.http.get<Paginated<Track>>(next, {
+			const response = await this.http.get<Paginated<TrackData>>(next, {
 				baseURL: 'https://amp-api.music.apple.com',
 			});
 			tracks.push(...response.data.data);
@@ -140,7 +164,7 @@ export class AppleProvider extends Provider {
 			ok: true,
 			value: {
 				title: album.attributes.name,
-				videos: tracks.map(AppleProvider.trackToSongData),
+				tracks: await Promise.all(tracks.map(AppleProvider.trackDataToTrack)),
 			},
 		};
 	}
@@ -159,7 +183,7 @@ export class AppleProvider extends Provider {
 			ok: true,
 			value: {
 				title: playlist.attributes.name,
-				videos: tracks.map(AppleProvider.trackToSongData),
+				tracks: await Promise.all(tracks.map(AppleProvider.trackDataToTrack)),
 			},
 		};
 	}

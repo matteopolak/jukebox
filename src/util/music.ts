@@ -2,7 +2,7 @@ import { APIActionRowComponent, APIMessageActionRowComponent, CommandInteraction
 
 import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '@/constants';
 import { Effect } from '@/typings/common';
-import { Database } from '@/util/database';
+import { prisma } from '@/util/database';
 import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 
 export async function createAudioManager(interaction: CommandInteraction) {
@@ -25,17 +25,19 @@ export async function createAudioManager(interaction: CommandInteraction) {
 		content: '\u200b',
 	});
 
-	await Database.manager.updateOne(
+	await prisma.manager.upsert(
 		{
-			guildId: interaction.guildId!,
-			channelId: interaction.channelId,
-		},
-		{
-			$set: {
+			where: {
+				guildId_channelId: {
+					guildId: interaction.guildId!,
+					channelId: interaction.channelId,
+				},
+			},
+			create: {
+				guildId: interaction.guildId!,
+				channelId: interaction.channelId,
 				messageId: message.id,
 				queueId: queue.id,
-			},
-			$setOnInsert: {
 				settings: {
 					effect: Effect.None,
 					repeat: false,
@@ -47,8 +49,11 @@ export async function createAudioManager(interaction: CommandInteraction) {
 				},
 				index: 0,
 			},
-		},
-		{ upsert: true }
+			update: {
+				messageId: message.id,
+				queueId: queue.id,
+			},
+		}
 	);
 }
 

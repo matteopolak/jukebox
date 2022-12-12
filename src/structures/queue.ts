@@ -1,10 +1,10 @@
+import { Manager, Settings, Track } from '@prisma/client';
 import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
-import { WithId } from 'mongodb';
 
 import { PROVIDER_TO_EMOJI } from '@/constants';
 import Connection from '@/structures/connection';
-import { ConnectionSettings, Manager, Option, Song, SongData } from '@/typings/common';
-import { Database } from '@/util/database';
+import { Option } from '@/typings/common';
+import { prisma, TrackWithArtist } from '@/util/database';
 import { formatMilliseconds } from '@/util/duration';
 import { enforceLength } from '@/util/message';
 import { randomElement, randomInteger } from '@/util/random';
@@ -14,20 +14,20 @@ import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 const QUEUE_DISPLAY_SIZE = 5;
 const QUEUE_DISPLAY_BUFFER = 2;
 
-export interface InsertSongOptions {
+export interface InsertTrackOptions {
 	playNext?: boolean;
 }
 
-export class Queue {
+class _Queue {
 	public _index = 0;
 	private _queueLength = 0;
 	public _queueLengthWithRelated = 0;
-	private _current: Option<WithId<Song>>;
+	private _current: Option<Track> = null;
 
 	private connection: Connection;
 	private manager: Manager;
 	private channel: TextChannel | NewsChannel;
-	private settings: ConnectionSettings;
+	private settings: Settings;
 
 	constructor(connection: Connection) {
 		this.connection = connection;
@@ -49,37 +49,26 @@ export class Queue {
 		const [
 			queueLengthResult,
 			queueLengthWithRelatedResult,
-		] = await Promise.all([
-			Database.queue.count({
-				guildId: this.manager.guildId,
+		] = await prisma.$transaction([
+			prisma.queue.count({
+				where: {
+					guildId: this.manager.guildId,
+				},
 			}),
-			Database.queue.aggregate([
-				{
-					$match: {
-						guildId: this.manager.guildId,
-						related: { $exists: true },
-					},
-				},
-				{
-					$project: {
-						related: {
-							$size: '$related',
+			prisma.queue.count({
+				where: {
+					guildId: this.manager.guildId,
+					track: {
+						relatedCount: {
+							gt: 0,
 						},
 					},
 				},
-				{
-					$group: {
-						_id: null,
-						total: {
-							$sum: '$related',
-						},
-					},
-				},
-			]).toArray(),
+			}),
 		]);
 
 		this._queueLength = queueLengthResult;
-		this._queueLengthWithRelated = queueLengthWithRelatedResult[0]?.total ?? 0;
+		this._queueLengthWithRelated = queueLengthWithRelatedResult;
 	}
 
 	public get length() {
@@ -90,16 +79,17 @@ export class Queue {
 		this._index = this._queueLength === 0 ? 0 : value % this._queueLength;
 		if (this._index < 0) this._index = this._queueLength + this._index;
 
-		Database.manager.updateOne(
-			{
-				_id: this.manager._id,
-			},
-			{
-				$set: {
-					index: value,
+		prisma.manager.update({
+			where: {
+				guildId_channelId: {
+					guildId: this.manager.guildId,
+					channelId: this.manager.channelId,
 				},
-			}
-		);
+			},
+			data: {
+				index: this._index,
+			},
+		}).then(() => {});
 	}
 
 	public get index() {
@@ -107,20 +97,17 @@ export class Queue {
 	}
 
 	private async updateQueueMessage() {
-		const cursor = Database.queue
-			.find({ guildId: this.manager.guildId })
-			.sort({ addedAt: 1, index: 1 });
-
+		let skip = 0;
 		let lower = 0;
 		let upper = 0;
 
 		if (this._queueLength - this.index <= QUEUE_DISPLAY_BUFFER && this._queueLength > QUEUE_DISPLAY_SIZE) {
-			cursor.skip(this._queueLength - QUEUE_DISPLAY_SIZE);
+			skip = this._queueLength - QUEUE_DISPLAY_SIZE;
 
 			lower = this._queueLength - QUEUE_DISPLAY_SIZE;
 			upper = this._queueLength;
 		} else if (this.index > QUEUE_DISPLAY_BUFFER) {
-			cursor.skip(this.index - QUEUE_DISPLAY_BUFFER);
+			skip = this.index - QUEUE_DISPLAY_BUFFER;
 
 			lower = this.index - QUEUE_DISPLAY_BUFFER;
 			upper = this.index + QUEUE_DISPLAY_BUFFER + 1;
@@ -128,17 +115,34 @@ export class Queue {
 			upper = Math.min(this._queueLength, QUEUE_DISPLAY_SIZE);
 		}
 
-		const songs = await cursor.limit(QUEUE_DISPLAY_SIZE).toArray();
 		const length = Math.ceil(Math.log10(upper));
+		const tracks = await prisma.queue.findMany({
+			where: {
+				guildId: this.manager.guildId,
+			},
+			orderBy: [
+				{
+					createdAt: 'asc',
+				},
+				{
+					index: 'asc',
+				},
+			],
+			skip,
+			take: QUEUE_DISPLAY_SIZE,
+			include: {
+				track: true,
+			},
+		});
 
-		const content = songs.map(
+		const content = tracks.map(
 			(s, i) =>
 				`\`${(lower + i + 1).toString().padStart(length, '0')}.\` ${
-					PROVIDER_TO_EMOJI[s.type]
+					PROVIDER_TO_EMOJI[s.track.type]
 				} ${i + lower === this.index ? '**' : ''}${enforceLength(
-					escapeMarkdown(s.title),
+					escapeMarkdown(s.track.title),
 					32
-				)} \`[${formatMilliseconds(s.duration)}]\`${i + lower === this.index ? '**' : ''}`
+				)} \`[${formatMilliseconds(s.track.duration)}]\`${i + lower === this.index ? '**' : ''}`
 		);
 
 		this.channel.messages.edit(
@@ -174,77 +178,63 @@ export class Queue {
 		return this._index;
 	}
 
-	public async next(first = false): Promise<Option<WithId<Song>>> {
+	public async next(first = false): Promise<Option<TrackWithArtist>> {
 		const previousIndex = this.index;
 		const index = this._nextIndex(first);
 
 		if (index === -1) {
-			return this._current = undefined;
+			return this._current = null;
 		}
 
 		if (index >= this._queueLength && this.connection.isEnabled('autoplay')) {
 			if (this._queueLengthWithRelated > 0) {
 				const recent = this.connection.recent.toArray();
-				const [random] = await Database.queue
-					.aggregate<{ related: string[] }>([
-						{
-							$match: {
+				const random = await prisma.queue.findFirst({
+					where: {
+						AND: [
+							{
 								guildId: this.manager.guildId,
-								related: { $exists: true },
 							},
-						},
-						{
-							$project: {
-								heuristic: {
-									// avoid playing recent songs
-									$multiply: [
-										{
-											$size: {
-												$setIntersection: ['$related', recent],
-											},
-										},
-										{
-											// prefer playing songs related to recent songs
-											$cond: {
-												if: { $in: ['$uid', recent] },
-												then: {
-													$add: [
-														{
-															$multiply: [
-																{ $indexOfArray: [recent, '$uid'] },
-																0.05,
-															],
-														},
-														1,
-													],
-												},
-												else: 0.5,
-											},
-										},
-									],
+							{
+								track: {
+									relatedCount: {
+										gt: 0,
+									},
 								},
-								related: 1,
 							},
+							{
+								NOT: {
+									track: {
+										related: {
+											hasEvery: recent,
+										},
+									},
+								},
+							},
+						],
+					},
+					skip: randomInteger(this._queueLengthWithRelated),
+					orderBy: [
+						{
+							createdAt: 'asc',
 						},
 						{
-							$sort: {
-								heuristic: 1,
-							},
+							index: 'asc',
 						},
-						{
-							$limit: 1,
-						},
-					])
-					.toArray();
+					],
+					include: {
+						track: true,
+					},
+				});
 
-				if (random?.related?.length) {
+				if (random) {
 					const set = new Set(recent);
-					const related = random.related.filter(id => !set.has(id));
+					const related = random.track.related.filter(id => !set.has(id));
 
-					const raw = await youtube.getTrack(randomElement(related.length > 0 ? related : random.related));
-					if (raw.ok === false) return;
+					const raw = await youtube.getTrack(randomElement(related.length > 0 ? related : random.track.related));
+					if (raw.ok === false) return null;
 
-					const data = raw.value.videos[0];
+					const data = raw.value.tracks[0];
 
 					if (data) {
 						await this.insertOne(data);
@@ -252,26 +242,26 @@ export class Queue {
 				}
 			} else {
 				// if there are no related songs, play a random song
-				const [random] = await Database.queue
-					.aggregate<Song>([
+				const random = await prisma.queue.findFirst({
+					where: {
+						guildId: this.manager.guildId,
+					},
+					skip: randomInteger(this._queueLength),
+					orderBy: [
 						{
-							$match: {
-								guildId: this.manager.guildId,
-							},
+							createdAt: 'asc',
 						},
 						{
-							$sample: {
-								size: 1,
-							},
+							index: 'asc',
 						},
-					])
-					.toArray();
+					],
+					include: {
+						track: true,
+					},
+				});
 
 				if (random) {
-					// @ts-expect-error - _id is not a property of Song
-					random._id = undefined;
-
-					await this.insertOne(random);
+					await this.insertOne(random.track);
 				}
 			}
 		}
@@ -279,33 +269,54 @@ export class Queue {
 		if (index !== previousIndex)
 			this.index = index;
 
-		const [song] = await Database.queue
-			.find({ guildId: this.manager.guildId })
-			.sort({ addedAt: 1, index: 1 })
-			.skip(index)
-			.limit(1)
-			.toArray();
+		const data = await prisma.queue.findFirst({
+			where: {
+				guildId: this.manager.guildId,
+			},
+			skip: index,
+			take: 1,
+			include: {
+				track: {
+					include: {
+						artist: true,
+					},
+				},
+			},
+			orderBy: [
+				{
+					createdAt: 'asc',
+				},
+				{
+					index: 'asc',
+				},
+			],
+		});
 
-		if (song) {
-			if (this._current?.id !== song.id || previousIndex !== index) {
+		if (data) {
+			if (this._current?.uid !== data.track.uid || previousIndex !== index) {
 				this.updateQueueMessage();
 			}
 
-			this._current = song;
+			this._current = data.track;
 		}
 
-		return song;
+		return data?.track ?? null;
 	}
 
-	public async insertOne(song: SongData, options?: InsertSongOptions) {
-		await Database.queue.insertOne({
-			...song,
-			addedAt: Date.now(),
-			guildId: this.manager.guildId,
+	public async insertOne(track: Track, options?: InsertTrackOptions) {
+		await prisma.queue.create({
+			data: {
+				guildId: this.manager.guildId,
+				track: {
+					connect: {
+						uid: track.uid,
+					},
+				},
+			},
 		});
 
 		this._queueLength++;
-		if (song.related) this._queueLengthWithRelated += song.related.length;
+		if (track.related) this._queueLengthWithRelated++;
 
 		if ((this.index < QUEUE_DISPLAY_BUFFER && this._queueLength <= QUEUE_DISPLAY_SIZE) || Math.abs(this.index - this._queueLength) <= QUEUE_DISPLAY_BUFFER + 1) {
 			this.updateQueueMessage();
@@ -314,38 +325,33 @@ export class Queue {
 		if (options?.playNext) this._index = this._queueLength - 2;
 	}
 
-	public async insertMany(songs: SongData[], options?: InsertSongOptions) {
-		if (songs.length === 0) return;
-		if (songs.length === 1) return this.insertOne(songs[0], options);
+	public async insertMany(tracks: Track[], options?: InsertTrackOptions) {
+		if (tracks.length === 0) return;
+		if (tracks.length === 1) return this.insertOne(tracks[0], options);
 
-		const now = Date.now();
-
-		await Database.queue.insertMany(
-			songs
-				.map((song, i) => ({
-					...song,
-					addedAt: now,
-					guildId: this.manager.guildId,
-					index: i,
-				}))
-		);
+		await prisma.queue.createMany({
+			data: tracks.map((track, i) => ({
+				guildId: this.manager.guildId,
+				index: i,
+				trackId: track.uid,
+			})),
+		});
 
 		if (Math.abs(this.index - this._queueLength) < QUEUE_DISPLAY_BUFFER + 1) {
 			this.updateQueueMessage();
 		}
 
-		this._queueLength += songs.length;
-		this._queueLengthWithRelated += songs.reduce(
-			(a, b) => a + (b.related ? b.related.length : 0),
-			0
-		);
+		this._queueLength += tracks.length;
+		this._queueLengthWithRelated += tracks.filter(t => t.relatedCount > 0).length;
 
-		if (options?.playNext) this._index = this._queueLength - songs.length - 1;
+		if (options?.playNext) this._index = this._queueLength - tracks.length - 1;
 	}
 
 	public async clear() {
-		await Database.queue.deleteMany({
-			guildId: this.manager.guildId,
+		await prisma.queue.deleteMany({
+			where: {
+				guildId: this.manager.guildId,
+			},
 		});
 
 		this._queueLength = 0;
@@ -357,22 +363,24 @@ export class Queue {
 
 	public async removeCurrent() {
 		if (this._queueLength === 0) return;
+		if (this._current === null) return;
 
-		const song = await Database.queue.findOne({
-			guildId: this.manager.guildId,
-			_id: this._current?._id,
+		const data = await prisma.queue.delete({
+			where: {
+				id: this._current.id,
+			},
+			include: {
+				track: true,
+			},
 		});
 
-		if (!song) return;
-
-		await Database.queue.deleteOne({
-			guildId: this.manager.guildId,
-			_id: this._current?._id,
-		});
+		if (!data) return;
 
 		this._queueLength--;
-		if (song.related) this._queueLengthWithRelated -= song.related.length;
+		if (data.track.relatedCount > 0) this._queueLengthWithRelated--;
 
 		await this.updateQueueMessage();
 	}
 }
+
+export { _Queue as Queue };

@@ -87,7 +87,7 @@ export function joinVoiceChannelAndListen(
 				channel,
 			});
 
-			if (connection === undefined) return;
+			if (connection === null) return;
 
 			switch (data.entities['order:order'][0].value) {
 				case 'play': {

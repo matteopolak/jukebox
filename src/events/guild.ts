@@ -1,4 +1,4 @@
-import { ButtonStyle,Client,ComponentType } from 'discord.js';
+import { ButtonStyle, Client, ComponentType } from 'discord.js';
 
 import { LYRICS_CLIENT, QUEUE_CLIENT } from '@/util/worker';
 

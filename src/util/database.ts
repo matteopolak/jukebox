@@ -1,82 +1,47 @@
-import { Collection, Db, MongoClient, UpdateFilter } from 'mongodb';
+import { Artist, PrismaClient, Track } from '@prisma/client';
 
-import { Manager, Option, Song, SongData } from '@/typings/common';
+export const prisma = new PrismaClient();
+export type TrackWithArtist = Track & { artist: Artist };
 
-export class Database {
-	public static client: MongoClient;
-	public static database: Db;
-	private static _queue: Option<Collection<Song>>;
-	private static _managers: Option<Collection<Manager>>;
-	private static _cache: Option<Collection<SongData>>;
+export function updateArtist(data: Artist) {
+	return prisma.artist.upsert({
+		where: {
+			uid: data.uid,
+		},
+		update: {
+			name: data.name,
+		},
+		create: {
+			uid: data.uid,
+			name: data.name,
+		},
+	});
+}
 
-	public static async login() {
-		this.client = await MongoClient.connect(process.env.MONGODB_URI!);
-		this.database = this.client.db('music');
-
-		return Promise.all([
-			this.database.collection('cache').createIndex({ id: 'text' }),
-			this.database.collection('queue').createIndex({ id: 'text' }),
-			this.database.collection('queue').createIndex({ addedAt: 1 }),
-			this.database.collection('managers').createIndex({ channelId: 'text' }),
-		]);
-	}
-
-	public static get queue(): Collection<Song> {
-		return this._queue ? this._queue : (this._queue = this.database.collection('queue'));
-	}
-
-	public static get manager(): Collection<Manager> {
-		return this._managers ? this._managers : (this._managers = this.database.collection('managers'));
-	}
-
-	public static get cache(): Collection<SongData> {
-		return this._cache ? this._cache : (this._cache = this.database.collection('cache'));
-	}
-
-	public static addSongToCache(data: SongData) {
-		const payload: Record<'$setOnInsert' | '$set', Record<string, unknown>> = {
-			$setOnInsert: {
-				url: data.url,
-				duration: data.duration,
-				type: data.type,
-			},
-			$set: {
-				title: data.title,
-				artist: data.artist,
-				thumbnail: data.thumbnail,
-				live: data.live,
-				id: data.id,
-			},
-		};
-
-		if (data.musixmatchId) {
-			payload.$setOnInsert.musixmatchId = data.musixmatchId;
-		}
-
-		if (data.geniusId) {
-			payload.$setOnInsert.geniusId = data.geniusId;
-		}
-
-		if (data.format) {
-			payload.$set.format = data.format;
-		}
-
-		if (data.related) {
-			payload.$set.related = data.related;
-		}
-
-		return Database.cache.updateOne(
-			{
-				uid: data.uid,
-			},
-			payload as UpdateFilter<SongData>,
-			{
-				upsert: true,
-			}
-		);
-	}
-
-	public static addSongsToCache(data: SongData[]) {
-		return Promise.all(data.map(Database.addSongToCache));
-	}
+export function updateTrack(data: Track): Promise<TrackWithArtist> {
+	return prisma.track.upsert({
+		where: {
+			uid: data.uid,
+		},
+		update: {
+			title: data.title,
+			thumbnail: data.thumbnail,
+			url: data.url,
+			related: data.related,
+			relatedCount: data.relatedCount,
+		},
+		create: {
+			uid: data.uid,
+			title: data.title,
+			artistId: data.artistId,
+			type: data.type,
+			duration: data.duration,
+			url: data.url,
+			thumbnail: data.thumbnail,
+			relatedCount: 0,
+		},
+		include: {
+			artist: true,
+		},
+	});
 }

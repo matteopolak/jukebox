@@ -1,31 +1,52 @@
+import { Provider, Track } from '@prisma/client';
 import { TrackInfo } from 'soundcloud-downloader/dist/index.js';
 import scdl from 'soundcloud-downloader/dist/index.js';
 
-import { Provider } from '@/structures/provider';
-import {
-	ProviderOrigin,
-	Result,
-	SearchResult,
-	SongData,
-} from '@/typings/common';
+import { TrackProvider } from '@/structures/provider';
+import { Result, SearchResult } from '@/typings/common';
+import { prisma } from '@/util/database';
 
-export class SoundCloudProvider extends Provider {
-	public static trackInfoToSongData(data: TrackInfo): SongData {
-		return {
-			id: data.id.toString(),
-			uid: data.id.toString(),
-			url: data.uri!,
-			title: data.title!,
-			artist: data.user ? data.user.full_name : '???',
-			thumbnail: (
-				data.artwork_url ??
-				data.user?.avatar_url ??
-				'https://icons.iconarchive.com/icons/danleech/simple/1024/soundcloud-icon.png'
-			).replace('-large.', '-t500x500.'),
-			duration: data.duration!,
-			live: false,
-			type: ProviderOrigin.SoundCloud,
-		};
+export class SoundCloudProvider extends TrackProvider {
+	public static trackInfoToTrack(track: TrackInfo): Promise<Track> {
+		const artistName = track?.user?.full_name ?? 'Anonymous Artist';
+		const artistId = `soundcloud:artist:${track.user?.id ?? 0}`;
+		const trackId = `soundcloud:track:${track.id}`;
+
+		return prisma.track.upsert({
+			where: {
+				uid: trackId,
+			},
+			update: {
+				title: track.title!,
+			},
+			create: {
+				title: track.title!,
+				artist: {
+					connectOrCreate: {
+						where: {
+							uid: artistId,
+						},
+						create: {
+							name: artistName,
+							uid: artistId,
+						},
+					},
+				},
+				duration: track.duration!,
+				uid: trackId,
+				type: Provider.SoundCloud,
+				thumbnail: (
+					track.artwork_url ??
+					track.user?.avatar_url ??
+					'https://icons.iconarchive.com/icons/danleech/simple/1024/soundcloud-icon.png'
+				).replace('-large.', '-t500x500.'),
+				relatedCount: 0,
+				url: track.uri!,
+			},
+			include: {
+				artist: true,
+			},
+		});
 	}
 
 	public async getTrack(url: string): Promise<Result<SearchResult>> {
@@ -34,13 +55,13 @@ export class SoundCloudProvider extends Provider {
 
 			// Only return song if it can be streamed
 			if (!raw.streamable) return { ok: false, error: `The SoundCloud song \`${url}\` is not streamable.` };
-			const data = SoundCloudProvider.trackInfoToSongData(raw);
+			const data = await SoundCloudProvider.trackInfoToTrack(raw);
 
 			return {
 				ok: true,
 				value: {
-					videos: [data],
-					title: undefined,
+					tracks: [data],
+					title: null,
 				},
 			};
 		} catch {
@@ -56,7 +77,7 @@ export class SoundCloudProvider extends Provider {
 				ok: true,
 				value: {
 					title: set.title,
-					videos: set.tracks.map(SoundCloudProvider.trackInfoToSongData),
+					tracks: await Promise.all(set.tracks.map(SoundCloudProvider.trackInfoToTrack)),
 				},
 			};
 		} catch {
