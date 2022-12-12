@@ -147,7 +147,7 @@ class _Queue {
 
 		this.channel.messages.edit(
 			this.manager.queueId,
-			content.join('\n') || 'There are no songs in the queue.'
+			content.join('\n') || 'There are no tracks in the queue.'
 		);
 	}
 

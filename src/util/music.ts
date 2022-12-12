@@ -22,7 +22,7 @@ export async function createAudioManager(interaction: CommandInteraction) {
 		interaction.guildId!,
 		interaction.channelId
 	).send({
-		content: '\u200b',
+		content: 'There are no tracks in the queue.',
 	});
 
 	await prisma.manager.upsert(
