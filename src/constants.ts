@@ -1,18 +1,17 @@
-import { Provider } from '@prisma/client';
 import { ButtonStyle, ComponentType } from 'discord.js';
 
-import { Effect } from '@/typings/common';
+import { Effect, TrackSource } from '@/typings/common';
 
 export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
 export const BAD_TITLE_CHARACTER_REGEX =
 	/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]|\([^()]+\)|\[[^[\]]+\]|fe?a?t\. .+/g;
 
-export const PROVIDER_TO_EMOJI: Record<Provider, string> = {
-	[Provider.SoundCloud]: '<:soundcloud:1009952387005431858>',
-	[Provider.Spotify]: '<:spotify:1009952127512223834>',
-	[Provider.YouTube]: '<:youtube:1009952565301096448>',
-	[Provider.Gutenberg]: '<:gutenberg:1014252942230036601>',
-	[Provider.Apple]: '<:apple:1049809008946589726>',
+export const PROVIDER_TO_EMOJI: Record<TrackSource, string> = {
+	[TrackSource.SoundCloud]: '<:soundcloud:1009952387005431858>',
+	[TrackSource.Spotify]: '<:spotify:1009952127512223834>',
+	[TrackSource.YouTube]: '<:youtube:1009952565301096448>',
+	[TrackSource.Gutenberg]: '<:gutenberg:1014252942230036601>',
+	[TrackSource.Apple]: '<:apple:1049809008946589726>',
 };
 
 export const EFFECTS: Record<Effect, string[]> = {

@@ -34,7 +34,7 @@ export function updateTrack(data: Track): Promise<TrackWithArtist> {
 			uid: data.uid,
 			title: data.title,
 			artistId: data.artistId,
-			type: data.type,
+			source: data.source,
 			duration: data.duration,
 			url: data.url,
 			thumbnail: data.thumbnail,

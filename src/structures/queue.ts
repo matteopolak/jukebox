@@ -3,7 +3,7 @@ import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
 
 import { PROVIDER_TO_EMOJI } from '@/constants';
 import Connection from '@/structures/connection';
-import { Option } from '@/typings/common';
+import { Option, TrackSource } from '@/typings/common';
 import { prisma, TrackWithArtist } from '@/util/database';
 import { formatMilliseconds } from '@/util/duration';
 import { enforceLength } from '@/util/message';
@@ -138,7 +138,7 @@ class _Queue {
 		const content = tracks.map(
 			(s, i) =>
 				`\`${(lower + i + 1).toString().padStart(length, '0')}.\` ${
-					PROVIDER_TO_EMOJI[s.track.type]
+					PROVIDER_TO_EMOJI[s.track.source as TrackSource]
 				} ${i + lower === this.index ? '**' : ''}${enforceLength(
 					escapeMarkdown(s.track.title),
 					32

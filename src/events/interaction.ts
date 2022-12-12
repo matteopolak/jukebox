@@ -3,7 +3,7 @@ import { ButtonInteraction, Client, escapeMarkdown, GuildMember } from 'discord.
 import { getLyricsById, getTrackData, getTrackDataFromTrack, QueryType } from '@/api/musixmatch';
 import Connection, { connections } from '@/structures/connection';
 import { SearchType } from '@/structures/provider';
-import { CommandOrigin, Effect } from '@/typings/common';
+import { CommandSource, Effect } from '@/typings/common';
 import { handleChartAutocomplete, sendMessageAndDelete } from '@/util/message';
 import { createAudioManager } from '@/util/music';
 import { createQuery, gutenberg, spotify, youtube } from '@/util/search';
@@ -38,7 +38,7 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			break;
 		case 'shuffle':
-			await connection.setShuffle(!connection.isEnabled('shuffle'), CommandOrigin.Text, interaction);
+			await connection.setShuffle(!connection.isEnabled('shuffle'), CommandSource.Text, interaction);
 
 			break;
 		case 'removeAll':
@@ -46,19 +46,19 @@ async function handleButton(interaction: ButtonInteraction) {
 
 			break;
 		case 'repeat':
-			await connection.setRepeat(!connection.isEnabled('repeat'), CommandOrigin.Text, interaction);
+			await connection.setRepeat(!connection.isEnabled('repeat'), CommandSource.Text, interaction);
 
 			break;
 		case 'repeatOne':
-			await connection.setRepeatOne(!connection.isEnabled('repeatOne'), CommandOrigin.Text, interaction);
+			await connection.setRepeatOne(!connection.isEnabled('repeatOne'), CommandSource.Text, interaction);
 
 			break;
 		case 'autoplay':
-			await connection.setAutoplay(!connection.isEnabled('autoplay'), CommandOrigin.Text, interaction);
+			await connection.setAutoplay(!connection.isEnabled('autoplay'), CommandSource.Text, interaction);
 
 			break;
 		case 'lyrics':
-			await connection.setLyrics(!connection.isEnabled('lyrics'), CommandOrigin.Text, interaction);
+			await connection.setLyrics(!connection.isEnabled('lyrics'), CommandSource.Text, interaction);
 
 			break;
 	}

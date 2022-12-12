@@ -11,7 +11,7 @@ import {
 	StreamType,
 	VoiceConnectionStatus,
 } from '@discordjs/voice';
-import { Manager, Prisma, Provider, Settings, Track } from '@prisma/client';
+import { Manager, Prisma, Settings, Track } from '@prisma/client';
 import {
 	ButtonInteraction,
 	ButtonStyle,
@@ -47,10 +47,11 @@ import {
 } from '@/constants';
 import { Queue } from '@/structures/queue';
 import {
-	CommandOrigin,
+	CommandSource,
 	Effect,
 	Option,
 	RawData,
+	TrackSource,
 } from '@/typings/common';
 import { CircularBuffer } from '@/util/buffer';
 import { getDefaultComponents } from '@/util/components';
@@ -251,7 +252,7 @@ export default class Connection {
 
 	public async setRepeat(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text,
+		source: CommandSource = CommandSource.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
 		this.settings.repeat = enabled;
@@ -287,7 +288,7 @@ export default class Connection {
 
 		this.updateEmbedMessage(interaction);
 
-		if (origin === CommandOrigin.Voice) {
+		if (source === CommandSource.Voice) {
 			await sendMessageAndDelete(
 				this.textChannel,
 				`🎙️ Repeat has been **${enabled ? 'enabled' : 'disabled'}**.`
@@ -297,7 +298,7 @@ export default class Connection {
 
 	public async setRepeatOne(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text,
+		source: CommandSource = CommandSource.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
 		this.settings.repeatOne = enabled;
@@ -324,7 +325,7 @@ export default class Connection {
 			},
 		});
 
-		if (origin === CommandOrigin.Voice) {
+		if (source === CommandSource.Voice) {
 			await sendMessageAndDelete(
 				this.textChannel,
 				`🎙️ Repeat one has been **${enabled ? 'enabled' : 'disabled'}**.`
@@ -334,7 +335,7 @@ export default class Connection {
 
 	public async setAutoplay(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text,
+		source: CommandSource = CommandSource.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
 		this.settings.autoplay = enabled;
@@ -370,7 +371,7 @@ export default class Connection {
 
 		this.updateEmbedMessage(interaction);
 
-		if (origin === CommandOrigin.Voice) {
+		if (source === CommandSource.Voice) {
 			await sendMessageAndDelete(
 				this.textChannel,
 				`🎙️ Autoplay has been **${enabled ? 'enabled' : 'disabled'}**.`
@@ -380,7 +381,7 @@ export default class Connection {
 
 	public async setLyrics(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text,
+		source: CommandSource = CommandSource.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
 		this.settings.lyrics = enabled;
@@ -413,7 +414,7 @@ export default class Connection {
 
 		this.updateEmbedMessage(interaction);
 
-		if (origin === CommandOrigin.Voice) {
+		if (source === CommandSource.Voice) {
 			await sendMessageAndDelete(
 				this.textChannel,
 				`🎙️ Lyrics have been **${enabled ? 'enabled' : 'disabled'}**.`
@@ -445,7 +446,7 @@ export default class Connection {
 
 	public async setShuffle(
 		enabled: boolean,
-		origin: CommandOrigin = CommandOrigin.Text,
+		source: CommandSource = CommandSource.Text,
 		interaction?: ButtonInteraction
 	): Promise<void> {
 		this.settings.shuffle = enabled;
@@ -483,7 +484,7 @@ export default class Connection {
 
 		this.updateEmbedMessage(interaction);
 
-		if (origin === CommandOrigin.Voice) {
+		if (source === CommandSource.Voice) {
 			await sendMessageAndDelete(
 				this.textChannel,
 				`🎙️ Shuffle has been **${enabled ? 'enabled' : 'disabled'}**.`
@@ -704,7 +705,7 @@ export default class Connection {
 			return this.updateOrCreateLyricsMessage('No track is currently playing.');
 
 		if (
-			track.type === Provider.Gutenberg ||
+			track.source === TrackSource.Gutenberg ||
 			(track.musixmatchId === null && track.geniusId === null)
 		)
 			return this.updateOrCreateLyricsMessage('Track not found.');
@@ -794,10 +795,10 @@ export default class Connection {
 	private async createStream(
 		track: TrackWithArtist
 	): Promise<Option<Readable | Opus.Encoder | FFmpeg>> {
-		switch (track.type) {
-			case Provider.YouTube:
-			case Provider.Apple:
-			case Provider.Spotify: {
+		switch (track.source as TrackSource) {
+			case TrackSource.YouTube:
+			case TrackSource.Apple:
+			case TrackSource.Spotify: {
 				// if the url is empty, we need to get it from youtube
 				if (track.url === null) {
 					const result = await youtube.search(`${track.artist.name} - ${track.title}`, { type: SearchType.Video, limit: 1 });
@@ -836,10 +837,9 @@ export default class Connection {
 					},
 				});
 			}
-
-			case Provider.SoundCloud:
+			case TrackSource.SoundCloud:
 				return scdl.download(track.url!) as Promise<Readable>;
-			case Provider.Gutenberg:
+			case TrackSource.Gutenberg:
 				return textToAudioStream(await resolveText(track.url!));
 		}
 	}
@@ -872,8 +872,8 @@ export default class Connection {
 		const resource = createAudioResource(stream, {
 			inlineVolume: true,
 			inputType:
-				track.type === Provider.SoundCloud ||
-				track.type === Provider.Gutenberg
+				track.source === TrackSource.SoundCloud ||
+				track.source === TrackSource.Gutenberg
 					? StreamType.Arbitrary
 					: StreamType.Opus,
 			metadata: track,
@@ -889,7 +889,7 @@ export default class Connection {
 			const [effectRow, effectIndex] = CUSTOM_ID_TO_INDEX_LIST.effect;
 			const effects = this._components[effectRow].components[effectIndex];
 
-			effects.disabled = track.type === Provider.SoundCloud;
+			effects.disabled = track.source === TrackSource.SoundCloud;
 
 			// Different song
 			this.updateEmbedMessage();
@@ -981,7 +981,7 @@ export default class Connection {
 
 	public async addSongByQuery(
 		query: string,
-		origin: CommandOrigin = CommandOrigin.Text,
+		source: CommandSource = CommandSource.Text,
 		playNext = false
 	) {
 		const result = await createQuery(query);
@@ -993,9 +993,9 @@ export default class Connection {
 				this.textChannel,
 				result.value.title === null
 					? `${
-						origin === CommandOrigin.Voice ? '🎙️ ' : ''
+						source === CommandSource.Voice ? '🎙️ ' : ''
 					}Added **${escapeMarkdown(result.value.tracks[0].title)}** to the queue.`
-					: `${origin === CommandOrigin.Voice ? '🎙️ ' : ''}Added **${
+					: `${source === CommandSource.Voice ? '🎙️ ' : ''}Added **${
 						result.value.tracks.length
 					}** song${result.value.tracks.length === 1 ? '' : 's'} from ${
 						`the playlist **${escapeMarkdown(result.value.title)}**`
@@ -1004,7 +1004,7 @@ export default class Connection {
 		} else {
 			await sendMessageAndDelete(
 				this.textChannel,
-				`${origin === CommandOrigin.Voice ? '🎙️ ' : ''}❌ ${result.error}`
+				`${source === CommandSource.Voice ? '🎙️ ' : ''}❌ ${result.error}`
 			);
 		}
 	}

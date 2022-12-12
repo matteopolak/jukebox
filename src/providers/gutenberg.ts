@@ -1,8 +1,7 @@
-import { Provider } from '@prisma/client';
 import axios from 'axios';
 
 import { TrackProvider } from '@/structures/provider';
-import { Result, SearchResult } from '@/typings/common';
+import { Result, SearchResult, TrackSource } from '@/typings/common';
 import { GutenbergBook, GutenbergResponse } from '@/typings/gutenberg';
 import { prisma } from '@/util/database';
 import { trackToOkSearchResult } from '@/util/search';
@@ -42,7 +41,7 @@ export class GutenbergProvider extends TrackProvider {
 					},
 				},
 				duration: 0,
-				type: Provider.Gutenberg,
+				source: TrackSource.Gutenberg,
 				thumbnail: book.formats['image/jpeg'].replace('small', 'medium'),
 				relatedCount: 0,
 			},

@@ -11,7 +11,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import prism from 'prism-media';
 
 import Connection from '@/structures/connection';
-import { CommandOrigin } from '@/typings/common';
+import { CommandSource } from '@/typings/common';
 
 const wit = axios.create({
 	baseURL: 'https://api.wit.ai',
@@ -95,7 +95,7 @@ export function joinVoiceChannelAndListen(
 						data.entities['wit$message_body:message_body']?.[0]?.value;
 
 					if (name) {
-						return void connection.addSongByQuery(name, CommandOrigin.Voice, true);
+						return void connection.addSongByQuery(name, CommandSource.Voice, true);
 					}
 
 					break;
@@ -120,17 +120,17 @@ export function joinVoiceChannelAndListen(
 					if (connection.isEnabled('repeat')) {
 						connection.setRepeat(
 							false,
-							CommandOrigin.Voice
+							CommandSource.Voice
 						);
 					} else if (connection.isEnabled('repeatOne')) {
 						connection.setRepeat(
 							true,
-							CommandOrigin.Voice
+							CommandSource.Voice
 						);
 					} else {
 						connection.setRepeatOne(
 							true,
-							CommandOrigin.Voice
+							CommandSource.Voice
 						);
 					}
 
@@ -138,14 +138,14 @@ export function joinVoiceChannelAndListen(
 				case 'shuffle':
 					connection.setShuffle(
 						!connection.isEnabled('shuffle'),
-						CommandOrigin.Voice
+						CommandSource.Voice
 					);
 
 					break;
 				case 'autoplay':
 					connection.setAutoplay(
 						!connection.isEnabled('autoplay'),
-						CommandOrigin.Voice
+						CommandSource.Voice
 					);
 
 					break;

@@ -1,9 +1,9 @@
-import { Prisma, Provider } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 import ytdl, { videoInfo as VideoInfo } from 'ytdl-core';
 
 import { SearchOptions, SearchType, TrackProvider } from '@/structures/provider';
-import { Option, Result, SearchResult } from '@/typings/common';
+import { Option, Result, SearchResult, TrackSource } from '@/typings/common';
 import { prisma, TrackWithArtist } from '@/util/database';
 import { parseDurationString } from '@/util/duration';
 import { getCachedTrack, trackToOkSearchResult } from '@/util/search';
@@ -177,7 +177,7 @@ export class YouTubeProvider extends TrackProvider {
 			},
 			update: {
 				title: item.videoRenderer.title.runs[0].text,
-				type: Provider.YouTube,
+				source: TrackSource.YouTube,
 			},
 			create: {
 				uid: videoId,
@@ -196,7 +196,7 @@ export class YouTubeProvider extends TrackProvider {
 				},
 				relatedCount: 0,
 				duration: parseDurationString(item.videoRenderer.lengthText.simpleText),
-				type: Provider.YouTube,
+				source: TrackSource.YouTube,
 				url: `https://www.youtube.com/watch?v=${item.videoRenderer.videoId}`,
 			},
 			include: {
@@ -242,7 +242,7 @@ export class YouTubeProvider extends TrackProvider {
 			},
 			thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
 			duration: parseInt(info.lengthSeconds) * 1_000,
-			type: Provider.YouTube,
+			source: TrackSource.YouTube,
 			related: related.length > 0 ? related.map(v => v.id!) : undefined,
 			relatedCount: related.length,
 		};
@@ -453,7 +453,7 @@ export class YouTubeProvider extends TrackProvider {
 								},
 							},
 						},
-						type: Provider.YouTube,
+						source: TrackSource.YouTube,
 						relatedCount: 0,
 					},
 				} satisfies Prisma.TrackUpsertArgs as Prisma.TrackUpsertArgs;
@@ -500,7 +500,7 @@ export class YouTubeProvider extends TrackProvider {
 							},
 						},
 					},
-					type: Provider.YouTube,
+					source: TrackSource.YouTube,
 					relatedCount: 0,
 				},
 			} satisfies Prisma.TrackUpsertArgs as Prisma.TrackUpsertArgs;

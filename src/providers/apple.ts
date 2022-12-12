@@ -1,8 +1,7 @@
-import { Provider } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
 import { TrackProvider } from '@/structures/provider';
-import { Result, SearchResult } from '@/typings/common';
+import { Result, SearchResult, TrackSource } from '@/typings/common';
 import { prisma, TrackWithArtist } from '@/util/database';
 import { bufferUnordered } from '@/util/promise';
 
@@ -102,7 +101,7 @@ export class AppleProvider extends TrackProvider {
 				},
 				duration: track.attributes.durationInMillis,
 				thumbnail: track.attributes.artwork.url.replace('{w}', '500').replace('{h}', '500'),
-				type: Provider.Apple,
+				source: TrackSource.Apple,
 				relatedCount: 0,
 			},
 			include: {

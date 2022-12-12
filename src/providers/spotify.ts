@@ -1,10 +1,10 @@
 // TODO: reverse-engineer Spotify's GraphQL API
 
-import { Provider, Track } from '@prisma/client';
+import { Track } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
 import { TrackProvider } from '@/structures/provider';
-import { Option, Result, SearchResult } from '@/typings/common';
+import { Option, Result, SearchResult, TrackSource } from '@/typings/common';
 import { prisma, TrackWithArtist } from '@/util/database';
 import { bufferUnordered } from '@/util/promise';
 import { getCachedTrack, trackToOkSearchResult } from '@/util/search';
@@ -182,7 +182,7 @@ export class SpotifyProvider extends TrackProvider {
 				},
 				duration: track.duration_ms,
 				uid: trackId,
-				type: Provider.Spotify,
+				source: TrackSource.Spotify,
 				thumbnail: track.album?.images?.[0]?.url ?? '',
 				relatedCount: 0,
 			},
@@ -215,7 +215,7 @@ export class SpotifyProvider extends TrackProvider {
 					},
 				},
 				uid: track.track.uid,
-				type: Provider.Spotify,
+				source: TrackSource.Spotify,
 				thumbnail: track.track.albumOfTrack.coverArt.sources[0].url,
 				duration: track.track.duration.totalMilliseconds,
 				relatedCount: 0,

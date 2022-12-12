@@ -1,9 +1,9 @@
-import { Provider, Track } from '@prisma/client';
+import { Track } from '@prisma/client';
 import { TrackInfo } from 'soundcloud-downloader/dist/index.js';
 import scdl from 'soundcloud-downloader/dist/index.js';
 
 import { TrackProvider } from '@/structures/provider';
-import { Result, SearchResult } from '@/typings/common';
+import { Result, SearchResult, TrackSource } from '@/typings/common';
 import { prisma } from '@/util/database';
 
 export class SoundCloudProvider extends TrackProvider {
@@ -34,7 +34,7 @@ export class SoundCloudProvider extends TrackProvider {
 				},
 				duration: track.duration!,
 				uid: trackId,
-				type: Provider.SoundCloud,
+				source: TrackSource.SoundCloud,
 				thumbnail: (
 					track.artwork_url ??
 					track.user?.avatar_url ??

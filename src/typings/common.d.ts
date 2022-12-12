@@ -35,9 +35,17 @@ export interface SearchResult {
 
 export type Option<T> = T | null;
 
-export const enum CommandOrigin {
+export const enum CommandSource {
 	Text,
 	Voice,
+}
+
+export const enum TrackSource {
+  YouTube,
+  Spotify,
+  SoundCloud,
+  Gutenberg,
+  Apple,
 }
 
 export interface LyricsData {

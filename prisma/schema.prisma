@@ -17,14 +17,6 @@ type Settings {
   shuffle   Boolean
 }
 
-enum Provider {
-  YouTube
-  Spotify
-  SoundCloud
-  Gutenberg
-  Apple
-}
-
 model Artist {
   id     String  @id @default(auto()) @map("_id") @db.ObjectId
   uid    String  @unique
@@ -35,7 +27,7 @@ model Artist {
 model Track {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   uid          String   @unique
-  type         Provider
+  source       Int
   title        String
   artist       Artist   @relation(fields: [artistId], references: [uid])
   duration     Int
