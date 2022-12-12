@@ -39,3 +39,7 @@ export async function bufferUnordered<T, R>(data: T[], fn: (value: T, index: num
 
 	return results;
 }
+
+export async function sleep(ms: number): Promise<true> {
+	return new Promise(r => setTimeout(r, ms, true));
+}

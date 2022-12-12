@@ -719,9 +719,12 @@ export default class Connection {
 		if (!track)
 			return this.updateOrCreateLyricsMessage('No track is currently playing.');
 
+		const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000);
+
+		// if the track is from gutenberg, or the track has no lyrics and was updated less than a week ago, don't update the lyrics
 		if (
 			track.source === TrackSource.Gutenberg ||
-			(track.musixmatchId === -1 && track.geniusId === -1)
+			(track.musixmatchId === -1 && track.geniusId === -1 && track.updatedAt > weekAgo)
 		)
 			return this.updateOrCreateLyricsMessage('Track not found.');
 
