@@ -726,8 +726,8 @@ export default class Connection {
 			return this.updateOrCreateLyricsMessage('Track not found.');
 
 		const updated = {
-			musixmatchId: (await getMusixmatchTrackIdFromTrack(track) ?? -1) satisfies Option<number> as Option<number>,
-			geniusId: null satisfies Option<number> as Option<number>,
+			musixmatchId: await getMusixmatchTrackIdFromTrack(track) ?? -1,
+			geniusId: undefined as number | undefined,
 		};
 
 		if (updated.musixmatchId === -1) {
@@ -760,7 +760,9 @@ export default class Connection {
 			)
 				await setTrackIds(track, updated.musixmatchId, updated.geniusId);
 
-			track.geniusId = updated.geniusId;
+			if (updated.geniusId)
+				track.geniusId = updated.geniusId;
+
 			track.musixmatchId = updated.musixmatchId;
 
 			return this.updateLyricsMessage();
@@ -772,7 +774,9 @@ export default class Connection {
 		)
 			await setTrackIds(track, updated.musixmatchId, updated.geniusId);
 
-		track.geniusId = updated.geniusId;
+		if (updated.geniusId)
+			track.geniusId = updated.geniusId;
+
 		track.musixmatchId = updated.musixmatchId;
 
 		if (lyrics === null)
