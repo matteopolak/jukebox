@@ -15,7 +15,7 @@ import { cleanTitle } from '@/util/music';
 
 type ParamValueType = string | number | boolean | undefined;
 
-const SIGNATURE_SECRET = '8d2899b2aebb97a69a4a85cc991c0b6713a1d9e2';
+const SIGNATURE_SECRET = '29737bc85caf771125962a9b8c8b58476342d6f7';
 
 // reverse-engineered from the Musixmatch webapp
 export function createSignedUrl(
