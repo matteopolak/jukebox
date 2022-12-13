@@ -279,7 +279,7 @@ export class YouTubeProvider extends TrackProvider {
 
 						break;
 					case 'ARTIST':
-						track.artist = content;
+						track.artist.connectOrCreate!.create.name = content;
 
 						break;
 				}
@@ -318,7 +318,7 @@ export class YouTubeProvider extends TrackProvider {
 			);
 
 			return trackToOkSearchResult(track);
-		} catch (e) {
+		} catch {
 			return {
 				ok: false,
 				error: `A YouTube video by the id of \`${id}\` does not exist.`,
