@@ -81,7 +81,7 @@ export default class Connection {
 	public manager: Manager;
 	public subscription: Option<PlayerSubscription> = null;
 	public currentResource: Option<AudioResource<TrackWithArtist>> = null;
-	public recent: CircularBuffer<string> = new CircularBuffer(25);
+	public recent: CircularBuffer<string> = new CircularBuffer(100);
 	public settings: Settings = {
 		effect: Effect.None,
 		repeat: false,
