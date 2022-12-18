@@ -244,7 +244,7 @@ export class YouTubeProvider extends TrackProvider {
 			thumbnail: `https://i.ytimg.com/vi/${info.videoId}/hqdefault.jpg`,
 			duration: parseInt(info.lengthSeconds) * 1_000,
 			source: TrackSource.YouTube,
-			related: related.length > 0 ? related.map(v => v.id!) : undefined,
+			related: related.length > 0 ? related.map(v => `youtube:track:${v.id}`) : undefined,
 			relatedCount: related.length,
 		};
 

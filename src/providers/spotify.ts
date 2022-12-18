@@ -36,6 +36,7 @@ interface ArtistData {
 
 interface TrackData {
 	id: string;
+	uri: string;
 	name: string;
 	duration_ms: number;
 	artists: ArtistData[];
@@ -44,6 +45,10 @@ interface TrackData {
 			url: string;
 		}[];
 	}
+}
+
+interface Tracks {
+	tracks: TrackData[];
 }
 
 interface PaginatedTrack {
@@ -156,7 +161,7 @@ export class SpotifyProvider extends TrackProvider {
 		return response;
 	}
 
-	public static trackDataToTrack(track: TrackData): PrismaPromise<TrackWithArtist> {
+	public static trackDataToTrack(track: TrackData, related: string[] = []): PrismaPromise<TrackWithArtist> {
 		const trackId = `spotify:track:${track.id}`;
 		const artistId = `spotify:artist:${track.artists[0].id}`;
 
@@ -184,7 +189,8 @@ export class SpotifyProvider extends TrackProvider {
 				uid: trackId,
 				source: TrackSource.Spotify,
 				thumbnail: track.album?.images?.[0]?.url ?? '',
-				relatedCount: 0,
+				relatedCount: related.length,
+				related,
 			},
 			include: {
 				artist: true,
@@ -292,6 +298,20 @@ export class SpotifyProvider extends TrackProvider {
 		return { ok: true, value: response };
 	}
 
+	public async getRelatedTracks(track: TrackData): Promise<string[]> {
+		const response = await this.http.get<Tracks>('/recommendations', {
+			headers: {
+				authorization: `Bearer ${await this.getAccessToken()}`,
+			},
+			params: {
+				seed_tracks: track.id,
+				seed_artists: track.artists.map(artist => artist.id).join(','),
+			},
+		});
+
+		return response.data.tracks.map(track => track.uri);
+	}
+
 	public async getTrack(id: string): Promise<Result<SearchResult>> {
 		const cached = await getCachedTrack(`spotify:track:${id}`);
 		if (cached) return trackToOkSearchResult(cached);
@@ -309,9 +329,11 @@ export class SpotifyProvider extends TrackProvider {
 
 		if (response.status !== 200) return { ok: false, error: `Could not find a track by the id \`${id}\`.` };
 
+		const related = await this.getRelatedTracks(response.data);
+
 		return {
 			ok: true,
-			value: TrackProvider.trackToSearchResult(await SpotifyProvider.trackDataToTrack(response.data)),
+			value: TrackProvider.trackToSearchResult(await SpotifyProvider.trackDataToTrack(response.data, related)),
 		};
 	}
 
@@ -395,7 +417,7 @@ export class SpotifyProvider extends TrackProvider {
 		const total = response.data.tracks.total;
 		const batches = Math.ceil(total / MAX_BATCH_SIZE_PLAYLIST) - 1;
 
-		const tracks = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
+		const tracks: [TrackData, string[]][][] = await bufferUnordered(Array.from({ length: batches }, _ => undefined), async (_, index) => {
 			const response = await this.http.get<Container<PaginatedTrack>>(`/playlists/${id}/tracks`, {
 				headers: {
 					authorization: `Bearer ${await this.getAccessToken()}`,
@@ -410,16 +432,19 @@ export class SpotifyProvider extends TrackProvider {
 				},
 			});
 
-			return response.data.items.map(item => item.track);
+			const withRelated = await Promise.all(response.data.items.map(t => this.getRelatedTracks(t.track)));
+
+			return response.data.items.map((item, i) => [item.track, withRelated[i]]);
 		});
 
-		tracks.push(response.data.tracks.items.map(item => item.track));
+		const withRelated = await Promise.all(response.data.tracks.items.map(t => this.getRelatedTracks(t.track)));
+		tracks.push(response.data.tracks.items.map((item, i) => [item.track, withRelated[i]]));
 
 		return {
 			ok: true,
 			value: {
 				title: response.data.name,
-				tracks: await prisma.$transaction(tracks.flat().map(SpotifyProvider.trackDataToTrack)),
+				tracks: await prisma.$transaction(tracks.flat().map(t => SpotifyProvider.trackDataToTrack(t[0], t[1]))),
 			},
 		};
 	}

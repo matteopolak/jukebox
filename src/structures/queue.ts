@@ -1,4 +1,4 @@
-import { Manager, Settings, Track } from '@prisma/client';
+import { Manager, Queue, Settings, Track } from '@prisma/client';
 import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
 
 import { PROVIDER_TO_EMOJI } from '@/constants';
@@ -8,11 +8,15 @@ import { prisma, TrackWithArtist } from '@/util/database';
 import { formatMilliseconds } from '@/util/duration';
 import { enforceLength } from '@/util/message';
 import { randomInteger } from '@/util/random';
-import { youtube } from '@/util/search';
+import { spotify, youtube } from '@/util/search';
 import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 
 const QUEUE_DISPLAY_SIZE = 5;
 const QUEUE_DISPLAY_BUFFER = 2;
+
+export type QueueWithTrack = Queue & {
+	track: TrackWithArtist;
+};
 
 export interface InsertTrackOptions {
 	playNext?: boolean;
@@ -22,7 +26,7 @@ class _Queue {
 	public _index = 0;
 	private _queueLength = 0;
 	public _queueLengthWithRelated = 0;
-	private _current: Option<Track> = null;
+	private _current: Option<QueueWithTrack> = null;
 
 	private connection: Connection;
 	private manager: Manager;
@@ -189,6 +193,9 @@ class _Queue {
 		if (index >= this._queueLength && this.connection.isEnabled('autoplay')) {
 			if (this._queueLengthWithRelated > 0) {
 				const recent = this.connection.recent.toArray();
+
+				// use the current track if it has related tracks, otherwise try using the previous track
+				// that has related tracks
 				const random = await prisma.queue.findFirst({
 					where: {
 						AND: [
@@ -213,13 +220,12 @@ class _Queue {
 							},
 						],
 					},
-					skip: randomInteger(this._queueLengthWithRelated),
 					orderBy: [
 						{
-							createdAt: 'asc',
+							createdAt: 'desc',
 						},
 						{
-							index: 'asc',
+							index: 'desc',
 						},
 					],
 					include: {
@@ -231,7 +237,12 @@ class _Queue {
 					const set = new Set(recent);
 					const related = random.track.related.find(id => !set.has(id));
 
-					const raw = await youtube.getTrack(related!);
+					const [source, type, id] = related!.split(':');
+					if (type !== 'track') return null;
+
+					const raw = source === 'youtube' ? await youtube.getTrack(id)
+						: source === 'spotify' ? await spotify.getTrack(id)
+						: { ok: false } as const;
 					if (raw.ok === false) return null;
 
 					const data = raw.value.tracks[0];
@@ -293,11 +304,11 @@ class _Queue {
 		});
 
 		if (data) {
-			if (this._current?.uid !== data.track.uid || previousIndex !== index) {
+			if (this._current?.track.uid !== data.track.uid || previousIndex !== index) {
 				this.updateQueueMessage();
 			}
 
-			this._current = data.track;
+			this._current = data;
 		}
 
 		return data?.track ?? null;

@@ -827,10 +827,10 @@ export default class Connection {
 					if (!result.ok) return null;
 
 					track.url = result.value.tracks[0].url;
-					track.relatedCount = result.value.tracks[0].relatedCount;
 
-					if (result.value.tracks[0].related) {
+					if (track.relatedCount === 0 && result.value.tracks[0].related) {
 						track.related = result.value.tracks[0].related;
+						track.relatedCount = result.value.tracks[0].relatedCount;
 					}
 
 					if (track.thumbnail === '') {
