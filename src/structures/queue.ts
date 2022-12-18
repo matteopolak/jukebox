@@ -4,7 +4,7 @@ import { escapeMarkdown, NewsChannel, TextChannel } from 'discord.js';
 import { PROVIDER_TO_EMOJI } from '@/constants';
 import Connection from '@/structures/connection';
 import { Option, TrackSource } from '@/typings/common';
-import { prisma, TrackWithArtist } from '@/util/database';
+import { prisma, TrackWithArtist, updateTrack } from '@/util/database';
 import { formatMilliseconds } from '@/util/duration';
 import { enforceLength } from '@/util/message';
 import { randomInteger } from '@/util/random';
@@ -198,25 +198,33 @@ class _Queue {
 				// that has related tracks
 				const random = await prisma.queue.findFirst({
 					where: {
-						AND: [
-							{
-								guildId: this.manager.guildId,
-							},
+						guildId: this.manager.guildId,
+						OR: [
 							{
 								track: {
-									relatedCount: {
-										gt: 0,
-									},
+									source: TrackSource.Spotify,
+									relatedCount: 0,
 								},
 							},
 							{
-								NOT: {
-									track: {
-										related: {
-											hasEvery: recent,
+								AND: [
+									{
+										track: {
+											relatedCount: {
+												gt: 0,
+											},
 										},
 									},
-								},
+									{
+										NOT: {
+											track: {
+												related: {
+													hasEvery: recent,
+												},
+											},
+										},
+									},
+								],
 							},
 						],
 					},
@@ -229,11 +237,24 @@ class _Queue {
 						},
 					],
 					include: {
-						track: true,
+						track: {
+							include: {
+								artist: true,
+							},
+						},
 					},
 				});
 
 				if (random) {
+					if (random.track.source === TrackSource.Spotify && random.track.relatedCount === 0) {
+						random.track.related = await spotify.getRelatedTracks(random.track);
+						random.track.relatedCount = random.track.related.length;
+
+						if (random.track.relatedCount === 0) return null;
+
+						await updateTrack(random.track);
+					}
+
 					const set = new Set(recent);
 					const related = random.track.related.find(id => !set.has(id));
 
