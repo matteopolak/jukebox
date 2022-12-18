@@ -828,11 +828,6 @@ export default class Connection {
 
 					track.url = result.value.tracks[0].url;
 
-					if (track.relatedCount === 0 && result.value.tracks[0].related) {
-						track.related = result.value.tracks[0].related;
-						track.relatedCount = result.value.tracks[0].relatedCount;
-					}
-
 					if (track.thumbnail === '') {
 						track.thumbnail = result.value.tracks[0].thumbnail;
 					}

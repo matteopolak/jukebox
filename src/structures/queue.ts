@@ -245,6 +245,8 @@ class _Queue {
 					},
 				});
 
+				console.log(random);
+
 				if (random) {
 					if (random.track.source === TrackSource.Spotify && random.track.relatedCount === 0) {
 						random.track.related = await spotify.getRelatedTracks(random.track);
