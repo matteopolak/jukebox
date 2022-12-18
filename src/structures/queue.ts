@@ -7,7 +7,7 @@ import { Option, TrackSource } from '@/typings/common';
 import { prisma, TrackWithArtist } from '@/util/database';
 import { formatMilliseconds } from '@/util/duration';
 import { enforceLength } from '@/util/message';
-import { randomElement, randomInteger } from '@/util/random';
+import { randomInteger } from '@/util/random';
 import { youtube } from '@/util/search';
 import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 
@@ -229,9 +229,9 @@ class _Queue {
 
 				if (random) {
 					const set = new Set(recent);
-					const related = random.track.related.filter(id => !set.has(id));
+					const related = random.track.related.find(id => !set.has(id));
 
-					const raw = await youtube.getTrack(randomElement(related.length > 0 ? related : random.track.related));
+					const raw = await youtube.getTrack(related!);
 					if (raw.ok === false) return null;
 
 					const data = raw.value.tracks[0];
