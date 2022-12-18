@@ -195,7 +195,7 @@ export class SpotifyProvider extends TrackProvider {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public static gqlTrackDataToTrack(track: any): PrismaPromise<TrackWithArtist> {
 		const trackId = `spotify:track:${track.track.id}`;
-		const artistId = `spotify:artist:${track.track.artists[0].id}`;
+		const artistId = track.track.artists.items[0].uri;
 
 		return prisma.track.upsert({
 			where: {
