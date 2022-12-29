@@ -388,7 +388,7 @@ export default class Connection {
 		this.setStyle('lyrics', enabled);
 
 		if (!enabled && this.threadChannel) {
-			this.threadChannel.delete().catch(() => {});
+			this.threadChannel.delete().catch(() => { });
 			this.threadChannel = null;
 			this.manager.threadId = null;
 			this.manager.lyricsId = null;
@@ -889,7 +889,7 @@ export default class Connection {
 			inlineVolume: true,
 			inputType:
 				track.source === TrackSource.SoundCloud ||
-				track.source === TrackSource.Gutenberg
+					track.source === TrackSource.Gutenberg
 					? StreamType.Arbitrary
 					: StreamType.Opus,
 			metadata: track,
@@ -952,7 +952,7 @@ export default class Connection {
 				if (state.status === AudioPlayerStatus.Idle) {
 					if (
 						resource.metadata.duration -
-							((this.settings.seek ?? 0) * 1_000 + resource.playbackDuration) <
+						((this.settings.seek ?? 0) * 1_000 + resource.playbackDuration) <
 						2_000
 					) {
 						this.settings.seek = 0;
@@ -1008,13 +1008,10 @@ export default class Connection {
 			await sendMessageAndDelete(
 				this.textChannel,
 				result.value.title === null
-					? `${
-						source === CommandSource.Voice ? '🎙️ ' : ''
+					? `${source === CommandSource.Voice ? '🎙️ ' : ''
 					}Added **${escapeMarkdown(result.value.tracks[0].title)}** to the queue.`
-					: `${source === CommandSource.Voice ? '🎙️ ' : ''}Added **${
-						result.value.tracks.length
-					}** song${result.value.tracks.length === 1 ? '' : 's'} from ${
-						`the playlist **${escapeMarkdown(result.value.title)}**`
+					: `${source === CommandSource.Voice ? '🎙️ ' : ''}Added **${result.value.tracks.length
+					}** song${result.value.tracks.length === 1 ? '' : 's'} from ${`the playlist **${escapeMarkdown(result.value.title)}**`
 					} to the queue.`
 			);
 		} else {

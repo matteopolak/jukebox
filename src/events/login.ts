@@ -119,6 +119,20 @@ export function register(client: Client) {
 							},
 						],
 					},
+					{
+						name: 'queue',
+						description: 'Displays the current queue.',
+						type: ApplicationCommandType.ChatInput,
+						options: [
+							{
+								name: 'page',
+								description: 'The page to view.',
+								type: ApplicationCommandOptionType.String,
+								required: false,
+								autocomplete: true,
+							},
+						],
+					},
 				]
 			)
 			.catch(() => { });

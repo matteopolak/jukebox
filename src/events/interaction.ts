@@ -4,7 +4,7 @@ import { getLyricsById, getTrackData, getTrackDataFromTrack, QueryType } from '@
 import Connection, { connections } from '@/structures/connection';
 import { SearchType } from '@/structures/provider';
 import { CommandSource, Effect } from '@/typings/common';
-import { handleChartAutocomplete, sendMessageAndDelete } from '@/util/message';
+import { handleChartAutocomplete, handleQueueAutocomplete, handleQueueCommand, sendMessageAndDelete } from '@/util/message';
 import { createAudioManager } from '@/util/music';
 import { createQuery, gutenberg, spotify, youtube } from '@/util/search';
 
@@ -71,9 +71,14 @@ export function register(client: Client) {
 		} else if (interaction.isAutocomplete()) {
 			if (interaction.commandName === 'chart') {
 				return void handleChartAutocomplete(interaction);
+			} else if (interaction.commandName === 'queue') {
+				return void handleQueueAutocomplete(interaction);
 			}
 		} else if (interaction.isChatInputCommand()) {
 			switch (interaction.commandName) {
+				case 'queue': {
+					return void handleQueueCommand(interaction);
+				}
 				case 'create':
 					await interaction.deferReply();
 					await createAudioManager(interaction);
