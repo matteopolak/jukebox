@@ -5,6 +5,7 @@ import {
 	Interaction,
 	MessageCreateOptions,
 	MessagePayload,
+	StageChannel,
 	TextBasedChannel,
 } from 'discord.js';
 import fast from 'fast-sort';
@@ -16,7 +17,7 @@ import { prisma } from './database';
 import { spotify } from './search';
 
 export async function sendMessageAndDelete(
-	channel: TextBasedChannel,
+	channel: Exclude<TextBasedChannel, StageChannel>,
 	options: string | MessagePayload | MessageCreateOptions,
 	timeout = 3_000
 ) {

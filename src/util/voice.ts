@@ -36,6 +36,22 @@ export function joinVoiceChannelAndListen(
 
 	activeConnections.set(voice.id, connection);
 
+	// NOTE: This is a temporary workaround.
+	// https://github.com/discordjs/discord.js/issues/9185
+	connection.on('stateChange', (oldState, newState) => {
+		const oldNetworking = Reflect.get(oldState, 'networking');
+		const newNetworking = Reflect.get(newState, 'networking');
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const networkStateChangeHandler = (_: any, newNetworkState: any) => {
+			const newUdp = Reflect.get(newNetworkState, 'udp');
+			clearInterval(newUdp?.keepAliveInterval);
+		};
+
+		oldNetworking?.off('stateChange', networkStateChangeHandler);
+		newNetworking?.on('stateChange', networkStateChangeHandler);
+	});
+
 	connection.receiver.speaking.on('start', async userId => {
 		if (active.has(userId)) return;
 		active.add(userId);

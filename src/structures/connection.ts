@@ -247,8 +247,17 @@ export default class Connection {
 		await entersState(stream, VoiceConnectionStatus.Ready, 30_000);
 
 		stream.once(VoiceConnectionStatus.Disconnected, () => {
-			this.pause();
-			connections.delete(this.manager.guildId);
+			if (connections.get(this.manager.guildId) === this) {
+				this.pause();
+				connections.delete(this.manager.guildId);
+			}
+		});
+
+		stream.once(VoiceConnectionStatus.Destroyed, () => {
+			if (connections.get(this.manager.guildId) === this) {
+				this.pause();
+				connections.delete(this.manager.guildId);
+			}
 		});
 
 		const player = createAudioPlayer();

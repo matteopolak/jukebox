@@ -1,6 +1,6 @@
 // TODO: reverse-engineer Spotify's GraphQL API
 
-import { PrismaPromise, Track } from '@prisma/client';
+import { Prisma, Track } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
 import { TrackProvider } from '@/structures/provider';
@@ -161,7 +161,7 @@ export class SpotifyProvider extends TrackProvider {
 		return response;
 	}
 
-	public static trackDataToTrack(track: TrackData): PrismaPromise<TrackWithArtist> {
+	public static trackDataToTrack(track: TrackData): Prisma.PrismaPromise<TrackWithArtist> {
 		const trackId = `spotify:track:${track.id}`;
 		const artistId = `spotify:artist:${track.artists[0].id}`;
 
@@ -198,7 +198,7 @@ export class SpotifyProvider extends TrackProvider {
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public static gqlTrackDataToTrack(track: any): PrismaPromise<TrackWithArtist> {
+	public static gqlTrackDataToTrack(track: any): Prisma.PrismaPromise<TrackWithArtist> {
 		const trackId = `spotify:track:${track.track.id}`;
 		const artistId = track.track.artists.items[0].uri;
 

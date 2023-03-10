@@ -1,4 +1,4 @@
-import { PrismaPromise, Track } from '@prisma/client';
+import { Prisma, Track } from '@prisma/client';
 import { TrackInfo } from 'soundcloud-downloader/dist/index.js';
 import { create } from 'soundcloud-downloader/dist/index.js';
 
@@ -9,7 +9,7 @@ import { prisma } from '@/util/database';
 export const scdl = create();
 
 export class SoundCloudProvider extends TrackProvider {
-	public static trackInfoToTrack(track: TrackInfo): PrismaPromise<Track> {
+	public static trackInfoToTrack(track: TrackInfo): Prisma.PrismaPromise<Track> {
 		const artistName = track?.user?.username ?? 'Anonymous Artist';
 		const artistId = `soundcloud:artist:${track.user?.id ?? 0}`;
 		const trackId = `soundcloud:track:${track.id}`;

@@ -1,4 +1,4 @@
-import { PrismaPromise } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
 import { TrackProvider } from '@/structures/provider';
@@ -75,7 +75,7 @@ export class AppleProvider extends TrackProvider {
 		});
 	}
 
-	public static trackDataToTrack(track: TrackData): PrismaPromise<TrackWithArtist> {
+	public static trackDataToTrack(track: TrackData): Prisma.PrismaPromise<TrackWithArtist> {
 		const trackId = `apple:track:${track.id}`;
 		const artistId = `apple:artist:${track.attributes.artistName}`;
 
