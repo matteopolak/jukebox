@@ -22,6 +22,12 @@ const wit = axios.create({
 
 const activeConnections = new Map<string, VoiceConnection>();
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const networkStateChangeHandler = (oldNetworkState: any, newNetworkState: any) => {
+	const newUdp = Reflect.get(newNetworkState, 'udp');
+	clearInterval(newUdp?.keepAliveInterval);
+};
+
 export function joinVoiceChannelAndListen(
 	options: JoinVoiceChannelOptions & CreateVoiceConnectionOptions,
 	voice: VoiceBasedChannel,
@@ -39,17 +45,8 @@ export function joinVoiceChannelAndListen(
 	// NOTE: This is a temporary workaround.
 	// https://github.com/discordjs/discord.js/issues/9185
 	connection.on('stateChange', (oldState, newState) => {
-		const oldNetworking = Reflect.get(oldState, 'networking');
-		const newNetworking = Reflect.get(newState, 'networking');
-
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const networkStateChangeHandler = (_: any, newNetworkState: any) => {
-			const newUdp = Reflect.get(newNetworkState, 'udp');
-			clearInterval(newUdp?.keepAliveInterval);
-		};
-
-		oldNetworking?.off('stateChange', networkStateChangeHandler);
-		newNetworking?.on('stateChange', networkStateChangeHandler);
+		Reflect.get(oldState, 'networking')?.off('stateChange', networkStateChangeHandler);
+		Reflect.get(newState, 'networking')?.on('stateChange', networkStateChangeHandler);
 	});
 
 	connection.receiver.speaking.on('start', async userId => {
