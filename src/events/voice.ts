@@ -1,12 +1,22 @@
 import { Client, VoiceState } from 'discord.js';
 
-import Connection from '@/structures/connection';
+import Connection, { connections } from '@/structures/connection';
 import { Option } from '@/typings/common';
 import { MAIN_CLIENT } from '@/util/worker';
 
 export function register(client: Client) {
 	client.on('voiceStateUpdate', async (oldState: Option<VoiceState>, newState: Option<VoiceState>) => {
 		if (oldState?.channelId === newState?.channelId) return;
+
+		// remove the connection if the bot leaves the channel
+		if (oldState?.id === MAIN_CLIENT.user!.id && newState === null) {
+			const connection = connections.get(oldState.guild.id);
+
+			if (connection) {
+				connection.destroy();
+				connections.delete(oldState.guild.id);
+			}
+		}
 
 		// if there is only one person in the channel and it's the bot, pause the connection
 		if (oldState && oldState.channel?.members.size === 1 && oldState.channel?.members.has(MAIN_CLIENT.user!.id)) {

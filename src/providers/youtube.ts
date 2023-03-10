@@ -147,6 +147,7 @@ export interface Metadata {
 export class YouTubeProvider extends TrackProvider {
 	private cookie?: string;
 	private http: AxiosInstance;
+	private useCookie = true;
 
 	private static INITIAL_DATA_REGEX = /var ytInitialData = (?=\{)(.*)(?<=\});</;
 	private static YOUTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
