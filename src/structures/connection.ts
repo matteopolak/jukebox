@@ -246,6 +246,11 @@ export default class Connection {
 
 		await entersState(stream, VoiceConnectionStatus.Ready, 30_000);
 
+		stream.once(VoiceConnectionStatus.Disconnected, () => {
+			this.pause();
+			connections.delete(this.manager.guildId);
+		});
+
 		const player = createAudioPlayer();
 		this.subscription = stream.subscribe(player)!;
 	}
