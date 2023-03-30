@@ -69,6 +69,17 @@
 
 ## Installation and usage
 
+With pnpm:
+
+```bash
+# install dependencies
+pnpm install
+pnpm run build
+
+# start the bot
+node build/index.js
+```
+
 With yarn:
 
 ```bash
