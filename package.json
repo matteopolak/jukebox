@@ -35,16 +35,16 @@
 		"prism-media": "^1.3.5",
 		"soundcloud-downloader": "^1.0.0",
 		"string-comparison": "^1.1.0",
-		"ytdl-core": "^4.11.3"
+		"ytdl-core": "github:fent/node-ytdl-core#pull/1203/head"
 	},
 	"devDependencies": {
 		"@types/fluent-ffmpeg": "^2.1.21",
-		"@typescript-eslint/eslint-plugin": "^5.57.0",
-		"@typescript-eslint/parser": "^5.57.0",
-		"eslint": "^8.37.0",
+		"@typescript-eslint/eslint-plugin": "^5.57.1",
+		"@typescript-eslint/parser": "^5.57.1",
+		"eslint": "^8.38.0",
 		"eslint-plugin-simple-import-sort": "^8.0.0",
 		"prisma": "^4.12.0",
 		"tsc-alias": "^1.8.5",
-		"typescript": "^5.0.2"
+		"typescript": "^5.0.4"
 	}
 }

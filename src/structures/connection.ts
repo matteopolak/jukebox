@@ -865,7 +865,7 @@ export default class Connection {
 							'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
 						},
 					},
-				});
+				}).on('error', console.error);
 			}
 			case TrackSource.SoundCloud:
 				return scdl.download(track.url!) as Promise<Readable>;
@@ -995,6 +995,7 @@ export default class Connection {
 
 	public async play() {
 		const error = await this.playNextResource(true);
+
 		if (!error) {
 			while (this.queue.length > 0) {
 				const error = await this.playNextResource();
