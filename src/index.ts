@@ -5,13 +5,22 @@ import * as interaction from '@/events/interaction';
 import * as login from '@/events/login';
 import * as message from '@/events/message';
 import * as voice from '@/events/voice';
-
-import { MAIN_CLIENT } from './util/worker';
+import { checkForUpdate } from '@/util/update';
+import { MAIN_CLIENT } from '@/util/worker';
 
 axios.defaults.validateStatus = () => true;
 
-guild.register(MAIN_CLIENT);
-interaction.register(MAIN_CLIENT);
-login.register(MAIN_CLIENT);
-message.register(MAIN_CLIENT);
-voice.register(MAIN_CLIENT);
+async function main() {
+	await checkForUpdate();
+
+	// check for update every 30 minutes
+	setInterval(checkForUpdate, 1_000 * 60 * 30);
+
+	guild.register(MAIN_CLIENT);
+	interaction.register(MAIN_CLIENT);
+	login.register(MAIN_CLIENT);
+	message.register(MAIN_CLIENT);
+	voice.register(MAIN_CLIENT);
+}
+
+main();
