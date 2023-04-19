@@ -26,5 +26,10 @@ export async function checkForUpdate() {
 		await new Promise(r => {
 			exec(INSTALL_COMMAND, r);
 		});
+
+		console.log(`Updated ytdl-core to ${latestVersion}`);
+
+		// exit the process. pm2 will restart it
+		process.exit(0);
 	}
 }
