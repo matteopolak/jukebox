@@ -1,6 +1,6 @@
+import ytdl, { videoInfo as VideoInfo } from '@distube/ytdl-core';
 import { Prisma } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
-import ytdl, { videoInfo as VideoInfo } from 'ytdl-core';
 
 import { SearchOptions, SearchType, TrackProvider } from '@/structures/provider';
 import { Option, Result, SearchResult, TrackSource } from '@/typings/common';

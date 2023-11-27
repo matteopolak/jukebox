@@ -1,13 +1,16 @@
-import { ButtonStyle, Client, ComponentType } from 'discord.js';
+import { ButtonStyle, Client, ComponentType, GuildTextBasedChannel, PermissionFlagsBits } from 'discord.js';
 
 import { LYRICS_CLIENT, QUEUE_CLIENT } from '@/util/worker';
 
 export function register(client: Client) {
 	client.on('guildCreate', async guild => {
+		const me = await guild.members.fetchMe();
+		const channel = guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(me).has(PermissionFlagsBits.SendMessages)) as GuildTextBasedChannel | undefined;
+
 		// send a message in the general channel that the other two bots
 		// need to be added to the server
-		if (guild.systemChannel) {
-			guild.systemChannel.send(
+		if (channel) {
+			channel.send(
 				{
 					content: `<@${guild.ownerId}> To use this bot, you need to add **${LYRICS_CLIENT.user!.username}** and **${QUEUE_CLIENT.user!.username}** to your server.`,
 					components: [

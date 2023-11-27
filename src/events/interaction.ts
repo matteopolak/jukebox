@@ -80,6 +80,8 @@ export function register(client: Client) {
 					return void handleQueueCommand(interaction);
 				}
 				case 'create':
+					if (interaction.guildId === '888910068098158602') break;
+
 					await interaction.deferReply();
 					await createAudioManager(interaction);
 					await interaction.deleteReply();

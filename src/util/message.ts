@@ -8,8 +8,8 @@ import {
 	StageChannel,
 	TextBasedChannel,
 } from 'discord.js';
-import fast from 'fast-sort';
-import { levenshtein } from 'string-comparison';
+import { inPlaceSort } from 'fast-sort';
+import compare from 'string-comparison';
 
 import Connection from '@/structures/connection';
 
@@ -41,8 +41,8 @@ export async function handleChartAutocomplete(interaction: AutocompleteInteracti
 
 	const name = interaction.options.getString('name', true).toLowerCase();
 
-	fast.inPlaceSort(charts.value)
-		.asc(c => levenshtein.distance(c.name.toLowerCase(), name));
+	inPlaceSort(charts.value)
+		.asc(c => compare.levenshtein.distance(c.name.toLowerCase(), name));
 
 	return void interaction.respond(
 		charts.value
