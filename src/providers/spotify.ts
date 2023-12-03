@@ -98,6 +98,7 @@ export class SpotifyProvider extends TrackProvider {
 
 		this.http = axios.create({
 			baseURL: 'https://api.spotify.com/v1',
+			validateStatus: () => true,
 		});
 	}
 
@@ -251,7 +252,8 @@ export class SpotifyProvider extends TrackProvider {
 				},
 			});
 
-			this._charts.data.push(...response.data.content.items);
+			if (response.status === 200)
+				this._charts.data.push(...response.data.content.items);
 		});
 	}
 
@@ -271,14 +273,16 @@ export class SpotifyProvider extends TrackProvider {
 			},
 		});
 
-		for (const container of response.data.content.items) {
-			this._charts.data.push(...container.content.items);
+		if (response.status === 200) {
+			for (const container of response.data.content.items) {
+				this._charts.data.push(...container.content.items);
 
-			await this._addChartCategory(
-				container.id,
-				Math.ceil((container.content.total - 25) / MAX_BATCH_SIZE_CHART_CATEGORY),
-				25
-			);
+				await this._addChartCategory(
+					container.id,
+					Math.ceil((container.content.total - 25) / MAX_BATCH_SIZE_CHART_CATEGORY),
+					25
+				);
+			}
 		}
 
 		return this._charts.data;
@@ -308,7 +312,7 @@ export class SpotifyProvider extends TrackProvider {
 			},
 		});
 
-		return response.data.tracks.map(track => track.uri);
+		return response.status === 200 ? response.data.tracks.map(track => track.uri) : [];
 	}
 
 	public async getTrack(id: string): Promise<Result<SearchResult>> {
@@ -348,9 +352,9 @@ export class SpotifyProvider extends TrackProvider {
 			},
 		});
 
-		const defaultThumbnail = response.data.images[0].url;
-
 		if (response.status !== 200) return { ok: false, error: `Could not find an album by the id \`${id}\`.` };
+
+		const defaultThumbnail = response.data.images[0].url;
 
 		const total = response.data.tracks.total;
 		const batches = Math.ceil(total / MAX_BATCH_SIZE_ALBUM) - 1;
@@ -369,7 +373,7 @@ export class SpotifyProvider extends TrackProvider {
 				},
 			});
 
-			return response.data.items;
+			return response.status === 200 ? response.data.items : [];
 		});
 
 		tracks.push(response.data.tracks.items);
@@ -429,7 +433,7 @@ export class SpotifyProvider extends TrackProvider {
 				},
 			});
 
-			return response.data.items.map(t => t.track);
+			return response.status === 200 ? response.data.items.map(t => t.track) : [];
 		});
 
 		tracks.push(response.data.tracks.items.map(t => t.track));
@@ -444,7 +448,8 @@ export class SpotifyProvider extends TrackProvider {
 	}
 
 	public async getArtistTracks(id: string): Promise<Result<SearchResult>> {
-		const response = await axios.get('https://api-partner.spotify.com/pathfinder/v1/query', {
+		const response = await this.http.get('/query', {
+			baseURL: 'https://api-partner.spotify.com/pathfinder/v1',
 			headers: {
 				authorization: `Bearer ${await this.getAccessToken()}`,
 				'client-token': await this.getClientToken(),
