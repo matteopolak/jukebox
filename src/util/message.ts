@@ -1,10 +1,11 @@
 import {
 	AutocompleteInteraction,
-	CommandInteraction,
+	ChatInputCommandInteraction,
 	escapeMarkdown,
 	Interaction,
 	MessageCreateOptions,
 	MessagePayload,
+	PartialGroupDMChannel,
 	StageChannel,
 	TextBasedChannel,
 } from 'discord.js';
@@ -17,7 +18,7 @@ import { prisma } from './database';
 import { spotify } from './search';
 
 export async function sendMessageAndDelete(
-	channel: Exclude<TextBasedChannel, StageChannel>,
+	channel: Exclude<TextBasedChannel, StageChannel | PartialGroupDMChannel>,
 	options: string | MessagePayload | MessageCreateOptions,
 	timeout = 3_000
 ) {
@@ -90,7 +91,7 @@ export async function handleQueueAutocomplete(interaction: AutocompleteInteracti
 	);
 }
 
-export async function handleQueueCommand(interaction: CommandInteraction) {
+export async function handleQueueCommand(interaction: ChatInputCommandInteraction) {
 	let page = interaction.options.get('page', false)?.value as string | number | undefined;
 
 	if (page === undefined) {

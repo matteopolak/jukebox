@@ -1,4 +1,4 @@
-import { APIActionRowComponent, APIMessageActionRowComponent, CommandInteraction, StageChannel } from 'discord.js';
+import { APIActionRowComponent, CommandInteraction, StageChannel, APIComponentInActionRow } from 'discord.js';
 
 import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '@/constants';
 import { Effect } from '@/typings/common';
@@ -7,6 +7,7 @@ import { getChannel, QUEUE_CLIENT } from '@/util/worker';
 
 export async function createAudioManager(interaction: CommandInteraction) {
 	if (interaction.channel instanceof StageChannel) return;
+	if (!interaction.channel?.isSendable()) return;
 
 	const message = await interaction.channel!.send({
 		content: '',
@@ -16,7 +17,7 @@ export async function createAudioManager(interaction: CommandInteraction) {
 				name: 'thumbnail.jpg',
 			},
 		],
-		components: DEFAULT_COMPONENTS as unknown as APIActionRowComponent<APIMessageActionRowComponent>[],
+		components: DEFAULT_COMPONENTS as unknown as APIActionRowComponent<APIComponentInActionRow>[],
 	});
 
 	const queue = await getChannel(

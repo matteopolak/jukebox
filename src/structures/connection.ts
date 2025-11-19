@@ -26,7 +26,7 @@ import {
 	VoiceBasedChannel,
 	VoiceState,
 } from 'discord.js';
-import createAudioStream from 'discord-ytdl-core';
+import { createAudioStream } from '@/util/stream';
 import { FFmpeg, opus as Opus } from 'prism-media';
 
 import {
@@ -852,19 +852,10 @@ export default class Connection {
 						this.queue._queueLengthWithRelated++;
 				}
 
-				return createAudioStream(track.url!, {
+				return await createAudioStream(track.url!, {
 					seek: this.settings.seek || undefined,
-					highWaterMark: 1 << 25,
-					filter: 'audioonly',
-					quality: 'highestaudio',
 					opusEncoded: true,
 					encoderArgs: EFFECTS[this.settings.effect as Effect],
-					requestOptions: {
-						headers: {
-							Cookie: process.env.COOKIE,
-							'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0',
-						},
-					},
 				});
 			}
 			case TrackSource.SoundCloud:
