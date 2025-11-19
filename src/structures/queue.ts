@@ -93,11 +93,47 @@ class _Queue {
 			data: {
 				index: this._index,
 			},
-		}).then(() => {});
+		}).then(() => { });
 	}
 
 	public get index() {
 		return this._index;
+	}
+
+	private buildTrackUrl(track: TrackWithArtist): string | null {
+		if (track.url) return track.url;
+
+		const [provider, type, id] = track.uid.split(':');
+
+		if (!id) return null;
+
+		switch (provider) {
+			case 'youtube':
+				return `https://www.youtube.com/watch?v=${id}`;
+			case 'spotify':
+				return `https://open.spotify.com/track/${id}`;
+			case 'soundcloud':
+				return null;
+			case 'apple':
+				return null;
+			case 'gutenberg':
+				return null;
+			default:
+				return null;
+		}
+	}
+
+	private formatQueueItem(queueItem: QueueWithTrack, displayIndex: number, indexLength: number): string {
+		const isCurrent = displayIndex === this.index;
+		const bold = isCurrent ? '**' : '';
+		const number = `\`${(displayIndex + 1).toString().padStart(indexLength, '0')}.\``;
+		const emoji = PROVIDER_TO_EMOJI[queueItem.track.source as TrackSource];
+		const title = enforceLength(escapeMarkdown(queueItem.track.title), 32);
+		const trackUrl = this.buildTrackUrl(queueItem.track);
+		const titleLink = trackUrl ? `[${title}](<${trackUrl}>)` : title;
+		const duration = `\`[${formatMilliseconds(queueItem.track.duration)}]\``;
+
+		return `${number} ${emoji} ${bold}${titleLink} ${duration}${bold}`;
 	}
 
 	private async updateQueueMessage() {
@@ -135,19 +171,15 @@ class _Queue {
 			skip,
 			take: QUEUE_DISPLAY_SIZE,
 			include: {
-				track: true,
+				track: {
+					include: {
+						artist: true,
+					},
+				},
 			},
 		});
 
-		const content = tracks.map(
-			(s, i) =>
-				`\`${(lower + i + 1).toString().padStart(length, '0')}.\` ${
-					PROVIDER_TO_EMOJI[s.track.source as TrackSource]
-				} ${i + lower === this.index ? '**' : ''}${enforceLength(
-					escapeMarkdown(s.track.title),
-					32
-				)} \`[${formatMilliseconds(s.track.duration)}]\`${i + lower === this.index ? '**' : ''}`
-		);
+		const content = tracks.map((s, i) => this.formatQueueItem(s, i + lower, length));
 
 		this.channel.messages.edit(
 			this.manager.queueId,
@@ -263,7 +295,7 @@ class _Queue {
 
 					const raw = source === 'youtube' ? await youtube.getTrack(id)
 						: source === 'spotify' ? await spotify.getTrack(id)
-						: { ok: false } as const;
+							: { ok: false } as const;
 					if (raw.ok === false) return null;
 
 					const data = raw.value.tracks[0];
