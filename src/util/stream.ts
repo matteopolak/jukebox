@@ -7,7 +7,6 @@ const { opus: Opus, FFmpeg } = prism;
 type Encoder = prism.opus.Encoder;
 type FFmpeg = prism.FFmpeg;
 
-// Stream events to forward
 Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, Types.VMPrimative>) => {
 	const properties = [];
 
@@ -71,7 +70,6 @@ export async function createAudioStream(
 
 	options = options ?? {};
 
-	// Extract video ID from URL if needed
 	const videoId = url.match(/(?:v=|\/)([\w-]{11})/)?.[1] ?? url;
 
 	let FFmpegArgs: string[] = [
@@ -95,18 +93,15 @@ export async function createAudioStream(
 		FFmpegArgs = FFmpegArgs.concat(options.encoderArgs);
 	}
 
-	// Get streaming data from youtubei.js
 	const innertube = await getInnertube();
 	const info = await innertube.getBasicInfo(videoId);
 
-	// Download the stream using info.download() which uses the session's configured fetch
 	const webStream = await info.download({
 		type: 'audio',
 		quality: options.quality ?? 'best',
 		client: 'TV'
 	});
 
-	// Convert Web Stream to Node.js Readable stream
 	const stream = Readable.from(Utils.streamToIterable(webStream));
 
 	const transcoder = new FFmpeg({
@@ -116,7 +111,6 @@ export async function createAudioStream(
 		],
 	});
 
-	// Pipe the youtubei stream through FFmpeg
 	stream.pipe(transcoder);
 	stream.on('error', (err: Error) => {
 		console.error('[Stream] Download error:', err);
