@@ -8,8 +8,8 @@
 	"scripts": {
 		"start": "prisma generate && tsc --project tsconfig.json && tsc-alias -p tsconfig.json && node build/index.js",
 		"build": "prisma generate && tsc --project tsconfig.json && tsc-alias -p tsconfig.json",
-		"check": "tsc --project tsconfig.json --noEmit && eslint --ext .ts src",
-		"eslint": "eslint --ext .ts src"
+		"check": "tsc --project tsconfig.json --noEmit && eslint src",
+		"eslint": "eslint src"
 	},
 	"repository": {
 		"type": "git",
@@ -39,13 +39,13 @@
 		"youtubei.js": "^16.0.1"
 	},
 	"devDependencies": {
+		"@eslint/js": "^9.39.1",
 		"@types/fluent-ffmpeg": "^2.1.28",
-		"@typescript-eslint/eslint-plugin": "^8.47.0",
-		"@typescript-eslint/parser": "^8.47.0",
 		"eslint": "^9.39.1",
 		"eslint-plugin-simple-import-sort": "^12.1.1",
 		"prisma": "^6.19.0",
 		"tsc-alias": "^1.8.16",
-		"typescript": "^5.9.3"
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.47.0"
 	}
 }

@@ -1,51 +1,51 @@
-import { ButtonStyle, ComponentType } from "discord.js";
+import { ButtonStyle, ComponentType } from 'discord.js';
 
-import { Effect, TrackSource } from "@/typings/common";
+import { Effect, TrackSource } from '@/typings/common';
 
-export const ALLOWED_PROTOCOLS = new Set(["https:", "http:"]);
+export const ALLOWED_PROTOCOLS = new Set(['https:', 'http:']);
 export const BAD_TITLE_CHARACTER_REGEX =
 	/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]|\([^()]+\)|\[[^[\]]+\]|fe?a?t\. .+/g;
 
 export const PROVIDER_TO_EMOJI: Record<TrackSource, string> = {
-	[TrackSource.SoundCloud]: "<:soundcloud:1385360682706534531>",
-	[TrackSource.Spotify]: "<:spotify:1385360542738157578>",
-	[TrackSource.YouTube]: "<:youtube:1385360436060356672>",
-	[TrackSource.Gutenberg]: "<:gutenberg:1385360863212470272>",
-	[TrackSource.Apple]: "<:apple:1385360957328461967>",
+	[TrackSource.SoundCloud]: '<:soundcloud:1385360682706534531>',
+	[TrackSource.Spotify]: '<:spotify:1385360542738157578>',
+	[TrackSource.YouTube]: '<:youtube:1385360436060356672>',
+	[TrackSource.Gutenberg]: '<:gutenberg:1385360863212470272>',
+	[TrackSource.Apple]: '<:apple:1385360957328461967>',
 };
 
 export const EFFECTS: Record<Effect, string[]> = {
-	[Effect.None]: ["-af", "loudnorm=I=-16:LRA=11:TP=-1.5"],
-	[Effect.Bass]: ["-af", "bass=g=30,volume=0.7,asubboost"],
-	[Effect.Daycore]: ["-af", "asetrate=44100*0.75,aresample=44100,atempo=0.75"],
+	[Effect.None]: ['-af', 'loudnorm=I=-16:LRA=11:TP=-1.5'],
+	[Effect.Bass]: ['-af', 'bass=g=30,volume=0.7,asubboost'],
+	[Effect.Daycore]: ['-af', 'asetrate=44100*0.75,aresample=44100,atempo=0.75'],
 	[Effect.Denoise]: [
-		"-af",
-		"asplit[a][b],[a]adelay=32S|32S[a],[b][a]anlms=order=128:leakage=0.0005:mu=.5:out_mode=o",
+		'-af',
+		'asplit[a][b],[a]adelay=32S|32S[a],[b][a]anlms=order=128:leakage=0.0005:mu=.5:out_mode=o',
 	],
-	[Effect.EightDimensional]: ["-af", "apulsator=hz=0.125"],
+	[Effect.EightDimensional]: ['-af', 'apulsator=hz=0.125'],
 	[Effect.Loud]: [
-		"-filter_complex",
-		"acontrast,acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1",
+		'-filter_complex',
+		'acontrast,acrusher=level_in=4:level_out=5:bits=16:mode=log:aa=1',
 	],
 	[Effect.Nightcore]: [
-		"-af",
-		"asetrate=44100*1.15,aresample=44100,atempo=1.15",
+		'-af',
+		'asetrate=44100*1.15,aresample=44100,atempo=1.15',
 	],
 	[Effect.Nightcore2]: [
-		"-af",
-		"asetrate=44100*1.25,aresample=44100,atempo=1.25",
+		'-af',
+		'asetrate=44100*1.25,aresample=44100,atempo=1.25',
 	],
 	[Effect.Nightcore3]: [
-		"-af",
-		"asetrate=44100*1.35,aresample=44100,atempo=1.35",
+		'-af',
+		'asetrate=44100*1.35,aresample=44100,atempo=1.35',
 	],
-	[Effect.Normalizer]: ["-af", "dynaudnorm=f=150:g=15"],
-	[Effect.Phaser]: ["-af", "aphaser=in_gain=0.4"],
-	[Effect.Reverse]: ["-filter_complex", "areverse"],
-	[Effect.Tremolo]: ["-af", "tremolo"],
-	[Effect.Underwater]: ["-af", "lowpass=f=450,volume=2.0"],
-	[Effect.Vaporwave]: ["-af", "aresample=async=1,atempo=0.8"],
-	[Effect.Vibrato]: ["-af", "vibrato=f=6.5"],
+	[Effect.Normalizer]: ['-af', 'dynaudnorm=f=150:g=15'],
+	[Effect.Phaser]: ['-af', 'aphaser=in_gain=0.4'],
+	[Effect.Reverse]: ['-filter_complex', 'areverse'],
+	[Effect.Tremolo]: ['-af', 'tremolo'],
+	[Effect.Underwater]: ['-af', 'lowpass=f=450,volume=2.0'],
+	[Effect.Vaporwave]: ['-af', 'aresample=async=1,atempo=0.8'],
+	[Effect.Vibrato]: ['-af', 'vibrato=f=6.5'],
 };
 
 export const EFFECT_TO_SPEED: Record<Effect, number> = {
@@ -92,32 +92,32 @@ export const DEFAULT_COMPONENTS = [
 		components: [
 			{
 				type: ComponentType.Button,
-				customId: "toggle",
-				label: "▶️",
+				customId: 'toggle',
+				label: '▶️',
 				style: ButtonStyle.Primary,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "previous",
-				label: "⏮️",
+				customId: 'previous',
+				label: '⏮️',
 				style: ButtonStyle.Primary,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "next",
-				label: "⏭️",
+				customId: 'next',
+				label: '⏭️',
 				style: ButtonStyle.Primary,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "remove",
-				label: "🗑️",
+				customId: 'remove',
+				label: '🗑️',
 				style: ButtonStyle.Danger,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "removeAll",
-				label: "💣",
+				customId: 'removeAll',
+				label: '💣',
 				style: ButtonStyle.Danger,
 			},
 		],
@@ -127,32 +127,32 @@ export const DEFAULT_COMPONENTS = [
 		components: [
 			{
 				type: ComponentType.Button,
-				customId: "repeat",
-				label: "🔁",
+				customId: 'repeat',
+				label: '🔁',
 				style: ButtonStyle.Secondary,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "repeatOne",
-				label: "🔂",
+				customId: 'repeatOne',
+				label: '🔂',
 				style: ButtonStyle.Secondary,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "shuffle",
-				label: "🔀",
+				customId: 'shuffle',
+				label: '🔀',
 				style: ButtonStyle.Secondary,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "autoplay",
-				label: "♾️",
+				customId: 'autoplay',
+				label: '♾️',
 				style: ButtonStyle.Secondary,
 			},
 			{
 				type: ComponentType.Button,
-				customId: "lyrics",
-				label: "📜",
+				customId: 'lyrics',
+				label: '📜',
 				style: ButtonStyle.Secondary,
 			},
 		],
@@ -162,87 +162,87 @@ export const DEFAULT_COMPONENTS = [
 		components: [
 			{
 				type: ComponentType.StringSelect,
-				customId: "effect",
-				placeholder: "Select an effect...",
+				customId: 'effect',
+				placeholder: 'Select an effect...',
 				options: [
 					{
-						label: "None",
+						label: 'None',
 						value: Effect.None.toString(),
 					},
 					{
-						label: "Bass",
-						emoji: "🎸",
+						label: 'Bass',
+						emoji: '🎸',
 						value: Effect.Bass.toString(),
 					},
 					{
-						label: "Daycore",
-						emoji: "🌞",
+						label: 'Daycore',
+						emoji: '🌞',
 						value: Effect.Daycore.toString(),
 					},
 					{
-						label: "De-noise",
-						emoji: "🔇",
+						label: 'De-noise',
+						emoji: '🔇',
 						value: Effect.Denoise.toString(),
 					},
 					{
-						label: "8-Dimensional",
-						emoji: "🛰️",
+						label: '8-Dimensional',
+						emoji: '🛰️',
 						value: Effect.EightDimensional.toString(),
 					},
 					{
-						label: "Loud",
-						emoji: "🧨",
+						label: 'Loud',
+						emoji: '🧨',
 						value: Effect.Loud.toString(),
 					},
 					{
-						label: "Nightcore",
-						emoji: "🌓",
+						label: 'Nightcore',
+						emoji: '🌓',
 						value: Effect.Nightcore.toString(),
 					},
 					{
-						label: "Nightcore+",
-						emoji: "🌑",
+						label: 'Nightcore+',
+						emoji: '🌑',
 						value: Effect.Nightcore2.toString(),
 					},
 					{
-						label: "Nightcore++",
-						emoji: "🪩",
+						label: 'Nightcore++',
+						emoji: '🪩',
 						value: Effect.Nightcore3.toString(),
 					},
 					{
-						label: "Normalizer",
-						emoji: "🔊",
+						label: 'Normalizer',
+						emoji: '🔊',
 						value: Effect.Normalizer.toString(),
 					},
 					{
-						label: "Phaser",
-						emoji: "🎧",
+						label: 'Phaser',
+						emoji: '🎧',
 						value: Effect.Phaser.toString(),
 					},
 					{
-						label: "Reverse",
-						emoji: "⏪",
+						label: 'Reverse',
+						emoji: '⏪',
 						value: Effect.Reverse.toString(),
 					},
 					{
-						label: "Tremolo",
-						emoji: "🎹",
+						label: 'Tremolo',
+						emoji: '🎹',
 						value: Effect.Tremolo.toString(),
 					},
 					{
-						label: "Underwater",
-						emoji: "🐠",
+						label: 'Underwater',
+						emoji: '🐠',
 						value: Effect.Underwater.toString(),
 					},
 
 					{
-						label: "Vaporwave",
-						emoji: "🌊",
+						label: 'Vaporwave',
+						emoji: '🌊',
 						value: Effect.Vaporwave.toString(),
 					},
 					{
-						label: "Vibrato",
-						emoji: "🎻",
+						label: 'Vibrato',
+						emoji: '🎻',
 						value: Effect.Vibrato.toString(),
 					},
 				],

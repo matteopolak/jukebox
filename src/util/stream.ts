@@ -1,6 +1,6 @@
-import { ClientType, Innertube, UniversalCache, Utils, Platform, Types } from 'youtubei.js';
 import prism from 'prism-media';
-import { Readable, Duplex } from 'stream';
+import { Duplex, Readable } from 'stream';
+import { ClientType, Innertube, Platform, Types, UniversalCache, Utils } from 'youtubei.js';
 
 const { opus: Opus, FFmpeg } = prism;
 
@@ -11,17 +11,17 @@ Platform.shim.eval = async (data: Types.BuildScriptResult, env: Record<string, T
 	const properties = [];
 
 	if (env.n) {
-		properties.push(`n: exportedVars.nFunction("${env.n}")`)
+		properties.push(`n: exportedVars.nFunction("${env.n}")`);
 	}
 
 	if (env.sig) {
-		properties.push(`sig: exportedVars.sigFunction("${env.sig}")`)
+		properties.push(`sig: exportedVars.sigFunction("${env.sig}")`);
 	}
 
 	const code = `${data.output}\nreturn { ${properties.join(', ')} }`;
 
 	return new Function(code)();
-}
+};
 
 export interface StreamOptions {
 	seek?: number;
@@ -39,7 +39,7 @@ function getInnertube(): Promise<Innertube> {
 			cache: new UniversalCache(false),
 			generate_session_locally: true,
 			cookie: process.env.COOKIE,
-			client_type: ClientType.TV
+			client_type: ClientType.TV,
 		});
 	}
 	return innertubePromise;
@@ -99,7 +99,7 @@ export async function createAudioStream(
 	const webStream = await info.download({
 		type: 'audio',
 		quality: options.quality ?? 'best',
-		client: 'TV'
+		client: 'TV',
 	});
 
 	const stream = Readable.from(Utils.streamToIterable(webStream));

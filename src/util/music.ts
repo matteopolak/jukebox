@@ -1,4 +1,4 @@
-import { APIActionRowComponent, CommandInteraction, StageChannel, APIComponentInActionRow } from 'discord.js';
+import { APIActionRowComponent, APIComponentInActionRow, CommandInteraction, StageChannel } from 'discord.js';
 
 import { BAD_TITLE_CHARACTER_REGEX, DEFAULT_COMPONENTS } from '@/constants';
 import { Effect } from '@/typings/common';

@@ -26,7 +26,6 @@ import {
 	VoiceBasedChannel,
 	VoiceState,
 } from 'discord.js';
-import { createAudioStream } from '@/util/stream';
 import { FFmpeg, opus as Opus } from 'prism-media';
 
 import {
@@ -58,6 +57,7 @@ import { getDefaultComponents } from '@/util/components';
 import { prisma, TrackWithArtist, updateTrack } from '@/util/database';
 import { enforceLength, sendMessageAndDelete } from '@/util/message';
 import { createQuery, setTrackIds, youtube } from '@/util/search';
+import { createAudioStream } from '@/util/stream';
 import { joinVoiceChannelAndListen } from '@/util/voice';
 import {
 	getChannel,

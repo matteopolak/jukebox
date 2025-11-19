@@ -82,7 +82,7 @@ export class SoundCloudProvider extends TrackProvider {
 					tracks: await prisma.$transaction(set.tracks.map(SoundCloudProvider.trackInfoToTrack)),
 				},
 			};
-		} catch (e) {
+		} catch {
 			return {
 				ok: false,
 				error: `Unknown SoundCloud album or playlist \`${url}\`.`,
