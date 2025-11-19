@@ -4,6 +4,7 @@
 	"description": "",
 	"main": "src/index.js",
 	"type": "module",
+	"packageManager": "pnpm@10.15.0",
 	"scripts": {
 		"start": "prisma generate && tsc --project tsconfig.json && tsc-alias -p tsconfig.json && node build/index.js",
 		"build": "prisma generate && tsc --project tsconfig.json && tsc-alias -p tsconfig.json",
